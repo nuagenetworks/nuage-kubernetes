@@ -137,6 +137,7 @@ fuser 8000/tcp
 
 # router creation and setup.
 
+https://github.com/openshift/origin/blob/master/docs/routing.md
 curl -k --resolve www.aniketsrubysample.com:443:192.168.33.5 https://www.aniketsrubysample.com
 
 
