@@ -51,14 +51,20 @@ Setup for master
 5. Create a template configuration file. Note that the network-plugin is specified to be openshift-sdn. This will ensure that we will use openshift-sdn as the networking technology for inter-pod networking. The parameters of interest are clusterCIDR and networkPluginName in the config.yaml.
 
   ```
-  openshift start master --master=https://${MASTER1_IP}:8443 --nodes=${ORIGIN_MINION1} --create-certs=false --network-plugin=redhat/openshift-ovs-subnet --write-config='openshift.local.config'
+  openshift start master --master=https://${MASTER1_IP}:8443 --nodes=${ORIGIN_MINION1},${ORIGIN_MINION2} --create-certs=false --network-plugin=redhat/openshift-ovs-subnet --write-config='openshift.local.config'
   ```
 
-6. Copy the master-config.yaml and policy.json files to the os-certs/master directory
-  ```
-  cp openshift.local.config/master-config.yaml /root/os-certs/master/.
-  cp ~/openshift.local.config/policy.json /root/os-certs/master/.
-  ```
+6. Copy the master-config.yaml and policy.json files to the os-certs/master directory. This is a bit of a hack. You have to start the master first and let it create the policy.json and then kill it immediately.
+    ```
+    openshift start master --master=https://${MASTER1_IP}:8443 --nodes=${ORIGIN_MINION1},${ORIGIN_MINION2} --create-certs=false --network-plugin=redhat/openshift-ovs-subnet
+    ```
+  
+    Then copy the policy.json and master-config.yaml:
+    
+    ```
+    cp openshift.local.config/master-config.yaml /root/os-certs/master/.
+    cp ~/openshift.local.config/policy.json /root/os-certs/master/.
+    ```
 
 7. Finally start the master using the config file in the new location. If the start complains on any files missing. Just copy them from openshift.local.config directory to the master directory.
   ```
