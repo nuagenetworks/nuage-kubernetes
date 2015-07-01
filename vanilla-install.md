@@ -63,7 +63,7 @@ Setup for master
     
     ```
     cp openshift.local.config/master-config.yaml /root/os-certs/master/.
-    cp ~/openshift.local.config/policy.json /root/os-certs/master/.
+    cp ~/openshift.local.config/master/policy.json /root/os-certs/master/.
     ```
 
 7. Finally start the master using the config file in the new location. If the start complains on any files missing. Just copy them from openshift.local.config directory to the master directory.
