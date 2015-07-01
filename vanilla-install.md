@@ -56,7 +56,7 @@ Setup for master
 
 6. Copy the master-config.yaml and policy.json files to the os-certs/master directory. This is a bit of a hack. You have to start the master first and let it create the policy.json and then kill it immediately.
     ```
-    openshift start master --master=https://${MASTER1_IP}:8443 --nodes=${ORIGIN_MINION1},${ORIGIN_MINION2} --create-certs=false --network-plugin=redhat/openshift-ovs-subnet
+    openshift start master --master=https://${MASTER1_IP}:8443 --nodes=${ORIGIN_MINION1},${ORIGIN_MINION2} --network-plugin=redhat/openshift-ovs-subnet
     ```
   
     Then copy the policy.json and master-config.yaml:
