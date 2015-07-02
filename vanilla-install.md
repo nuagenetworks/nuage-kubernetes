@@ -1,6 +1,8 @@
 Openshift Install Guide
 =========================
 
+This guide assumes you have three VMs/physical machines available for installing Openshift. One of them will act as the master and the other two will act as nodes/hosts/minions. We assume that these machines already exist with RHEL7 installed and the appropriate yum repo subscriptions to install packages. In the instructions below, we will allocate the master VM/host the hostname of `openshift-origin-master`. The other two VMs will be named `openshift-origin-minion1` and `openshift-origin-minion2`. Feel free to name them to whatever hostnames you prefer and be consistent. Same goes with the IP addressing.
+
 On all nodes:
 -------------
 ```
