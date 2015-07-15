@@ -32,9 +32,9 @@ Setup for master
   
   openshift admin create-master-certs --overwrite=false --cert-dir=${CERT_DIR} --master=https://${MASTER1_IP}:8443 --hostnames=${MASTER1_IP},${ORIGIN_MASTER1}
   
-  openshift admin create-node-config --node-dir="${SERVER_CONFIG_DIR}/node-${ORIGIN_MINION1}" --node=${ORIGIN_MINION1} --hostnames="${ORIGIN_MINION1},${MINION1_IP}" --master="https://${MASTER1_IP}:8443" --node-client-certificate-authority="${CERT_DIR}/ca.crt" --signer-cert="${CERT_DIR}/ca.crt" --signer-key="${CERT_DIR}/ca.key" --signer-serial="${CERT_DIR}/ca.serial.txt" --volume-dir="/root/openshift.local.volumes_${ORIGIN_MINION1}" --certificate-authority="${CERT_DIR}/ca.crt"
+  openshift admin create-node-config --node-dir="${SERVER_CONFIG_DIR}/node-${ORIGIN_MINION1}" --node=${ORIGIN_MINION1} --hostnames="${ORIGIN_MINION1},${MINION1_IP}" --master="https://${MASTER1_IP}:8443" --node-client-certificate-authority="${CERT_DIR}/ca.crt" --signer-cert="${CERT_DIR}/ca.crt" --signer-key="${CERT_DIR}/ca.key" --signer-serial="${CERT_DIR}/ca.serial.txt" --volume-dir="/root/openshift.local.volumes_${ORIGIN_MINION1}" --certificate-authority="${CERT_DIR}/ca.crt" --network-plugin=redhat/openshift-ovs-subnet
   
-  openshift admin create-node-config --node-dir="${SERVER_CONFIG_DIR}/node-${ORIGIN_MINION2}" --node=${ORIGIN_MINION2} --hostnames="${ORIGIN_MINION2},${MINION2_IP}" --master="https://${MASTER1_IP}:8443" --node-client-certificate-authority="${CERT_DIR}/ca.crt" --signer-cert="${CERT_DIR}/ca.crt" --signer-key="${CERT_DIR}/ca.key" --signer-serial="${CERT_DIR}/ca.serial.txt" --volume-dir="/root/openshift.local.volumes_${ORIGIN_MINION2}" --certificate-authority="${CERT_DIR}/ca.crt"
+  openshift admin create-node-config --node-dir="${SERVER_CONFIG_DIR}/node-${ORIGIN_MINION2}" --node=${ORIGIN_MINION2} --hostnames="${ORIGIN_MINION2},${MINION2_IP}" --master="https://${MASTER1_IP}:8443" --node-client-certificate-authority="${CERT_DIR}/ca.crt" --signer-cert="${CERT_DIR}/ca.crt" --signer-key="${CERT_DIR}/ca.key" --signer-serial="${CERT_DIR}/ca.serial.txt" --volume-dir="/root/openshift.local.volumes_${ORIGIN_MINION2}" --certificate-authority="${CERT_DIR}/ca.crt" --network-plugin=redhat/openshift-ovs-subnet
   ```
 
 3. Tar and scp all the os-certs files to the nodes. 
