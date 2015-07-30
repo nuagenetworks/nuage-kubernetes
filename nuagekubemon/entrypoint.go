@@ -20,15 +20,14 @@
 package main
 
 import (
+	"flag"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/monitor"
-	flag "github.com/spf13/pflag"
 )
 
 func main() {
 	mNuageKubeMon := monitor.NewNuageKubeMonitor()
-	var flagSet = flag.CommandLine
-	mNuageKubeMon.ParseArgs(flagSet)  //define flags.
-	flag.Parse()                      //parse the flags.
-	mNuageKubeMon.SetLogging(flagSet) //setup logging framework
-	mNuageKubeMon.Run()               //start the monitor.
+	flagSet := flag.CommandLine
+	mNuageKubeMon.ParseArgs(flagSet) //define flags.
+	flag.Parse()                     //parse the flags.
+	mNuageKubeMon.Run()              //start the monitor.
 }

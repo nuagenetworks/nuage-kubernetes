@@ -102,7 +102,7 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 			return nosc.kubeClient.Namespaces().Watch(labels.Everything(), fields.Everything(), resourceVersion)
 		},
 	}
-	cache.NewReflector(listWatch, &kapi.Namespace{}, nsEventQueue, 4*time.Second).Run()
+	cache.NewReflector(listWatch, &kapi.Namespace{}, nsEventQueue, 0).Run()
 	for {
 		eventType, obj, err := nsEventQueue.Pop()
 		if err != nil {

@@ -21,11 +21,11 @@
 package monitor
 
 import (
+	"flag"
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/client"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
-	flag "github.com/spf13/pflag"
 )
 
 type NuageKubeMonitor struct {
@@ -51,17 +51,17 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 		"", "Nuage VSD URL")
 	flagSet.StringVar(&nkm.mConfig.NuageVspVersion, "nuagevspversion",
 		"", "Nuage VSP Version")
-	flagSet.StringVar(&nkm.mConfig.LogDir, "log_dir",
-		"/var/log/nuagekubmon/", "Log Directory")
 	flagSet.StringVar(&nkm.mConfig.LicenseFile, "license_file",
 		"", "VSD License File Path")
-}
-
-func (nkm *NuageKubeMonitor) SetLogging(flagSet *flag.FlagSet) {
-	if flagSet != nil {
-		flagSet.Lookup("log_dir").Value.Set("/var/log/nuagekubemon")
-		//flagSet.Lookup("v").Value.Set(10)
-	}
+	// Set the values for log_dir and logtostderr.  Because this happens before
+	// flag.Parse(), cli arguments will override these.  Also set the DefValue
+	// parameter so -help shows the new defaults.
+	log_dir := flagSet.Lookup("log_dir")
+	log_dir.Value.Set("/var/log/nuagekubemon")
+	log_dir.DefValue = "/var/log/nuagekubemon"
+	logtostderr := flagSet.Lookup("logtostderr")
+	logtostderr.Value.Set("false")
+	logtostderr.DefValue = "false"
 }
 
 func (nkm *NuageKubeMonitor) Run() {
