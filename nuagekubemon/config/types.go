@@ -24,7 +24,6 @@ type NuageKubeMonConfig struct {
 	OsMasterConfigFile string
 	NuageVsdApiUrl     string
 	NuageVspVersion    string
-	LogDir             string
 	LicenseFile        string
 }
 
