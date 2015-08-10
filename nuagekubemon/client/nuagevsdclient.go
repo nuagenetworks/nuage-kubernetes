@@ -72,16 +72,17 @@ func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 		return nil
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateEnterprise() error {
+func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, error) {
 	payload := api.VsdEnterprise{
-		Name:        clusterEnterpriseName,
+		Name:        enterpriseName,
 		Description: "Auto-generated enterprise for Openshift Cluster",
 	}
 	result := make([]api.VsdEnterprise, 1)
@@ -89,36 +90,37 @@ func (nvsdc *NuageVsdClient) CreateEnterprise() error {
 	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises", &payload, &result, &e)
 	if err != nil {
 		glog.Error("Error when creating enterprise", err)
-		return err
+		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating the enterprise")
 	switch resp.Status() {
 	case 201:
 		glog.Infoln("Created the enterprise: ", result[0].ID)
-		nvsdc.enterpriseID = result[0].ID
+		return result[0].ID, nil
 	case 409:
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetEnterpriseID(clusterEnterpriseName)
+		id, err := nvsdc.GetEnterpriseID(enterpriseName)
 		if err != nil {
 			glog.Errorf("Error when getting enterprise ID: %s", err)
-			return err
+			return "", err
 		} else {
-			nvsdc.enterpriseID = id
+			return id, nil
 		}
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
-	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreateAdminUser() error {
-	passwd := fmt.Sprintf("%x", sha1.Sum([]byte("admin")))
+func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string) (string, error) {
+	passwd := fmt.Sprintf("%x", sha1.Sum([]byte(password)))
 	payload := api.VsdUser{
-		UserName:  "admin",
+		UserName:  user,
 		Password:  passwd,
 		FirstName: "Admin",
 		LastName:  "Admin",
@@ -128,10 +130,10 @@ func (nvsdc *NuageVsdClient) CreateAdminUser() error {
 	e := api.RESTError{}
 	//Get admin ID after creating the admin user
 	var adminId string
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/users", &payload, &result, &e)
+	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/users", &payload, &result, &e)
 	if err != nil {
 		glog.Error("Error when creating admin user", err)
-		return err
+		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating the admin user")
 	switch resp.Status() {
@@ -140,7 +142,7 @@ func (nvsdc *NuageVsdClient) CreateAdminUser() error {
 		adminId = result[0].ID
 	case 409:
 		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetAdminID("admin")
+		id, err := nvsdc.GetAdminID(enterpriseID, "admin")
 		if err != nil {
 			glog.Errorf("Error when getting admin user's ID: %s", err)
 		} else {
@@ -148,23 +150,24 @@ func (nvsdc *NuageVsdClient) CreateAdminUser() error {
 		}
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 	//Get admin group ID and add the admin id to the admin group
-	groupId, err := nvsdc.GetAdminGroupID()
+	groupId, err := nvsdc.GetAdminGroupID(enterpriseID)
 	if err != nil {
 		glog.Errorf("Error when getting admin group ID: %s", err)
-		return err
+		return "", err
 	}
 	groupPayload := []string{adminId}
 	e = api.RESTError{}
 	resp, err = nvsdc.session.Put(nvsdc.url+"groups/"+groupId+"/users", &groupPayload, nil, &e)
 	if err != nil {
 		glog.Error("Error when adding admin user to the admin group", err)
-		return err
+		return "", err
 	} else {
 		glog.Infoln("Got a reponse status", resp.Status(), "when adding user to the admin group")
 		switch resp.Status() {
@@ -174,58 +177,70 @@ func (nvsdc *NuageVsdClient) CreateAdminUser() error {
 			glog.Infoln("Admin user already in admin group")
 		default:
 			glog.Errorln("Bad response status from VSD Server")
+			glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 			glog.Errorf("\t Status:  %v\n", resp.Status())
 			glog.Errorf("\t Message: %v\n", e.Message)
 			glog.Errorf("\t Errors: %v\n", e.Message)
-			return errors.New("Unexpected error code: " + string(resp.Status()))
+			return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 		}
 	}
-	return nil
+	return adminId, nil
 }
 
-func (nvsdc *NuageVsdClient) GetAdminID(name string) (string, error) {
+func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, error) {
 	result := make([]api.VsdUser, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `userName == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/users", nil, &result, &e)
+	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/users", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting admin user ID %s", err)
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting user ID")
-	if resp.Status() == 200 && result[0].UserName == name {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].UserName == name {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("User not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
-func (nvsdc *NuageVsdClient) GetAdminGroupID() (string, error) {
+func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error) {
 	result := make([]api.VsdGroup, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `role == "ORGADMIN"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/groups", nil, &result, &e)
+	glog.Infof("GET %s", nvsdc.url+"enterprises/"+enterpriseID+"/groups")
+	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/groups", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting admin group ID %s", err)
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ID of group ORGADMIN")
-	if resp.Status() == 200 && result[0].Role == "ORGADMIN" {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].Role == "ORGADMIN" {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("Admin Group not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
@@ -241,14 +256,19 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting enterprise ID")
-	if resp.Status() == 200 && result[0].Name == name {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].Name == name {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("Enterprise not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
@@ -267,14 +287,14 @@ func (nvsdc *NuageVsdClient) CreateSession() {
 	nvsdc.session.Header.Add("Content-Type", "application/json")
 }
 
-func (nvsdc *NuageVsdClient) LoginAsAdmin() {
-	nvsdc.username = "admin"
-	nvsdc.password = "admin"
-	nvsdc.enterprise = clusterEnterpriseName
+func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string) error {
+	nvsdc.username = user
+	nvsdc.password = password
+	nvsdc.enterprise = enterpriseName
 	h := nvsdc.session.Header
 	h.Del("X-Nuage-Organization")
 	h.Del("Authorization")
-	nvsdc.GetAuthorizationToken()
+	return nvsdc.GetAuthorizationToken()
 }
 
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
@@ -282,12 +302,31 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.domains = make(map[string]string)
 	nvsdc.CreateSession()
-	nvsdc.GetAuthorizationToken()
-	nvsdc.CreateEnterprise()
-	nvsdc.CreateAdminUser()
-	nvsdc.InstallLicense(nkmConfig.LicenseFile)
-	nvsdc.LoginAsAdmin()
-	nvsdc.CreateTemplates()
+	err := nvsdc.GetAuthorizationToken()
+	if err != nil {
+		glog.Fatal(err)
+	}
+	nvsdc.enterpriseID, err = nvsdc.CreateEnterprise(clusterEnterpriseName)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	_, err = nvsdc.CreateAdminUser(nvsdc.enterpriseID, "admin", "admin")
+	if err != nil {
+		glog.Fatal(err)
+	}
+	err = nvsdc.InstallLicense(nkmConfig.LicenseFile)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	err = nvsdc.LoginAsAdmin("admin", "admin", clusterEnterpriseName)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	nvsdc.domainTemplateID, nvsdc.zoneTemplateID, err = nvsdc.CreateTemplates(
+		nvsdc.enterpriseID, clusterDomainTemplateName, clusterZoneTemplateName)
+	if err != nil {
+		glog.Fatal(err)
+	}
 }
 
 func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
@@ -324,10 +363,11 @@ func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
 		glog.Info("License already exists")
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 	return nil
 }
@@ -345,176 +385,189 @@ func (nvsdc *NuageVsdClient) GetLicense() error {
 		return nil
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateTemplates() error {
-	err := nvsdc.CreateDomainTemplate()
+func (nvsdc *NuageVsdClient) CreateTemplates(enterpriseID, domainTemplateName, zoneTemplateName string) (string, string, error) {
+	domainID, err := nvsdc.CreateDomainTemplate(enterpriseID, domainTemplateName)
 	if err != nil {
-		return err
+		return "", "", err
 	}
-	err = nvsdc.CreateZoneTemplate()
+	zoneID, err := nvsdc.CreateZoneTemplate(domainID, zoneTemplateName)
 	if err != nil {
-		return err
+		return "", "", err
 	}
-	return nil
+	return domainID, zoneID, nil
 }
 
-func (nvsdc *NuageVsdClient) CreateDomainTemplate() error {
+func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
-		Name:        clusterDomainTemplateName,
+		Name:        domainTemplateName,
 		Description: "Auto-generated default domain template",
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/domaintemplates", &payload, &result, &e)
+	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates", &payload, &result, &e)
 	if err != nil {
 		glog.Error("Error when creating domain template", err)
-		return err
+		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating domain template")
 	switch resp.Status() {
 	case 201:
 		glog.Infoln("Created the domain: ", result[0].ID)
-		nvsdc.domainTemplateID = result[0].ID
+		return result[0].ID, nil
 	case 409:
 		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetDomainTemplateID(clusterDomainTemplateName)
+		id, err := nvsdc.GetDomainTemplateID(enterpriseID, domainTemplateName)
 		if err != nil {
 			glog.Errorf("Error when getting domain template ID: %s", err)
-			return err
+			return "", err
 		}
-		nvsdc.domainTemplateID = id
+		return id, nil
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
-	return nil
 }
 
-func (nvsdc *NuageVsdClient) GetDomainTemplateID(name string) (string, error) {
+func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/domaintemplates", nil, &result, &e)
+	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting domain template ID %s", err)
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain template ID")
-	if resp.Status() == 200 && result[0].Name == name {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].Name == name {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("Domain Template not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateZoneTemplate() error {
+func (nvsdc *NuageVsdClient) CreateZoneTemplate(domainTemplateID, zoneTemplateName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
-		Name:        clusterZoneTemplateName,
+		Name:        zoneTemplateName,
 		Description: "Auto-generated default zone template",
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"domaintemplates/"+nvsdc.domainTemplateID+"/zonetemplates", &payload, &result, &e)
+	resp, err := nvsdc.session.Post(nvsdc.url+"domaintemplates/"+domainTemplateID+"/zonetemplates", &payload, &result, &e)
 	if err != nil {
 		glog.Error("Error when creating zone template", err)
-		return err
+		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating zone template")
 	switch resp.Status() {
 	case 201:
 		glog.Infoln("Created the zone: ", result[0].ID)
-		nvsdc.zoneTemplateID = result[0].ID
+		return result[0].ID, nil
 	case 409:
 		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetZoneTemplateID(clusterZoneTemplateName)
+		id, err := nvsdc.GetZoneTemplateID(domainTemplateID, zoneTemplateName)
 		if err != nil {
 			glog.Errorf("Error when getting zone template ID: %s", err)
-			return err
+			return "", err
 		}
-		nvsdc.zoneTemplateID = id
+		return id, nil
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
-	return nil
 }
 
-func (nvsdc *NuageVsdClient) GetZoneTemplateID(name string) (string, error) {
+func (nvsdc *NuageVsdClient) GetZoneTemplateID(domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domaintemplates/"+nvsdc.domainTemplateID+"/zonetemplates", nil, &result, &e)
+	resp, err := nvsdc.session.Get(nvsdc.url+"domaintemplates/"+domainTemplateID+"/zonetemplates", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting zone template ID %s", err)
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone template ID")
-	if resp.Status() == 200 && result[0].Name == name {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].Name == name {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("Zone Template not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateDomain(name string) error {
+func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdObjectInstance, 1)
 	payload := api.VsdObjectInstance{
 		Name:        name,
 		Description: "Auto-generated domain for " + name,
-		TemplateID:  nvsdc.domainTemplateID,
+		TemplateID:  domainTemplateID,
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/domains", &payload, &result, &e)
+	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
 	if err != nil {
 		glog.Error("Error when creating domain", err)
-		return err
+		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating domain")
 	switch resp.Status() {
 	case 201:
 		glog.Infoln("Created the domain:", result[0].ID)
 		nvsdc.domains[name] = result[0].ID
+		return result[0].ID, nil
 	case 409:
 		//Domain already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetDomainID(name)
+		id, err := nvsdc.GetDomainID(enterpriseID, name)
 		if err != nil {
 			glog.Errorf("Error when getting domain ID: %s", err)
-			return err
+			return "", err
 		} else {
 			nvsdc.domains[name] = id
+			return id, nil
 		}
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
-	return nil
 }
 
 func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
@@ -532,33 +585,39 @@ func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
 		return nil
 	default:
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + string(resp.Status()))
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
-func (nvsdc *NuageVsdClient) GetDomainID(name string) (string, error) {
+func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+nvsdc.enterpriseID+"/domains", nil, &result, &e)
+	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/domains", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting domain ID %s", err)
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain ID")
-	if resp.Status() == 200 && result[0].Name == name {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].Name == name {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("Domain not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 
@@ -577,9 +636,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	switch nsEvent.Type {
 	case api.Added:
 		if _, exists := nvsdc.domains[nsEvent.Name]; !exists {
-			return nvsdc.CreateDomain(nsEvent.Name)
+			_, err := nvsdc.CreateDomain(nvsdc.enterpriseID, nvsdc.domainTemplateID, nsEvent.Name)
+			return err
 		}
-		id, err := nvsdc.GetDomainID(nsEvent.Name)
+		id, err := nvsdc.GetDomainID(nvsdc.enterpriseID, nsEvent.Name)
 		switch {
 		case id == "" && err == nil:
 			err = errors.New("Invalid domain ID returned")
@@ -596,7 +656,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		if id, exists := nvsdc.domains[nsEvent.Name]; exists {
 			return nvsdc.DeleteDomain(nsEvent.Name, id)
 		}
-		id, err := nvsdc.GetDomainID(nsEvent.Name)
+		id, err := nvsdc.GetDomainID(nvsdc.enterpriseID, nsEvent.Name)
 		switch {
 		case id == "" && err == nil:
 			glog.Warningf("Got delete namespace event for non-existant domain %s", nsEvent.Name)
