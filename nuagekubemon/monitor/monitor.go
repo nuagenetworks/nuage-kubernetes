@@ -26,6 +26,7 @@ import (
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/client"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
+	"io/ioutil"
 )
 
 type NuageKubeMonitor struct {
@@ -53,6 +54,8 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 		"", "Nuage VSP Version")
 	flagSet.StringVar(&nkm.mConfig.LicenseFile, "license_file",
 		"", "VSD License File Path")
+	flagSet.StringVar(&nkm.mConfig.ConfigFile, "config",
+		"", "Configuration file for nuagekubemon.  If this argument is specified, all other commandline arguments will be ignored.")
 	// Set the values for log_dir and logtostderr.  Because this happens before
 	// flag.Parse(), cli arguments will override these.  Also set the DefValue
 	// parameter so -help shows the new defaults.
@@ -64,8 +67,26 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 	logtostderr.DefValue = "false"
 }
 
+func (nkm *NuageKubeMonitor) LoadConfig() error {
+	if nkm.mConfig.ConfigFile == "" {
+		// If there was no config file specified, don't try to read the nothing.
+		return nil
+	}
+	configData, err := ioutil.ReadFile(nkm.mConfig.ConfigFile)
+	if err != nil {
+		return err
+	}
+	return nkm.mConfig.Parse(configData)
+}
+
 func (nkm *NuageKubeMonitor) Run() {
 	glog.Info("Starting NuageKubeMonitor...")
+	// Read the config file if it was specified.  If there was an error reading
+	// it, don't continue.
+	if err := nkm.LoadConfig(); err != nil {
+		glog.Fatalf("Error reading config file %s! Error: %v\n",
+			nkm.mConfig.ConfigFile, err)
+	}
 	nkm.mOsClient = client.NewNuageOsClient(&(nkm.mConfig))
 	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig))
 	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)
