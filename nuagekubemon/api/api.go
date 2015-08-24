@@ -67,6 +67,15 @@ type VsdLicense struct {
 	LicenseId int    `json:"licenseID"`
 }
 
+type VsdSubnet struct {
+	ID          string
+	IPType      string
+	Name        string `json:"name"`
+	Address     string `json:"address"`
+	Netmask     string `json:"netmask"`
+	Description string `json:"description"`
+}
+
 // Generic VSD object. Most json objects returned by the VSD REST API will fit
 // this "interface"
 type VsdObject struct {

@@ -43,6 +43,7 @@ type NuageVsdClient struct {
 	domainTemplateID string
 	zoneTemplateID   string
 	domains          map[string]string
+	pool             IPv4SubnetPool
 }
 
 const clusterEnterpriseName = "Openshift-Enterprise"
@@ -220,7 +221,6 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `role == "ORGADMIN"`)
 	e := api.RESTError{}
-	glog.Infof("GET %s", nvsdc.url+"enterprises/"+enterpriseID+"/groups")
 	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/groups", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
@@ -300,9 +300,17 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
+	ipPool, err := IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
+	if err != nil {
+		glog.Fatalf("Failure in init: %s\n", err)
+	}
+	// A null IPv4SubnetPool acts like all addresses are allocated, so we can
+	// initialize it to have the available cluster address space by just
+	// Free()-ing it.
+	nvsdc.pool.Free(ipPool)
 	nvsdc.domains = make(map[string]string)
 	nvsdc.CreateSession()
-	err := nvsdc.GetAuthorizationToken()
+	err = nvsdc.GetAuthorizationToken()
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -531,6 +539,29 @@ func (nvsdc *NuageVsdClient) GetZoneTemplateID(domainTemplateID, name string) (s
 	}
 }
 
+func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
+	result := make([]api.VsdObject, 1)
+	h := nvsdc.session.Header
+	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+domainID+"/zones", nil, &result, &e)
+	h.Del("X-Nuage-Filter")
+	if err != nil {
+		glog.Errorf("Error when getting zone ID %s", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone ID")
+	if resp.Status() == 200 && result[0].Name == name {
+		return result[0].ID, nil
+	} else {
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+	}
+}
+
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdObjectInstance, 1)
 	payload := api.VsdObjectInstance{
@@ -578,7 +609,7 @@ func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
 		glog.Errorf("Error when deleting domain with ID %s: %s", id, err)
 		return err
 	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when delete domain")
+	glog.Infoln("Got a reponse status", resp.Status(), "when deleting domain")
 	switch resp.Status() {
 	case 204:
 		delete(nvsdc.domains, name)
@@ -590,6 +621,85 @@ func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+}
+
+func (nvsdc *NuageVsdClient) CreateSubnet(zoneID string, subnet *IPv4Subnet) (string, error) {
+	result := make([]api.VsdSubnet, 1)
+	payload := api.VsdSubnet{
+		IPType:      "IPV4",
+		Address:     subnet.Address.String(),
+		Netmask:     subnet.Netmask().String(),
+		Description: "Auto-generated subnet",
+		Name:        "default",
+	}
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Post(nvsdc.url+"zones/"+zoneID+"/subnets", &payload, &result, &e)
+	if err != nil {
+		glog.Error("Error when creating subnet", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when creating subnet")
+	switch resp.Status() {
+	case 201:
+		glog.Infoln("Created the subnet:", result[0].ID)
+	case 409:
+		//Subnet already exists, call Get to retrieve the ID
+		if id, err := nvsdc.GetSubnetID(zoneID, subnet); err != nil {
+			glog.Errorf("Error when getting subnet ID: %s", err)
+			return "", err
+		} else {
+			return id, nil
+		}
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+	}
+	return result[0].ID, nil
+}
+
+func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
+	result := make([]struct{}, 1)
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Delete(nvsdc.url+"subnets/"+id+"?responseChoice=1", &result, &e)
+	if err != nil {
+		glog.Errorf("Error when deleting subnet with ID %s: %s", id, err)
+		return err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when deleting subnet")
+	if resp.Status() != 204 {
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return errors.New("Unexpected error code: " + string(resp.Status()))
+	}
+	return nil
+}
+
+func (nvsdc *NuageVsdClient) GetSubnetID(zoneID string, subnet *IPv4Subnet) (string, error) {
+	result := make([]api.VsdSubnet, 1)
+	h := nvsdc.session.Header
+	h.Add("X-Nuage-Filter", `address == "`+subnet.Address.String()+`"`)
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Get(nvsdc.url+"zones/"+zoneID+"/subnets", nil, &result, &e)
+	h.Del("X-Nuage-Filter")
+	if err != nil {
+		glog.Errorf("Error when getting subnet ID %s", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting subnet ID")
+	if resp.Status() == 200 && result[0].Address == subnet.Address.String() {
+		return result[0].ID, nil
+	} else {
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return "", errors.New("Unexpected error code: " + string(resp.Status()))
 	}
 }
 
@@ -636,8 +746,29 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	switch nsEvent.Type {
 	case api.Added:
 		if _, exists := nvsdc.domains[nsEvent.Name]; !exists {
-			_, err := nvsdc.CreateDomain(nvsdc.enterpriseID, nvsdc.domainTemplateID, nsEvent.Name)
-			return err
+			if _, err := nvsdc.CreateDomain(nvsdc.enterpriseID,
+				nvsdc.domainTemplateID, nsEvent.Name); err != nil {
+				return err
+			}
+			subnet, err := nvsdc.pool.Alloc(24)
+			if err != nil {
+				return err
+			}
+			domainID, err := nvsdc.GetDomainID(nvsdc.enterpriseID, nsEvent.Name)
+			if err != nil {
+				nvsdc.pool.Free(subnet)
+				return err
+			}
+			zoneID, err := nvsdc.GetZoneID(domainID, clusterZoneTemplateName)
+			if err != nil {
+				nvsdc.pool.Free(subnet)
+				return err
+			}
+			if _, err := nvsdc.CreateSubnet(zoneID, subnet); err != nil {
+				nvsdc.pool.Free(subnet)
+				return err
+			}
+			return nil
 		}
 		id, err := nvsdc.GetDomainID(nvsdc.enterpriseID, nsEvent.Name)
 		switch {

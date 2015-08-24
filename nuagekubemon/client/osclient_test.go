@@ -1,3 +1,22 @@
+/*
+###########################################################################
+#
+#   Filename:           osclient_test.go
+#
+#   Author:             Ryan Fredette
+#   Created:            August 10, 2015
+#
+#   Description:        tests of functionality implemented in
+#                       nuageosclient.go
+#
+###########################################################################
+#
+#              Copyright (c) 2015 Nuage Networks
+#
+###########################################################################
+
+*/
+
 package client
 
 import (
@@ -12,10 +31,7 @@ import (
 )
 
 func TestGetNamespaces(t *testing.T) {
-	// Check if we have `oc`.  If it's not present, this test isn't runnable,
-	// so skip it.
-	_, err := exec.Command("oc", "whoami").CombinedOutput()
-	if err != nil {
+	if !isTargetSystem {
 		t.Skip("Not on target system.  Cannot run this test")
 	}
 	osClient := NewNuageOsClient(kubemonConfig)
@@ -57,10 +73,7 @@ func TestGetNamespaces(t *testing.T) {
 }
 
 func TestAddDelProject(t *testing.T) {
-	// Check if we have `oc`.  If it's not present, this test isn't runnable,
-	// so skip it.
-	_, err := exec.Command("oc", "whoami").CombinedOutput()
-	if err != nil {
+	if !isTargetSystem {
 		t.Skip("Not on target system.  Cannot run this test")
 	}
 	osClient := NewNuageOsClient(kubemonConfig)
@@ -117,10 +130,7 @@ func (self projectEvent) String() string {
 }
 
 func TestAddDelManyStatic(t *testing.T) {
-	// Check if we have `oc`.  If it's not present, this test isn't runnable,
-	// so skip it.
-	_, err := exec.Command("oc", "whoami").CombinedOutput()
-	if err != nil {
+	if !isTargetSystem {
 		t.Skip("Not on target system.  Cannot run this test")
 	}
 	events := []projectEvent{
@@ -172,10 +182,7 @@ func TestAddDelManyStatic(t *testing.T) {
 }
 
 func TestAddDelManyDynamic(t *testing.T) {
-	// Check if we have `oc`.  If it's not present, this test isn't runnable,
-	// so skip it.
-	_, err := exec.Command("oc", "whoami").CombinedOutput()
-	if err != nil {
+	if !isTargetSystem {
 		t.Skip("Not on target system.  Cannot run this test")
 	}
 	rand.Seed(time.Now().UnixNano())

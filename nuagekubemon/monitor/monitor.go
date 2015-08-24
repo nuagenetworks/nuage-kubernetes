@@ -21,6 +21,7 @@
 package monitor
 
 import (
+	"errors"
 	"flag"
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
@@ -68,15 +69,24 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 }
 
 func (nkm *NuageKubeMonitor) LoadConfig() error {
-	if nkm.mConfig.ConfigFile == "" {
-		// If there was no config file specified, don't try to read the nothing.
-		return nil
+	if nkm.mConfig.ConfigFile != "" {
+		// If there was a config file specified, overwrite the cli arguments
+		configData, err := ioutil.ReadFile(nkm.mConfig.ConfigFile)
+		if err != nil {
+			return err
+		}
+		if err := nkm.mConfig.Parse(configData); err != nil {
+			return err
+		}
 	}
-	configData, err := ioutil.ReadFile(nkm.mConfig.ConfigFile)
+	if nkm.mConfig.OsMasterConfigFile == "" {
+		return errors.New("No OpenShift master config file specified")
+	}
+	osMasterData, err := ioutil.ReadFile(nkm.mConfig.OsMasterConfigFile)
 	if err != nil {
 		return err
 	}
-	return nkm.mConfig.Parse(configData)
+	return nkm.mConfig.OsMasterConfig.Parse(osMasterData)
 }
 
 func (nkm *NuageKubeMonitor) Run() {
