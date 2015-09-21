@@ -42,20 +42,9 @@ type RESTError struct {
 }
 
 type VsdEnterprise struct {
-	Children        string `json:"children"`
-	ParentType      string `json:"parentType"`
-	LastUpdatedBy   string `json:"lastUpdatedBy"`
-	LastUpdatedDate int64  `json:"lastUpdateDate"`
-	creationDate    int64
-	avatarData      string
-	avatarType      string
-	Description     string `json:"description"`
-	Name            string `json:"name"`
-	owner           string
-	ID              string
-	parentID        string
-	externalID      string
-	customerID      string
+	Description string `json:"description"`
+	Name        string `json:"name"`
+	ID          string
 }
 
 type VsdUser struct {

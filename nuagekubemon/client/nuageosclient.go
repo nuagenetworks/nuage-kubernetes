@@ -123,7 +123,6 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 			receiver <- &api.NamespaceEvent{Type: api.Deleted, Name: ns.ObjectMeta.Name}
 		}
 	}
-	return nil
 }
 
 // DefaultClientTransport sets defaults for a client Transport that are suitable
