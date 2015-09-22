@@ -563,11 +563,12 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 }
 
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
-	result := make([]api.VsdObjectInstance, 1)
-	payload := api.VsdObjectInstance{
+	result := make([]api.VsdDomain, 1)
+	payload := api.VsdDomain{
 		Name:        name,
 		Description: "Auto-generated domain for " + name,
 		TemplateID:  domainTemplateID,
+		PATEnabled:  api.PATEnabled,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
@@ -632,6 +633,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(zoneID string, subnet *IPv4Subnet) (st
 		Netmask:     subnet.Netmask().String(),
 		Description: "Auto-generated subnet",
 		Name:        "default",
+		PATEnabled:  api.PATInherited,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"zones/"+zoneID+"/subnets", &payload, &result, &e)

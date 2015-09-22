@@ -25,6 +25,12 @@ const (
 	Deleted EventType = "DELETED"
 )
 
+const (
+	PATEnabled   = "ENABLED"
+	PATInherited = "INHERITED"
+	PATDisabled  = "DISABLED"
+)
+
 type Namespace string
 
 type NamespaceEvent struct {
@@ -74,6 +80,7 @@ type VsdSubnet struct {
 	Address     string `json:"address"`
 	Netmask     string `json:"netmask"`
 	Description string `json:"description"`
+	PATEnabled  string
 }
 
 // Generic VSD object. Most json objects returned by the VSD REST API will fit
@@ -84,13 +91,12 @@ type VsdObject struct {
 	Description string `json:"description"`
 }
 
-// Create a vsd object from a template.  Like VsdObject, but also contains the
-// ID of the template.
-type VsdObjectInstance struct {
+type VsdDomain struct {
 	ID          string
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	TemplateID  string `json:"templateID"`
+	PATEnabled  string
 }
 
 type VsdAuthToken struct {

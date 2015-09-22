@@ -215,6 +215,21 @@ func TestCreateDomain(t *testing.T) {
 		t.Fatalf("Domain ID mismatch! CreateDomain() returned %v, "+
 			"GetDomainID() returned %v.", domainID, id)
 	}
+	// Verify that Address Translation (PAT) was enabled
+	result := make([]api.VsdDomain, 1)
+	e := api.RESTError{}
+	response, err := vsdClient.session.Get(vsdClient.url+"domains/"+domainID, nil, &result, &e)
+	if err != nil {
+		t.Fatalf("Failed GET on %s: %s", vsdClient.url+"domains/"+domainID, err)
+	}
+	if response.Status() != 200 {
+		t.Fatalf("Got unexpected response to GET on %s: code %d\nraw text:\n%s",
+			vsdClient.url+"domains/"+domainID, response.Status(), response.RawText())
+	}
+	if result[0].PATEnabled != "ENABLED" {
+		t.Fatalf("Domain PATEnabled status mismatch! Expected \"ENABLED\", got %q",
+			result[0].PATEnabled)
+	}
 }
 
 func TestDeleteDomain(t *testing.T) {
@@ -321,6 +336,20 @@ func TestCreateSubnet(t *testing.T) {
 	if subnetID != id {
 		t.Fatalf("Subnet ID mismatch! CreateSubnet() returned %v, "+
 			"GetSubnetID() returned %v.", subnetID, id)
+	}
+	result := make([]api.VsdSubnet, 1)
+	e := api.RESTError{}
+	response, err := vsdClient.session.Get(vsdClient.url+"subnets/"+subnetID, nil, &result, &e)
+	if err != nil {
+		t.Fatalf("Failed GET on %s: %s", vsdClient.url+"subnets/"+subnetID, err)
+	}
+	if response.Status() != 200 {
+		t.Fatalf("Got unexpected response to GET on %s: code %d\nraw text:\n%s",
+			vsdClient.url+"subnets/"+subnetID, response.Status(), response.RawText())
+	}
+	if result[0].PATEnabled != "ENABLED" {
+		t.Fatalf("Subnet PATEnabled status mismatch! Expected \"ENABLED\", got %q",
+			result[0].PATEnabled)
 	}
 }
 
