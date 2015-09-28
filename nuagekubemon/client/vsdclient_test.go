@@ -161,20 +161,6 @@ func TestCreateTemplates(t *testing.T) {
 		t.Fatalf("Domain template ID mismatch! CreateDomainTemplate() "+
 			"returned %v, GetDomainTemplateID() returned %v.", domainID, id)
 	}
-	// Create a zone template
-	zoneID, err := vsdClient.CreateZoneTemplate(domainID, "zone-template")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Verify that the template exists
-	id, err = vsdClient.GetZoneTemplateID(domainID, "zone-template")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != zoneID {
-		t.Fatalf("Zone template ID mismatch! CreateZoneTemplate() returned "+
-			"%v, GetZoneTemplateID() returned %v.", zoneID, id)
-	}
 }
 
 func TestCreateDomain(t *testing.T) {
@@ -205,7 +191,7 @@ func TestCreateDomain(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that the domain will be deleted even in error cases
-	defer vsdClient.DeleteDomain("test-domain", domainID)
+	defer vsdClient.DeleteDomain(domainID)
 	// Verify that it was instantiated
 	id, err := vsdClient.GetDomainID(enterpriseID, "test-domain")
 	if err != nil {
@@ -267,13 +253,114 @@ func TestDeleteDomain(t *testing.T) {
 	if id != domainID {
 		t.Fatal("Domain was not instantiated! Aborting test.")
 	}
-	vsdClient.DeleteDomain("test-domain", domainID)
+	vsdClient.DeleteDomain(domainID)
 	id, err = vsdClient.GetDomainID(enterpriseID, "test-domain")
 	if err == nil || err.Error() != "Domain not found" {
 		t.Fatal(err)
 	}
 	if id == domainID {
 		t.Fatal("Domain was not deleted!")
+	}
+}
+
+func TestCreateZone(t *testing.T) {
+	if vsdClient == nil {
+		t.Skip("Needs VSD connection")
+	}
+	// Create an enterprise
+	myEnterpriseName := "openshift-test-enterprise"
+	// Verify that the enterprise we're trying to create doesn't already exist
+	_, err := vsdClient.GetEnterpriseID(myEnterpriseName)
+	if err != nil && err.Error() != "Enterprise not found" {
+		t.Fatal("Unexpected error:", err)
+	}
+	// Create it
+	enterpriseID, err := vsdClient.CreateEnterprise(myEnterpriseName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Guarantee that it's deleted when we're done
+	defer deleteEnterprise(t, vsdClient, enterpriseID)
+	// Create a domain template
+	domainTemplateID, err := vsdClient.CreateDomainTemplate(enterpriseID, "domain-template")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Instantiate a domain from the domain template
+	domainID, err := vsdClient.CreateDomain(enterpriseID, domainTemplateID, "test-domain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Guarantee that it's deleted when we're done too
+	defer vsdClient.DeleteDomain(domainID)
+	// Create a zone inside the domain
+	zoneID, err := vsdClient.CreateZone(domainID, "test-zone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Guarantee that the zone will be deleted even in error cases
+	defer vsdClient.DeleteZone(zoneID)
+	// Verify that it was instantiated
+	id, err := vsdClient.GetZoneID(domainID, "test-zone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != zoneID {
+		t.Fatalf("Zone ID mismatch! CreateZone() returned %v, "+
+			"GetZoneID() returned %v.", zoneID, id)
+	}
+}
+
+func TestDeleteZone(t *testing.T) {
+	if vsdClient == nil {
+		t.Skip("Needs VSD connection")
+	}
+	// Create an enterprise
+	myEnterpriseName := "openshift-test-enterprise"
+	// Verify that the enterprise we're trying to create doesn't already exist
+	_, err := vsdClient.GetEnterpriseID(myEnterpriseName)
+	if err != nil && err.Error() != "Enterprise not found" {
+		t.Fatal("Unexpected error:", err)
+	}
+	// Create it
+	enterpriseID, err := vsdClient.CreateEnterprise(myEnterpriseName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Guarantee that it's deleted when we're done
+	defer deleteEnterprise(t, vsdClient, enterpriseID)
+	// Create a domain template
+	domainTemplateID, err := vsdClient.CreateDomainTemplate(enterpriseID, "domain-template")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Instantiate a domain from the domain template
+	domainID, err := vsdClient.CreateDomain(enterpriseID, domainTemplateID, "test-domain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Guarantee that it's deleted when we're done too
+	defer vsdClient.DeleteDomain(domainID)
+	// Create a zone inside the domain
+	zoneID, err := vsdClient.CreateZone(domainID, "test-zone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Verify that it was instantiated
+	id, err := vsdClient.GetZoneID(domainID, "test-zone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != zoneID {
+		t.Fatal("Zone was not instantiated! Aborting test.")
+	}
+	vsdClient.DeleteZone(zoneID)
+	id, err = vsdClient.GetZoneID(domainID, "test-zone")
+	if err == nil || err.Error() != "Zone not found" {
+		t.Fatal(err)
+	}
+	if id == zoneID {
+		t.Fatal("Zone was not deleted!")
 	}
 }
 
@@ -300,29 +387,25 @@ func TestCreateSubnet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Create a zone template
-	_, err = vsdClient.CreateZoneTemplate(domainTemplateID, "zone-template")
-	if err != nil {
-		t.Fatal(err)
-	}
 	// Instantiate a domain from the domain template
 	domainID, err := vsdClient.CreateDomain(enterpriseID, domainTemplateID, "test-domain")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Guarantee that it's deleted when we're done too
-	defer vsdClient.DeleteDomain("test-domain", domainID)
+	defer vsdClient.DeleteDomain(domainID)
 	// Get the ID of the zone that was instantiated with the domain
-	zoneID, err := vsdClient.GetZoneID(domainID, "zone-template")
+	zoneID, err := vsdClient.CreateZone(domainID, "zone")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer vsdClient.DeleteZone(zoneID)
 	// Create a subnet with specific parameters in the zone
 	subnet, err := IPv4SubnetFromString("10.1.1.0/24")
 	if err != nil {
 		t.Fatal(err)
 	}
-	subnetID, err := vsdClient.CreateSubnet(zoneID, subnet)
+	subnetID, err := vsdClient.CreateSubnet("test-subnet", zoneID, subnet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,8 +430,8 @@ func TestCreateSubnet(t *testing.T) {
 		t.Fatalf("Got unexpected response to GET on %s: code %d\nraw text:\n%s",
 			vsdClient.url+"subnets/"+subnetID, response.Status(), response.RawText())
 	}
-	if result[0].PATEnabled != "ENABLED" {
-		t.Fatalf("Subnet PATEnabled status mismatch! Expected \"ENABLED\", got %q",
+	if result[0].PATEnabled != "INHERITED" {
+		t.Fatalf("Subnet PATEnabled status mismatch! Expected \"INHERITED\", got %q",
 			result[0].PATEnabled)
 	}
 }
@@ -376,29 +459,25 @@ func TestDeleteSubnet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Create a zone template
-	_, err = vsdClient.CreateZoneTemplate(domainTemplateID, "zone-template")
-	if err != nil {
-		t.Fatal(err)
-	}
 	// Instantiate a domain from the domain template
 	domainID, err := vsdClient.CreateDomain(enterpriseID, domainTemplateID, "test-domain")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Guarantee that it's deleted when we're done too
-	defer vsdClient.DeleteDomain("test-domain", domainID)
+	defer vsdClient.DeleteDomain(domainID)
 	// Get the ID of the zone that was instantiated with the domain
-	zoneID, err := vsdClient.GetZoneID(domainID, "zone-template")
+	zoneID, err := vsdClient.CreateZone(domainID, "zone")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer vsdClient.DeleteZone(zoneID)
 	// Create a subnet with specific parameters in the zone
 	subnet, err := IPv4SubnetFromString("10.1.1.0/24")
 	if err != nil {
 		t.Fatal(err)
 	}
-	subnetID, err := vsdClient.CreateSubnet(zoneID, subnet)
+	subnetID, err := vsdClient.CreateSubnet("test-subnet", zoneID, subnet)
 	if err != nil {
 		t.Fatal(err)
 	}

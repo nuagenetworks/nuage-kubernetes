@@ -342,6 +342,10 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
+	err = nvsdc.ApplyAclTemplates(domainTemplateID)
+	if err != nil {
+		glog.Fatal(err)
+	}
 	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
 		domainTemplateID, clusterDomainName)
 	if err != nil {
@@ -476,6 +480,61 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	}
 }
 
+func (nvsdc *NuageVsdClient) ApplyAclTemplates(domainTemplateID string) error {
+	result := make([]api.VsdObject, 1)
+	payload := api.VsdAclTemplate{
+		Name:              "Default",
+		DefaultAllowIP:    true,
+		DefaultAllowNonIP: true,
+	}
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Post(
+		nvsdc.url+"domaintemplates/"+domainTemplateID+"/ingressacltemplates",
+		&payload, &result, &e)
+	if err != nil {
+		glog.Error("Error when applying ingress acl template", err)
+		return err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(),
+		"when creating ingress acl template")
+	switch resp.Status() {
+	case 201:
+		fallthrough
+	case 409:
+		glog.Infoln("Applied default ingress ACL")
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+	resp, err = nvsdc.session.Post(
+		nvsdc.url+"domaintemplates/"+domainTemplateID+"/egressacltemplates",
+		&payload, &result, &e)
+	if err != nil {
+		glog.Error("Error when applying egress acl template", err)
+		return err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(),
+		"when creating egress acl template")
+	switch resp.Status() {
+	case 201:
+		fallthrough
+	case 409:
+		glog.Infoln("Applied default egress ACL")
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+	return nil
+}
+
 func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -488,14 +547,19 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone ID")
-	if resp.Status() == 200 && result[0].Name == name {
-		return result[0].ID, nil
+	if resp.Status() == 200 {
+		if result[0].Name == name {
+			return result[0].ID, nil
+		} else {
+			return "", errors.New("Zone not found")
+		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
 

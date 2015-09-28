@@ -110,3 +110,10 @@ type VsdAuthToken struct {
 	Role         string `json:"role"`
 	UserName     string `json:"userName"`
 }
+
+type VsdAclTemplate struct {
+	ID                string
+	Name              string `json:"name"`
+	DefaultAllowIP    bool   `json:"defaultAllowIP"`
+	DefaultAllowNonIP bool   `json:"defaultAllowNonIP"`
+}

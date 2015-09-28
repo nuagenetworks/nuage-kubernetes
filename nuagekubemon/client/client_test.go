@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 		isTargetSystem = false
 	} else {
 		vsdClient = new(NuageVsdClient)
-		vsdClient.domains = make(map[string]string)
+		vsdClient.zones = make(map[string]string)
 		vsdClient.version = kubemonConfig.NuageVspVersion
 		vsdClient.url = kubemonConfig.NuageVsdApiUrl + "/nuage/api/" + vsdClient.version + "/"
 		vsdClient.CreateSession()
