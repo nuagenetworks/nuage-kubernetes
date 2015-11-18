@@ -53,7 +53,7 @@ func (nosc *NuageOsClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	kubeConfig, err := loader.ClientConfig()
 	if err != nil {
-		glog.Info("Got an error %s while loading the kube config", err)
+		glog.Infof("Got an error: %s while loading the kube config", err)
 	}
 	// This is an internal client which is shared by most controllers, so boost default QPS
 	// TODO: this should be configured by the caller, not in this method.
@@ -63,7 +63,7 @@ func (nosc *NuageOsClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nosc.kubeConfig = kubeConfig
 	kubeClient, err := kclient.New(nosc.kubeConfig)
 	if err != nil {
-		glog.Info("Got an error %s while creating the kube client", err)
+		glog.Infof("Got an error: %s while creating the kube client", err)
 	}
 	nosc.kubeClient = kubeClient
 }
@@ -72,6 +72,7 @@ func (nosc *NuageOsClient) Run(nsChannel chan *api.NamespaceEvent, stop chan boo
 	//we will use the kube client APIs than interfacing with the REST API
 	nsList, err := nosc.GetNamespaces()
 	if err != nil {
+		glog.Infof("Got an error: %s while getting namespaces list from kube client", err)
 		return
 	}
 	for _, ns := range *nsList {
