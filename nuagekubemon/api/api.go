@@ -74,13 +74,14 @@ type VsdLicense struct {
 }
 
 type VsdSubnet struct {
-	ID          string
-	IPType      string
-	Name        string `json:"name"`
-	Address     string `json:"address"`
-	Netmask     string `json:"netmask"`
-	Description string `json:"description"`
-	PATEnabled  string
+	ID              string
+	IPType          string
+	Name            string `json:"name"`
+	Address         string `json:"address"`
+	Netmask         string `json:"netmask"`
+	Description     string `json:"description"`
+	PATEnabled      string
+	UnderlayEnabled string `json:"underlayEnabled"`
 }
 
 // Generic VSD object. Most json objects returned by the VSD REST API will fit
@@ -92,11 +93,12 @@ type VsdObject struct {
 }
 
 type VsdDomain struct {
-	ID          string
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	TemplateID  string `json:"templateID"`
-	PATEnabled  string
+	ID              string
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	TemplateID      string `json:"templateID"`
+	PATEnabled      string
+	UnderlayEnabled string `json:"underlayEnabled"`
 }
 
 type VsdAuthToken struct {

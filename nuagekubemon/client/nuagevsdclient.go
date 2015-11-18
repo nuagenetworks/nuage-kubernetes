@@ -41,8 +41,8 @@ type NuageVsdClient struct {
 	session      napping.Session
 	enterpriseID string
 	domainID     string
-	zones        map[string]string
-	subnets      map[string]*SubnetList
+	zones        map[string]string      //project name -> zone id mapping
+	subnets      map[string]*SubnetList //zone id -> list of subnets mapping
 	pool         IPv4SubnetPool
 }
 
@@ -207,10 +207,16 @@ func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, erro
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting user ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].UserName == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].UserName == "" {
 			return "", errors.New("User not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].UserName, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -235,10 +241,16 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ID of group ORGADMIN")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Role == "ORGADMIN" {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].ID == "" {
 			return "", errors.New("Admin Group not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of \"ORGADMIN\"", result[0].Role))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -263,10 +275,16 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting enterprise ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Enterprise not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -465,10 +483,16 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain template ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Domain Template not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -483,7 +507,7 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 func (nvsdc *NuageVsdClient) ApplyAclTemplates(domainTemplateID string) error {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdAclTemplate{
-		Name:              "Default",
+		Name:              "Auto-generated Ingress Policies",
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 	}
@@ -510,6 +534,10 @@ func (nvsdc *NuageVsdClient) ApplyAclTemplates(domainTemplateID string) error {
 		glog.Errorf("\t Errors: %v\n", e.Message)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
+	// Change the name of the payload to represent that the next policy
+	// template is an egress one, but otherwise reuse the existing template
+	// definition
+	payload.Name = "Auto-generated Egress Policies"
 	resp, err = nvsdc.session.Post(
 		nvsdc.url+"domaintemplates/"+domainTemplateID+"/egressacltemplates",
 		&payload, &result, &e)
@@ -548,10 +576,16 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Zone not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -567,7 +601,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
 		Name:        name,
-		Description: "Auto-generated",
+		Description: "Auto-generated for OpenShift containers",
 		TemplateID:  domainTemplateID,
 		PATEnabled:  api.PATEnabled,
 	}
@@ -627,7 +661,7 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
 		Name:        name,
-		Description: "Auto-generated",
+		Description: "Auto-generated for OpenShift project \"" + name + "\"",
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"domains/"+domainID+"/zones", &payload, &result, &e)
@@ -775,10 +809,16 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Domain not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -838,7 +878,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	case api.Deleted:
 		if id, exists := nvsdc.zones[nsEvent.Name]; exists {
 			// Delete subnets that we've created, and free them back into the pool
-			if subnet, exists := nvsdc.subnets[id]; exists {
+			if subnetsHead, exists := nvsdc.subnets[id]; exists {
+				subnet := subnetsHead
 				for subnet != nil {
 					err := nvsdc.DeleteSubnet(subnet.SubnetID)
 					if err != nil {
