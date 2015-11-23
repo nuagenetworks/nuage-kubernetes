@@ -279,10 +279,10 @@ def _get_docker_core_version():
 
 
 def find_metadata(options):
-    domain = options.namespace
+    domain = "Openshift-Domain"
     domaintype = "L3"
-    network = "default"
-    zone = "default"
+    network = options.namespace + '-0'
+    zone = options.namespace
     user = "admin"
     ent = "Openshift-Enterprise"
     pg = None

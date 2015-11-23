@@ -102,8 +102,10 @@ func (nkm *NuageKubeMonitor) Run() {
 	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)
 	stop := make(chan bool)
 	nsEventChannel := make(chan *api.NamespaceEvent)
-	go nkm.mOsClient.Run(nsEventChannel, stop)
-	go nkm.mVsdClient.Run(nsEventChannel, stop)
+	serviceEventChannel := make(chan *api.ServiceEvent)
+	go nkm.mOsClient.RunNamespaceWatcher(nsEventChannel, stop)
+	go nkm.mOsClient.RunServiceWatcher(serviceEventChannel, stop)
+	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, stop)
 	//go nkm.mOsNodeClient.Run()
 	select {}
 }
