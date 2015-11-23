@@ -18,16 +18,19 @@
 
 package config
 
-import "gopkg.in/yaml.v2"
+import (
+	"gopkg.in/yaml.v2"
+)
 
 type NuageKubeMonConfig struct {
-	KubeConfigFile     string `yaml:"kubeConfig"`
-	OsClusterAdmin     string `yaml:"openshiftAdmin"`
-	OsMasterConfigFile string `yaml:"openshiftMasterConfig"`
-	NuageVsdApiUrl     string `yaml:"vsdApiUrl"`
-	NuageVspVersion    string `yaml:"vspVersion"`
-	LicenseFile        string `yaml:"licenseFile"`
-	ConfigFile         string `yaml:-` // yaml tag `-` denotes that this cannot be supplied in yaml.
+	KubeConfigFile     string       `yaml:"kubeConfig"`
+	OsClusterAdmin     string       `yaml:"openshiftAdmin"`
+	OsMasterConfigFile string       `yaml:"openshiftMasterConfig"`
+	NuageVsdApiUrl     string       `yaml:"vsdApiUrl"`
+	NuageVspVersion    string       `yaml:"vspVersion"`
+	LicenseFile        string       `yaml:"licenseFile"`
+	ConfigFile         string       `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
+	OsMasterConfig     MasterConfig `yaml:"-"`
 }
 
 type openshiftNetworkConfig struct {

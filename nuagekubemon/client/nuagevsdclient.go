@@ -33,21 +33,28 @@ import (
 )
 
 type NuageVsdClient struct {
-	url              string
-	version          string
-	username         string
-	password         string
-	enterprise       string
-	session          napping.Session
-	enterpriseID     string
-	domainTemplateID string
-	zoneTemplateID   string
-	domains          map[string]string
+	url          string
+	version      string
+	username     string
+	password     string
+	enterprise   string
+	session      napping.Session
+	enterpriseID string
+	domainID     string
+	zones        map[string]string      //project name -> zone id mapping
+	subnets      map[string]*SubnetList //zone id -> list of subnets mapping
+	pool         IPv4SubnetPool
+}
+
+type SubnetList struct {
+	SubnetID string
+	Subnet   *IPv4Subnet
+	Next     *SubnetList
 }
 
 const clusterEnterpriseName = "Openshift-Enterprise"
 const clusterDomainTemplateName = "Openshift-Domain-Template"
-const clusterZoneTemplateName = "default"
+const clusterDomainName = "Openshift-Domain"
 
 func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
@@ -200,10 +207,16 @@ func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, erro
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting user ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].UserName == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].UserName == "" {
 			return "", errors.New("User not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].UserName, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -220,7 +233,6 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `role == "ORGADMIN"`)
 	e := api.RESTError{}
-	glog.Infof("GET %s", nvsdc.url+"enterprises/"+enterpriseID+"/groups")
 	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/groups", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
@@ -229,10 +241,16 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ID of group ORGADMIN")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Role == "ORGADMIN" {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].ID == "" {
 			return "", errors.New("Admin Group not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of \"ORGADMIN\"", result[0].Role))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -257,10 +275,16 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting enterprise ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Enterprise not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -300,9 +324,18 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	nvsdc.domains = make(map[string]string)
+	ipPool, err := IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
+	if err != nil {
+		glog.Fatalf("Failure in init: %s\n", err)
+	}
+	// A null IPv4SubnetPool acts like all addresses are allocated, so we can
+	// initialize it to have the available cluster address space by just
+	// Free()-ing it.
+	nvsdc.pool.Free(ipPool)
+	nvsdc.zones = make(map[string]string)
+	nvsdc.subnets = make(map[string]*SubnetList)
 	nvsdc.CreateSession()
-	err := nvsdc.GetAuthorizationToken()
+	err = nvsdc.GetAuthorizationToken()
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -322,8 +355,17 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	nvsdc.domainTemplateID, nvsdc.zoneTemplateID, err = nvsdc.CreateTemplates(
-		nvsdc.enterpriseID, clusterDomainTemplateName, clusterZoneTemplateName)
+	domainTemplateID, err := nvsdc.CreateDomainTemplate(nvsdc.enterpriseID,
+		clusterDomainTemplateName)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	err = nvsdc.ApplyAclTemplates(domainTemplateID)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
+		domainTemplateID, clusterDomainName)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -393,18 +435,6 @@ func (nvsdc *NuageVsdClient) GetLicense() error {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateTemplates(enterpriseID, domainTemplateName, zoneTemplateName string) (string, string, error) {
-	domainID, err := nvsdc.CreateDomainTemplate(enterpriseID, domainTemplateName)
-	if err != nil {
-		return "", "", err
-	}
-	zoneID, err := nvsdc.CreateZoneTemplate(domainID, zoneTemplateName)
-	if err != nil {
-		return "", "", err
-	}
-	return domainID, zoneID, nil
-}
-
 func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
@@ -453,10 +483,16 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain template ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Domain Template not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -468,58 +504,88 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateZoneTemplate(domainTemplateID, zoneTemplateName string) (string, error) {
+func (nvsdc *NuageVsdClient) ApplyAclTemplates(domainTemplateID string) error {
 	result := make([]api.VsdObject, 1)
-	payload := api.VsdObject{
-		Name:        zoneTemplateName,
-		Description: "Auto-generated default zone template",
+	payload := api.VsdAclTemplate{
+		Name:              "Auto-generated Ingress Policies",
+		DefaultAllowIP:    true,
+		DefaultAllowNonIP: true,
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"domaintemplates/"+domainTemplateID+"/zonetemplates", &payload, &result, &e)
+	resp, err := nvsdc.session.Post(
+		nvsdc.url+"domaintemplates/"+domainTemplateID+"/ingressacltemplates",
+		&payload, &result, &e)
 	if err != nil {
-		glog.Error("Error when creating zone template", err)
-		return "", err
+		glog.Error("Error when applying ingress acl template", err)
+		return err
 	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when creating zone template")
+	glog.Infoln("Got a reponse status", resp.Status(),
+		"when creating ingress acl template")
 	switch resp.Status() {
 	case 201:
-		glog.Infoln("Created the zone: ", result[0].ID)
-		return result[0].ID, nil
+		fallthrough
 	case 409:
-		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetZoneTemplateID(domainTemplateID, zoneTemplateName)
-		if err != nil {
-			glog.Errorf("Error when getting zone template ID: %s", err)
-			return "", err
-		}
-		return id, nil
+		glog.Infoln("Applied default ingress ACL")
 	default:
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
-		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
+	// Change the name of the payload to represent that the next policy
+	// template is an egress one, but otherwise reuse the existing template
+	// definition
+	payload.Name = "Auto-generated Egress Policies"
+	resp, err = nvsdc.session.Post(
+		nvsdc.url+"domaintemplates/"+domainTemplateID+"/egressacltemplates",
+		&payload, &result, &e)
+	if err != nil {
+		glog.Error("Error when applying egress acl template", err)
+		return err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(),
+		"when creating egress acl template")
+	switch resp.Status() {
+	case 201:
+		fallthrough
+	case 409:
+		glog.Infoln("Applied default egress ACL")
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+	return nil
 }
 
-func (nvsdc *NuageVsdClient) GetZoneTemplateID(domainTemplateID, name string) (string, error) {
+func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domaintemplates/"+domainTemplateID+"/zonetemplates", nil, &result, &e)
+	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+domainID+"/zones", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
-		glog.Errorf("Error when getting zone template ID %s", err)
+		glog.Errorf("Error when getting zone ID %s", err)
 		return "", err
 	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone template ID")
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
+		} else if result[0].Name == "" {
+			return "", errors.New("Zone not found")
 		} else {
-			return "", errors.New("Zone Template not found")
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -532,11 +598,12 @@ func (nvsdc *NuageVsdClient) GetZoneTemplateID(domainTemplateID, name string) (s
 }
 
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
-	result := make([]api.VsdObjectInstance, 1)
-	payload := api.VsdObjectInstance{
+	result := make([]api.VsdDomain, 1)
+	payload := api.VsdDomain{
 		Name:        name,
-		Description: "Auto-generated domain for " + name,
+		Description: "Auto-generated for OpenShift containers",
 		TemplateID:  domainTemplateID,
+		PATEnabled:  api.PATEnabled,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
@@ -548,7 +615,6 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	switch resp.Status() {
 	case 201:
 		glog.Infoln("Created the domain:", result[0].ID)
-		nvsdc.domains[name] = result[0].ID
 		return result[0].ID, nil
 	case 409:
 		//Domain already exists, call Get to retrieve the ID
@@ -557,7 +623,6 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 			glog.Errorf("Error when getting domain ID: %s", err)
 			return "", err
 		} else {
-			nvsdc.domains[name] = id
 			return id, nil
 		}
 	default:
@@ -570,7 +635,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	}
 }
 
-func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
+func (nvsdc *NuageVsdClient) DeleteDomain(id string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Delete(nvsdc.url+"domains/"+id+"?responseChoice=1", &result, &e)
@@ -578,10 +643,9 @@ func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
 		glog.Errorf("Error when deleting domain with ID %s: %s", id, err)
 		return err
 	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when delete domain")
+	glog.Infoln("Got a reponse status", resp.Status(), "when deleting domain")
 	switch resp.Status() {
 	case 204:
-		delete(nvsdc.domains, name)
 		return nil
 	default:
 		glog.Errorln("Bad response status from VSD Server")
@@ -590,6 +654,145 @@ func (nvsdc *NuageVsdClient) DeleteDomain(name, id string) error {
 		glog.Errorf("\t Message: %v\n", e.Message)
 		glog.Errorf("\t Errors: %v\n", e.Message)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+}
+
+func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
+	result := make([]api.VsdObject, 1)
+	payload := api.VsdObject{
+		Name:        name,
+		Description: "Auto-generated for OpenShift project \"" + name + "\"",
+	}
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Post(nvsdc.url+"domains/"+domainID+"/zones", &payload, &result, &e)
+	if err != nil {
+		glog.Error("Error when creating zone", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when creating zone")
+	switch resp.Status() {
+	case 201:
+		glog.Infoln("Created the zone:", result[0].ID)
+		return result[0].ID, nil
+	case 409:
+		//Zone already exists, call Get to retrieve the ID
+		id, err := nvsdc.GetZoneID(domainID, name)
+		if err != nil {
+			glog.Errorf("Error when getting zone ID: %s", err)
+			return "", err
+		} else {
+			return id, nil
+		}
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+}
+
+func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
+	// Delete subnets in this zone
+	result := make([]struct{}, 1)
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Delete(nvsdc.url+"zones/"+id+"?responseChoice=1", &result, &e)
+	if err != nil {
+		glog.Errorf("Error when deleting zone with ID %s: %s", id, err)
+		return err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when deleting zone")
+	switch resp.Status() {
+	case 204:
+		return nil
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	}
+}
+
+func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subnet) (string, error) {
+	result := make([]api.VsdSubnet, 1)
+	payload := api.VsdSubnet{
+		IPType:      "IPV4",
+		Address:     subnet.Address.String(),
+		Netmask:     subnet.Netmask().String(),
+		Description: "Auto-generated subnet",
+		Name:        name,
+		PATEnabled:  api.PATInherited,
+	}
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Post(nvsdc.url+"zones/"+zoneID+"/subnets", &payload, &result, &e)
+	if err != nil {
+		glog.Error("Error when creating subnet", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when creating subnet")
+	switch resp.Status() {
+	case 201:
+		glog.Infoln("Created the subnet:", result[0].ID)
+	case 409:
+		//Subnet already exists, call Get to retrieve the ID
+		if id, err := nvsdc.GetSubnetID(zoneID, subnet); err != nil {
+			glog.Errorf("Error when getting subnet ID: %s", err)
+			return "", err
+		} else {
+			return id, nil
+		}
+	default:
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return "", errors.New("Unexpected error code: " + string(resp.Status()))
+	}
+	return result[0].ID, nil
+}
+
+func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
+	result := make([]struct{}, 1)
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Delete(nvsdc.url+"subnets/"+id+"?responseChoice=1", &result, &e)
+	if err != nil {
+		glog.Errorf("Error when deleting subnet with ID %s: %s", id, err)
+		return err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when deleting subnet")
+	if resp.Status() != 204 {
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return errors.New("Unexpected error code: " + string(resp.Status()))
+	}
+	return nil
+}
+
+func (nvsdc *NuageVsdClient) GetSubnetID(zoneID string, subnet *IPv4Subnet) (string, error) {
+	result := make([]api.VsdSubnet, 1)
+	h := nvsdc.session.Header
+	h.Add("X-Nuage-Filter", `address == "`+subnet.Address.String()+`"`)
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Get(nvsdc.url+"zones/"+zoneID+"/subnets", nil, &result, &e)
+	h.Del("X-Nuage-Filter")
+	if err != nil {
+		glog.Errorf("Error when getting subnet ID %s", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting subnet ID")
+	if resp.Status() == 200 && result[0].Address == subnet.Address.String() {
+		return result[0].ID, nil
+	} else {
+		glog.Errorln("Bad response status from VSD Server")
+		glog.Errorf("\t Status:  %v\n", resp.Status())
+		glog.Errorf("\t Message: %v\n", e.Message)
+		glog.Errorf("\t Errors: %v\n", e.Message)
+		return "", errors.New("Unexpected error code: " + string(resp.Status()))
 	}
 }
 
@@ -606,10 +809,16 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain ID")
 	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
 		if result[0].Name == name {
 			return result[0].ID, nil
-		} else {
+		} else if result[0].Name == "" {
 			return "", errors.New("Domain not found")
+		} else {
+			return "", errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, name))
 		}
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
@@ -635,38 +844,73 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
 	switch nsEvent.Type {
 	case api.Added:
-		if _, exists := nvsdc.domains[nsEvent.Name]; !exists {
-			_, err := nvsdc.CreateDomain(nvsdc.enterpriseID, nvsdc.domainTemplateID, nsEvent.Name)
-			return err
+		if _, exists := nvsdc.zones[nsEvent.Name]; !exists {
+			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
+			if err != nil {
+				return err
+			}
+			nvsdc.zones[nsEvent.Name] = zoneID
+			subnet, err := nvsdc.pool.Alloc(24)
+			if err != nil {
+				return err
+			}
+			if subnetID, err := nvsdc.CreateSubnet(nsEvent.Name+"-0", zoneID, subnet); err != nil {
+				nvsdc.pool.Free(subnet)
+				return err
+			} else {
+				nvsdc.subnets[zoneID] = &SubnetList{SubnetID: subnetID, Subnet: subnet, Next: nil}
+			}
+			return nil
 		}
-		id, err := nvsdc.GetDomainID(nvsdc.enterpriseID, nsEvent.Name)
+		id, err := nvsdc.GetZoneID(nvsdc.domainID, nsEvent.Name)
 		switch {
 		case id == "" && err == nil:
-			err = errors.New("Invalid domain ID returned")
+			err = errors.New("Invalid zone ID returned")
 			fallthrough
 		case err != nil:
-			glog.Errorf("Invalid ID for domain %s", nsEvent.Name)
+			glog.Errorf("Invalid ID for zone %s", nsEvent.Name)
 			return err
-		case id != nvsdc.domains[nsEvent.Name]:
-			glog.Warningf("Mismatched IDs for domain %s: local %s, configured %s", nsEvent.Name, nvsdc.domains[nsEvent.Name], id)
-			nvsdc.domains[nsEvent.Name] = id
+		case id != nvsdc.zones[nsEvent.Name]:
+			glog.Warningf("Mismatched IDs for zone %s: local %s, configured %s", nsEvent.Name, nvsdc.zones[nsEvent.Name], id)
+			nvsdc.zones[nsEvent.Name] = id
 			return nil
 		}
 	case api.Deleted:
-		if id, exists := nvsdc.domains[nsEvent.Name]; exists {
-			return nvsdc.DeleteDomain(nsEvent.Name, id)
+		if id, exists := nvsdc.zones[nsEvent.Name]; exists {
+			// Delete subnets that we've created, and free them back into the pool
+			if subnetsHead, exists := nvsdc.subnets[id]; exists {
+				subnet := subnetsHead
+				for subnet != nil {
+					err := nvsdc.DeleteSubnet(subnet.SubnetID)
+					if err != nil {
+						glog.Warningf("Failed to delete subnet %q in zone %q",
+							subnet.SubnetID, nsEvent.Name)
+					}
+					err = nvsdc.pool.Free(subnet.Subnet)
+					if err != nil {
+						glog.Warningf("Failed to free subnet %q from zone %q",
+							subnet.Subnet.String(), nsEvent.Name)
+					}
+					subnet = subnet.Next
+				}
+				// Now that all subnets are deleted, remove the list associated
+				// with this zone
+				delete(nvsdc.subnets, id)
+			}
+			delete(nvsdc.zones, nsEvent.Name)
+			return nvsdc.DeleteZone(id)
 		}
-		id, err := nvsdc.GetDomainID(nvsdc.enterpriseID, nsEvent.Name)
+		id, err := nvsdc.GetZoneID(nvsdc.domainID, nsEvent.Name)
 		switch {
 		case id == "" && err == nil:
-			glog.Warningf("Got delete namespace event for non-existant domain %s", nsEvent.Name)
+			glog.Warningf("Got delete namespace event for non-existant zone %s", nsEvent.Name)
 			return nil
 		case err != nil:
-			glog.Errorf("Error getting ID of domain %s", nsEvent.Name)
+			glog.Errorf("Error getting ID of zone %s", nsEvent.Name)
 			return err
 		case id != "":
-			glog.Infof("Deleting domain %s which was not found locally", nsEvent.Name)
-			return nvsdc.DeleteDomain(nsEvent.Name, id)
+			glog.Infof("Deleting zone %s which was not found locally", nsEvent.Name)
+			return nvsdc.DeleteZone(id)
 		}
 	}
 	return nil

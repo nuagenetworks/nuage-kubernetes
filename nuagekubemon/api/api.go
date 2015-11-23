@@ -25,6 +25,12 @@ const (
 	Deleted EventType = "DELETED"
 )
 
+const (
+	PATEnabled   = "ENABLED"
+	PATInherited = "INHERITED"
+	PATDisabled  = "DISABLED"
+)
+
 type Namespace string
 
 type NamespaceEvent struct {
@@ -67,6 +73,17 @@ type VsdLicense struct {
 	LicenseId int    `json:"licenseID"`
 }
 
+type VsdSubnet struct {
+	ID              string
+	IPType          string
+	Name            string `json:"name"`
+	Address         string `json:"address"`
+	Netmask         string `json:"netmask"`
+	Description     string `json:"description"`
+	PATEnabled      string
+	UnderlayEnabled string `json:"underlayEnabled"`
+}
+
 // Generic VSD object. Most json objects returned by the VSD REST API will fit
 // this "interface"
 type VsdObject struct {
@@ -75,13 +92,13 @@ type VsdObject struct {
 	Description string `json:"description"`
 }
 
-// Create a vsd object from a template.  Like VsdObject, but also contains the
-// ID of the template.
-type VsdObjectInstance struct {
-	ID          string
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	TemplateID  string `json:"templateID"`
+type VsdDomain struct {
+	ID              string
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	TemplateID      string `json:"templateID"`
+	PATEnabled      string
+	UnderlayEnabled string `json:"underlayEnabled"`
 }
 
 type VsdAuthToken struct {
@@ -94,4 +111,11 @@ type VsdAuthToken struct {
 	LastName     string `json:"lastName"`
 	Role         string `json:"role"`
 	UserName     string `json:"userName"`
+}
+
+type VsdAclTemplate struct {
+	ID                string
+	Name              string `json:"name"`
+	DefaultAllowIP    bool   `json:"defaultAllowIP"`
+	DefaultAllowNonIP bool   `json:"defaultAllowNonIP"`
 }
