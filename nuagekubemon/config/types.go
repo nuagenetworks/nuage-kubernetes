@@ -34,7 +34,8 @@ type NuageKubeMonConfig struct {
 }
 
 type openshiftNetworkConfig struct {
-	ClusterCIDR string `yaml:"clusterNetworkCIDR"`
+	ClusterCIDR  string `yaml:"clusterNetworkCIDR"`
+	SubnetLength int    `yaml:"hostSubnetLength"`
 }
 
 /* Fields we care about in the openshift master-config.yaml */
