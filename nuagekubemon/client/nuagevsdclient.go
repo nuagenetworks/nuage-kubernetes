@@ -81,8 +81,7 @@ func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -106,6 +105,13 @@ func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, er
 		return result[0].ID, nil
 	case 409:
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
+		for _, err := range e.Errors {
+			glog.Errorf("\t Errors with property %s:", err.Property)
+			for _, description := range err.Descriptions {
+				glog.Errorf("\t\t %v: %v", description.Title, description.Description)
+			}
+		}
 		//Enterprise already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetEnterpriseID(enterpriseName)
 		if err != nil {
@@ -118,8 +124,7 @@ func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, er
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -159,8 +164,7 @@ func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 	//Get admin group ID and add the admin id to the admin group
@@ -186,8 +190,7 @@ func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string
 			glog.Errorln("Bad response status from VSD Server")
 			glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 			glog.Errorf("\t Status:  %v\n", resp.Status())
-			glog.Errorf("\t Message: %v\n", e.Message)
-			glog.Errorf("\t Errors: %v\n", e.Message)
+			glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 			return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 		}
 	}
@@ -222,8 +225,7 @@ func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, erro
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -256,8 +258,7 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -290,8 +291,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -407,8 +407,7 @@ func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 	return nil
@@ -429,8 +428,7 @@ func (nvsdc *NuageVsdClient) GetLicense() error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -464,8 +462,7 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -498,8 +495,7 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -530,8 +526,7 @@ func (nvsdc *NuageVsdClient) ApplyAclTemplates(domainTemplateID string) error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 	// Change the name of the payload to represent that the next policy
@@ -556,8 +551,7 @@ func (nvsdc *NuageVsdClient) ApplyAclTemplates(domainTemplateID string) error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 	return nil
@@ -591,8 +585,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -629,8 +622,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -651,8 +643,7 @@ func (nvsdc *NuageVsdClient) DeleteDomain(id string) error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -687,8 +678,7 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -710,8 +700,7 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
@@ -747,8 +736,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 	default:
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + string(resp.Status()))
 	}
 	return result[0].ID, nil
@@ -766,8 +754,7 @@ func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
 	if resp.Status() != 204 {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return errors.New("Unexpected error code: " + string(resp.Status()))
 	}
 	return nil
@@ -790,8 +777,7 @@ func (nvsdc *NuageVsdClient) GetSubnetID(zoneID string, subnet *IPv4Subnet) (str
 	} else {
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + string(resp.Status()))
 	}
 }
@@ -824,8 +810,7 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 		glog.Errorln("Bad response status from VSD Server")
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
+		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		return "", errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 	}
 }
