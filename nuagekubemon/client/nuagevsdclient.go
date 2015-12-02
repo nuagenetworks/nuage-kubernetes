@@ -44,6 +44,7 @@ type NuageVsdClient struct {
 	zones        map[string]string      //project name -> zone id mapping
 	subnets      map[string]*SubnetList //zone id -> list of subnets mapping
 	pool         IPv4SubnetPool
+	subnetSize   int //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
 }
 
 type SubnetList struct {
@@ -327,6 +328,22 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	ipPool, err := IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in init: %s\n", err)
+	}
+	nvsdc.subnetSize = nkmConfig.OsMasterConfig.NetworkConfig.SubnetLength
+	if nvsdc.subnetSize < 0 || nvsdc.subnetSize > 32 {
+		glog.Errorf("Invalid hostSubnetLength of %d.  Using default value of 8",
+			nvsdc.subnetSize)
+		nvsdc.subnetSize = 8
+	}
+	if nvsdc.subnetSize > (32 - ipPool.CIDRMask) {
+		// If the size of the subnet (in bits) is larger than the total pool
+		// size (in bits), we can't even allocate 1 subnet.  Default to using
+		// half the remaining bits per subnet, rounded down (/24 has 8 bits
+		// remaining, so use 4 bits per subnet).
+		newSize := (32 - ipPool.CIDRMask) / 2
+		glog.Fatalf("Cannot allocate %d bit subnets from %s.  Using %d bits per subnet.",
+			nvsdc.subnetSize, ipPool.String(), newSize)
+		nvsdc.subnetSize = newSize
 	}
 	// A null IPv4SubnetPool acts like all addresses are allocated, so we can
 	// initialize it to have the available cluster address space by just
@@ -850,7 +867,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				return err
 			}
 			nvsdc.zones[nsEvent.Name] = zoneID
-			subnet, err := nvsdc.pool.Alloc(24)
+			// subnetSize is guaranteed to be between 0 and 32 (inclusive) by
+			// the Init() function defined above, so (32 - subnetSize) will
+			// also produce a number between 0 and 32 (inclusive).
+			subnet, err := nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
 			if err != nil {
 				return err
 			}
