@@ -27,6 +27,7 @@ import struct
 import signal
 import sys
 import json
+import requests
 
 sys.path.append('/usr/share/openvswitch/python')
 
@@ -37,6 +38,11 @@ import ovs.unixctl.server
 import argparse
 
 vlog = ovs.nuage.vlog.Vlog("vsp-k8s")
+
+
+CA_CERT = "/usr/share/nuagekubemon/ca.crt"
+CERT = "/usr/share/nuagekubemon/client.crt"
+KEY = "/usr/share/nuagekubemon/client.key"
 
 
 def create_internal_port(port, vm_name, nuage_uuid, pid):
@@ -147,31 +153,31 @@ def _send_vm_event_to_ovs(nuage_uuid, eventStr, vm_name, nuagexml=None):
     event = eventStrMap[eventStr]
     state = stateStrMap[eventStr]
     reason = reasonStrMap[eventStr]
-    send_msg = None
+    message = None
     vm_name = vm_name.encode('utf-8')
     if send_xml:
         xml_len = len(str(nuagexml)) + 1
-        send_msg = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB%ds' % xml_len,
-                               part1, part2, part3, part4,
-                               padchar, padchar, padchar,
-                               padchar, padchar, padchar,
-                               padchar, padchar, vm_name,
-                               event, eventtype, state, reason,
-                               xml_len, padchar, padchar, padchar,
-                               padchar, padchar, padchar, str(nuagexml))
+        message = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB%ds' % xml_len,
+                              part1, part2, part3, part4,
+                              padchar, padchar, padchar,
+                              padchar, padchar, padchar,
+                              padchar, padchar, vm_name,
+                              event, eventtype, state, reason,
+                              xml_len, padchar, padchar, padchar,
+                              padchar, padchar, padchar, str(nuagexml))
     else:
         xml_len = 0
-        send_msg = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB',
-                               part1, part2, part3, part4,
-                               padchar, padchar, padchar,
-                               padchar, padchar, padchar,
-                               padchar, padchar, vm_name,
-                               event, eventtype, state, reason,
-                               xml_len, padchar, padchar, padchar,
-                               padchar, padchar, padchar)
+        message = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB',
+                              part1, part2, part3, part4,
+                              padchar, padchar, padchar,
+                              padchar, padchar, padchar,
+                              padchar, padchar, vm_name,
+                              event, eventtype, state, reason,
+                              xml_len, padchar, padchar, padchar,
+                              padchar, padchar, padchar)
     vlog.info("Sending %s event for container with UUID %s"
               % (eventStr, nuage_uuid))
-    return send_msg
+    return message
 
 
 def send_msg(msg, sock, retry_count=0):
@@ -183,10 +189,10 @@ def send_msg(msg, sock, retry_count=0):
     except Exception, e:
         vlog.err("Got an exception %s while sending vm_event" % str(e))
         if socket.errno in [errno.EBUSY, errno.EAGAIN]:
-            ''' Retry 5 times every second '''
+            # Retry 5 times every second
             vlog.err("Socket is busy, try again...")
             time.sleep(1)
-            send_msg(msg, retry_count=(retry_count + 1))
+            send_msg(msg, sock, retry_count=(retry_count + 1))
     return ret
 
 
@@ -271,21 +277,23 @@ def _get_docker_core_version():
     version = None
     for line in output.split('\n'):
         if re.search(VERSION_STRING, line):
-            version = str(line.split(":")[1].strip())
-            version = float(".".join(version.split(".")[:-1]))
+            versionstr = str(line.split(":")[1].strip())
+            version = float(".".join(versionstr.split(".")[:-1]))
             break
     vlog.dbg("Docker core version is %s" % version)
     return version
 
 
 def find_metadata(options):
-    domain = "Openshift-Domain"
+    podmeta = get_pod_metadata(options)
+    domain = "K8S-Domain"
     domaintype = "L3"
-    network = options.namespace + '-0'
-    zone = options.namespace
-    user = "admin"
-    ent = "Openshift-Enterprise"
-    pg = None
+    network = podmeta['labels'].get('nuage.io/subnet',
+                                    options.namespace + '-0')
+    zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
+    user = podmeta['labels'].get('nuage.io/user', 'admin')
+    ent = "K8S-Enterprise"
+    pg = podmeta.get('nuage.io/policy-group', None)
     delete_timer = 0
     staticip = None
     pid = None
@@ -445,8 +453,7 @@ def nuage_trigger(options, sock):
     actions = {'init': init,
                'setup': setup,
                'teardown': teardown,
-               'status': status,
-               }
+               'status': status}
     hook = actions.get(options.action, invalid)
     vlog.dbg("Invoking %s hook" % options.action)
     hook(options, sock)
@@ -457,9 +464,9 @@ def get_veth_host_if(pid):
     get_ifidx = (("nsenter -n -t " + pid) +
                  (" -- ethtool -S eth0 | sed -ne \'s/.*peer_ifindex: //p\'"))
     if_index = subprocess.check_output([get_ifidx], shell=True).strip()
-    get_veth_host_if = (("ip link show | sed -ne \"s/^" + str(if_index)) +
-                        (": \([^:@]*\).*/\\1/p\""))
-    return subprocess.check_output([get_veth_host_if], shell=True).strip()
+    veth_host_if = (("ip link show | sed -ne \"s/^" + str(if_index)) +
+                    (r": \([^:@]*\).*/\\1/p\""))
+    return subprocess.check_output([veth_host_if], shell=True).strip()
 
 
 def init(options, sock):
@@ -547,6 +554,20 @@ def signal_handle(sig_num, frame):
     raise SystemExit
 
 
+def get_pod_metadata(options):
+    response = requests.get('https://%s:10250/pods' % socket.gethostname(),
+                            cert=(CERT, KEY),
+                            verify=CA_CERT)
+    if response.status_code != 200 or response.json()['kind'] != 'PodList' or\
+            response.json()['items'] is None:
+        return None
+    for pod in response.json()['items']:
+        if pod['metadata']['name'] == options.name and \
+                pod['metadata']['namespace'] == options.namespace:
+            return pod['metadata']
+    return None
+
+
 def main():
     sock = get_connected_socket()
     try:
@@ -558,6 +579,7 @@ def main():
             sys.exit(1)
         nuage_trigger(options, sock)
     except Exception as e:
+        vlog.err(e)
         vlog.err("Nuage K8S plugin cannot be executed")
         raise e
     except:
