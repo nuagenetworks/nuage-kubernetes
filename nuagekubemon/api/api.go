@@ -39,12 +39,14 @@ type NamespaceEvent struct {
 }
 
 type RESTError struct {
-	Message string
-	Errors  []struct {
-		Resource string
-		Field    string
-		Code     string
-	}
+	Errors []struct {
+		Property     string `json:"property"`
+		Descriptions []struct {
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"descriptions"`
+	} `json:"errors"`
+	InternalErrorCode int `json:"internalErrorCode"`
 }
 
 type VsdEnterprise struct {
