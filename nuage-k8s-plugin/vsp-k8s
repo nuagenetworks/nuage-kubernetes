@@ -28,6 +28,8 @@ import signal
 import sys
 import json
 import requests
+import yaml
+import os.path
 
 sys.path.append('/usr/share/openvswitch/python')
 
@@ -284,15 +286,15 @@ def _get_docker_core_version():
     return version
 
 
-def find_metadata(options):
-    podmeta = get_pod_metadata(options)
-    domain = "K8S-Domain"
+def find_metadata(options, config):
+    podmeta = get_pod_metadata(options, config)
+    domain = config.get("domainName", "K8S-Domain")
     domaintype = "L3"
     network = podmeta['labels'].get('nuage.io/subnet',
                                     options.namespace + '-0')
     zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
     user = podmeta['labels'].get('nuage.io/user', 'admin')
-    ent = "K8S-Enterprise"
+    ent = config.get("enterpriseName", "K8S-Enterprise")
     pg = podmeta.get('nuage.io/policy-group', None)
     delete_timer = 0
     staticip = None
@@ -418,8 +420,8 @@ def detach_port(metadata, sock):
         vlog.err("Failed to delete port %s" % nuage_uuid)
 
 
-def get_metadata(options):
-    metadata = find_metadata(options)
+def get_metadata(options, config):
+    metadata = find_metadata(options, config)
     if metadata is None:
         return (False, None)
     if 'network_mode' in metadata and metadata['network_mode'] == "host":
@@ -492,7 +494,8 @@ def teardown(options, sock):
 
 
 def pod_hook(options, sock, setup=True):
-    ret, metadata = get_metadata(options)
+    config = read_configfile()
+    ret, metadata = get_metadata(options, config)
     if not ret:
         vlog.err("Cannot get metadata for UUID: %s while calling setup() \
         hook for the pid" % str(options.id))
@@ -554,10 +557,11 @@ def signal_handle(sig_num, frame):
     raise SystemExit
 
 
-def get_pod_metadata(options):
+def get_pod_metadata(options, config):
     response = requests.get('https://%s:10250/pods' % socket.gethostname(),
-                            cert=(CERT, KEY),
-                            verify=CA_CERT)
+                            cert=(config.get('clientCert', CERT),
+                                  config.get('clientKey', KEY)),
+                            verify=config.get('CACert', CA_CERT))
     if response.status_code != 200 or response.json()['kind'] != 'PodList' or\
             response.json()['items'] is None:
         return None
@@ -566,6 +570,19 @@ def get_pod_metadata(options):
                 pod['metadata']['namespace'] == options.namespace:
             return pod['metadata']
     return None
+
+
+def read_configfile():
+    config = None
+    configfile = '/usr/share/nuagekubemon/nuagekubemon.yaml'
+    if os.path.isfile(configfile):
+        with open(configfile, 'r') as config_stream:
+            try:
+                config = yaml.load(config_stream)
+            except yaml.YAMLError:
+                # Log something here?
+                return None
+    return config
 
 
 def main():
