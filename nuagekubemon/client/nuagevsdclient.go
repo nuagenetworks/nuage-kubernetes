@@ -62,10 +62,6 @@ type SubnetList struct {
 	Next     *SubnetList
 }
 
-const clusterEnterpriseName = "K8S-Enterprise"
-const clusterDomainTemplateName = "K8S-Domain-Template"
-const clusterDomainName = "K8S-Domain"
-
 func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
 	nvsdc.Init(nkmConfig)
@@ -339,7 +335,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	nvsdc.enterpriseID, err = nvsdc.CreateEnterprise(clusterEnterpriseName)
+	nvsdc.enterpriseID, err = nvsdc.CreateEnterprise(nkmConfig.EnterpriseName)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -351,17 +347,17 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	err = nvsdc.LoginAsAdmin("admin", "admin", clusterEnterpriseName)
+	err = nvsdc.LoginAsAdmin("admin", "admin", nkmConfig.EnterpriseName)
 	if err != nil {
 		glog.Fatal(err)
 	}
 	domainTemplateID, err := nvsdc.CreateDomainTemplate(nvsdc.enterpriseID,
-		clusterDomainTemplateName)
+		nkmConfig.DomainName+"-Template")
 	if err != nil {
 		glog.Fatal(err)
 	}
 	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
-		domainTemplateID, clusterDomainName)
+		domainTemplateID, nkmConfig.DomainName)
 	if err != nil {
 		glog.Fatal(err)
 	}
