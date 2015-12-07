@@ -1,0 +1,18 @@
+# .kubeconfig that includes the nuage service account
+kubeConfig: "/usr/share/nuagekubemon/nuage.kubeconfig"
+# name of the nuage service account, or another account with 'cluster-reader'
+# permissions
+openshiftAdmin: "system:serviceaccounts:default:nuage"
+# Openshift master config file
+openshiftMasterConfig: "/path/to/master-config.yaml"
+# URL of the VSD Architect
+vsdApiUrl: "https://xmpp.example.com:8443"
+# API version to query against.  Usually "v3_2"
+vspVersion: "v3_2"
+# File containing a VSP license to install.  Only necessary if no license has
+# been installed on the VSD Architect before
+licenseFile: "/path/to/base_vsp_license.txt"
+# Name of the enterprise in which pods will reside
+enterpriseName: "K8S-Enterprise"
+# Name of the domain in which pods will reside
+domainName: "K8S-Domain"

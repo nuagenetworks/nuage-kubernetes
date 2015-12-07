@@ -29,6 +29,8 @@ type NuageKubeMonConfig struct {
 	NuageVsdApiUrl     string       `yaml:"vsdApiUrl"`
 	NuageVspVersion    string       `yaml:"vspVersion"`
 	LicenseFile        string       `yaml:"licenseFile"`
+	EnterpriseName     string       `yaml:"enterpriseName"`
+	DomainName         string       `yaml:"domainName"`
 	ConfigFile         string       `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
 	OsMasterConfig     MasterConfig `yaml:"-"`
 }
@@ -50,6 +52,12 @@ func (conf *NuageKubeMonConfig) Parse(data []byte) error {
 		return err
 	}
 	// TODO: Bounds checking and other validation on fields
+	if conf.EnterpriseName == "" {
+		conf.EnterpriseName = "K8S-Enterprise"
+	}
+	if conf.DomainName == "" {
+		conf.DomainName = "K8S-Domain"
+	}
 	return nil
 }
 
