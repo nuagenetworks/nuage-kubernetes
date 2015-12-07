@@ -1064,30 +1064,30 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		nmgID := ""
 		err := errors.New("")
 		exists := false
-		if nmgID, exists = serviceEvent.NuageAnnotations[`network-macro-group.id`]; !exists {
-			if nmgName, exists := serviceEvent.NuageAnnotations[`network-macro-group.name`]; exists {
-				//use the annotation provided name to get network macro group ID and use that to create the network macro association
+		if nmgID, exists = serviceEvent.NuageLabels[`network-macro-group.id`]; !exists {
+			if nmgName, exists := serviceEvent.NuageLabels[`network-macro-group.name`]; exists {
+				//use the label provided name to get network macro group ID and use that to create the network macro association
 				nmgID, err = nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, nmgName)
 				if err != nil {
-					glog.Error("Annotation provided for network macro group name, but no network macro group identified", serviceEvent)
-					return errors.New("Incorrect annotation information for creating service network macro")
+					glog.Error("Label provided for network macro group name, but no network macro group identified", serviceEvent)
+					return errors.New("Incorrect label information for creating service network macro")
 				}
 			}
 		}
-		if v, exists := serviceEvent.NuageAnnotations[`zone`]; exists {
+		if v, exists := serviceEvent.NuageLabels[`zone`]; exists {
 			if _, exists = nvsdc.namespaces[v]; exists {
 				if v != serviceEvent.Namespace {
-					//annotation specified for a zone that is managed by nuagekubemon but for a different namespace
-					glog.Errorf("Not authorized to create a service with zone annotation %v, in namespace %v", v, serviceEvent.Namespace)
-					return errors.New("Incorrect annotation information for creating service network macro")
+					//label specified for a zone that is managed by nuagekubemon but for a different namespace
+					glog.Errorf("Not authorized to create a service with zone label %v, in namespace %v", v, serviceEvent.Namespace)
+					return errors.New("Incorrect label information for creating service network macro")
 				}
 			} else if nmgID == "" {
-				// zone annotation is specified, but nuagekubemon doesn't manage this zone; and network macro group ID or Name are missing
-				glog.Error("Annotation provided for a zone, but no network macro group identified", serviceEvent)
-				return errors.New("Insufficient annotation information for creating service network macro")
+				// zone label is specified, but nuagekubemon doesn't manage this zone; and network macro group ID or Name are missing
+				glog.Error("Label provided for a zone, but no network macro group identified", serviceEvent)
+				return errors.New("Insufficient label information for creating service network macro")
 			}
 		}
-		//default to using the validated zone's network macro group; if no specific annotations are present.
+		//default to using the validated zone's network macro group; if no specific labels are present.
 		if nmgID == "" {
 			nmgID = nvsdc.namespaces[zone].NetworkMacroGroupID
 		}
@@ -1098,7 +1098,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		if err != nil {
 			glog.Error("Error when creating the network macro for service", serviceEvent)
 		} else {
-			//add the network macro to the cached datastructure and also to the network macro group obtained via annotations/default group
+			//add the network macro to the cached datastructure and also to the network macro group obtained via labels/default group
 			nvsdc.namespaces[serviceEvent.Namespace].NetworkMacros[serviceEvent.Name] = networkMacroID
 			nmgPayload := []string{networkMacroID}
 			e := api.RESTError{}

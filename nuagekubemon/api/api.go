@@ -41,11 +41,11 @@ type NamespaceEvent struct {
 }
 
 type ServiceEvent struct {
-	Type             EventType
-	Name             string
-	ClusterIP        string
-	Namespace        string
-	NuageAnnotations map[string]string
+	Type        EventType
+	Name        string
+	ClusterIP   string
+	Namespace   string
+	NuageLabels map[string]string
 }
 
 type RESTError struct {
@@ -284,8 +284,8 @@ NetworkType: %v, PolicyState: %v, Reflexive %v`, lhs.ID, lhs.Description,
 
 func (svc *ServiceEvent) String() string {
 	return fmt.Sprintf(`\nService: Name: %v, Namespace %v, \n 
-ClusterIP: %v, Annotations: %v, \n EventType: %v`, svc.Name, svc.Namespace,
-		svc.ClusterIP, svc.NuageAnnotations, svc.Type)
+ClusterIP: %v, Labels: %v, \n EventType: %v`, svc.Name, svc.Namespace,
+		svc.ClusterIP, svc.NuageLabels, svc.Type)
 }
 
 func (lhs *VsdNetworkMacro) String() string {

@@ -141,10 +141,10 @@ func (nosc *NuageOsClient) GetServices() (*[]*api.ServiceEvent, error) {
 	}
 	servicesList := make([]*api.ServiceEvent, 0)
 	for _, service := range services.Items {
-		annotations := GetNuageAnnotations(&service)
-		if annotation, exists := annotations["private-service"]; !exists || strings.ToLower(annotation) == "false" {
+		labels := GetNuageLabels(&service)
+		if label, exists := labels["private-service"]; !exists || strings.ToLower(label) == "false" {
 
-			servicesList = append(servicesList, &api.ServiceEvent{Type: api.Added, Name: service.ObjectMeta.Name, ClusterIP: service.Spec.ClusterIP, Namespace: service.ObjectMeta.Namespace, NuageAnnotations: annotations})
+			servicesList = append(servicesList, &api.ServiceEvent{Type: api.Added, Name: service.ObjectMeta.Name, ClusterIP: service.Spec.ClusterIP, Namespace: service.ObjectMeta.Namespace, NuageLabels: labels})
 		}
 	}
 	return &servicesList, nil
@@ -171,9 +171,9 @@ func (nosc *NuageOsClient) WatchServices(receiver chan *api.ServiceEvent, stop c
 			fallthrough
 		case watch.Deleted:
 			service := obj.(*kapi.Service)
-			annotations := GetNuageAnnotations(service)
-			if annotation, exists := annotations["private-service"]; !exists || strings.ToLower(annotation) == "false" {
-				receiver <- &api.ServiceEvent{Type: api.EventType(eventType), Name: service.ObjectMeta.Name, ClusterIP: service.Spec.ClusterIP, Namespace: service.ObjectMeta.Namespace, NuageAnnotations: annotations}
+			labels := GetNuageLabels(service)
+			if label, exists := labels["private-service"]; !exists || strings.ToLower(label) == "false" {
+				receiver <- &api.ServiceEvent{Type: api.EventType(eventType), Name: service.ObjectMeta.Name, ClusterIP: service.Spec.ClusterIP, Namespace: service.ObjectMeta.Namespace, NuageLabels: labels}
 			}
 		}
 	}
@@ -195,14 +195,14 @@ func DefaultClientTransport(rt http.RoundTripper) http.RoundTripper {
 	return transport
 }
 
-func GetNuageAnnotations(input *kapi.Service) map[string]string {
-	annotations := input.Annotations
-	nuageAnnotations := make(map[string]string)
-	for k, v := range annotations {
+func GetNuageLabels(input *kapi.Service) map[string]string {
+	labels := input.Labels
+	nuageLabels := make(map[string]string)
+	for k, v := range labels {
 		if strings.HasPrefix(k, "nuage.io") {
 			tokens := strings.Split(k, "/")
-			nuageAnnotations[tokens[1]] = v
+			nuageLabels[tokens[1]] = v
 		}
 	}
-	return nuageAnnotations
+	return nuageLabels
 }
