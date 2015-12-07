@@ -804,7 +804,7 @@ func (nvsdc *NuageVsdClient) DeleteAclEntry(ingress bool, aclID string) error {
 	if ingress {
 		url = nvsdc.url + "ingressaclentrytemplates/" + aclID + "?responseChoice=1"
 	}
-	resp, err := nvsdc.session.Delete(url, &result, &e)
+	resp, err := nvsdc.session.Delete(url, nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting acl with ID %s: %s", aclID, err)
 		return err
@@ -883,7 +883,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 func (nvsdc *NuageVsdClient) DeleteDomain(id string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Delete(nvsdc.url+"domains/"+id+"?responseChoice=1", &result, &e)
+	resp, err := nvsdc.session.Delete(nvsdc.url+"domains/"+id+"?responseChoice=1", nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting domain with ID %s: %s", id, err)
 		return err
@@ -932,7 +932,7 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 	// Delete subnets in this zone
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Delete(nvsdc.url+"zones/"+id+"?responseChoice=1", &result, &e)
+	resp, err := nvsdc.session.Delete(nvsdc.url+"zones/"+id+"?responseChoice=1", nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting zone with ID %s: %s", id, err)
 		return err
@@ -983,7 +983,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Delete(nvsdc.url+"subnets/"+id+"?responseChoice=1", &result, &e)
+	resp, err := nvsdc.session.Delete(nvsdc.url+"subnets/"+id+"?responseChoice=1", nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting subnet with ID %s: %s", id, err)
 		return err
@@ -1433,7 +1433,7 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacroGroup(networkMacroGroupID string)
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
 	url := nvsdc.url + "networkmacrogroups/" + networkMacroGroupID + "?responseChoice=1"
-	resp, err := nvsdc.session.Delete(url, &result, &e)
+	resp, err := nvsdc.session.Delete(url, nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting network macro group with ID %s: %s", networkMacroGroupID, err)
 		return err
@@ -1605,7 +1605,7 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
 	url := nvsdc.url + "enterprisenetworks/" + networkMacroID + "?responseChoice=1"
-	resp, err := nvsdc.session.Delete(url, &result, &e)
+	resp, err := nvsdc.session.Delete(url, nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting network macro with ID %s: %s", networkMacroID, err)
 		return err

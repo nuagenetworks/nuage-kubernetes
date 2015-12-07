@@ -24,6 +24,7 @@ import (
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
 	oscache "github.com/openshift/origin/pkg/client/cache"
 	kapi "k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/client/cache"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
@@ -96,7 +97,7 @@ func (nosc *NuageOsClient) RunServiceWatcher(serviceChannel chan *api.ServiceEve
 }
 
 func (nosc *NuageOsClient) GetNamespaces() (*[]*api.NamespaceEvent, error) {
-	namespaces, err := nosc.kubeClient.Namespaces().List(labels.Everything(), fields.Everything())
+	namespaces, err := nosc.kubeClient.Namespaces().List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +112,10 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 	nsEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func() (runtime.Object, error) {
-			return nosc.kubeClient.Namespaces().List(labels.Everything(), fields.Everything())
+			return nosc.kubeClient.Namespaces().List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 		},
-		WatchFunc: func(resourceVersion string) (watch.Interface, error) {
-			return nosc.kubeClient.Namespaces().Watch(labels.Everything(), fields.Everything(), resourceVersion)
+		WatchFunc: func(rv unversioned.ListOptions) (watch.Interface, error) {
+			return nosc.kubeClient.Namespaces().Watch(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}, ResourceVersion: rv.ResourceVersion})
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Namespace{}, nsEventQueue, 0).Run()
@@ -134,7 +135,7 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 }
 
 func (nosc *NuageOsClient) GetServices() (*[]*api.ServiceEvent, error) {
-	services, err := nosc.kubeClient.Services(kapi.NamespaceAll).List(labels.Everything())
+	services, err := nosc.kubeClient.Services(kapi.NamespaceAll).List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 	if err != nil {
 		return nil, err
 	}
@@ -153,10 +154,10 @@ func (nosc *NuageOsClient) WatchServices(receiver chan *api.ServiceEvent, stop c
 	serviceEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func() (runtime.Object, error) {
-			return nosc.kubeClient.Services(kapi.NamespaceAll).List(labels.Everything())
+			return nosc.kubeClient.Services(kapi.NamespaceAll).List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 		},
-		WatchFunc: func(resourceVersion string) (watch.Interface, error) {
-			return nosc.kubeClient.Services(kapi.NamespaceAll).Watch(labels.Everything(), fields.Everything(), resourceVersion)
+		WatchFunc: func(rv unversioned.ListOptions) (watch.Interface, error) {
+			return nosc.kubeClient.Services(kapi.NamespaceAll).Watch(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}, ResourceVersion: rv.ResourceVersion})
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Service{}, serviceEventQueue, 0).Run()

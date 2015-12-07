@@ -28,7 +28,7 @@ func deleteEnterprise(t *testing.T, vsdClient *NuageVsdClient, id string) error 
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
 	resp, err := vsdClient.session.Delete(vsdClient.url+"enterprises/"+
-		id+"?responseChoice=1", &result, &e)
+		id+"?responseChoice=1", nil, &result, &e)
 	if err != nil {
 		t.Fatal(err)
 	}

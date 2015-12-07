@@ -91,8 +91,8 @@
 		},
 		{
 			"ImportPath": "github.com/openshift/origin/pkg/client/cache",
-			"Comment": "v1.0.3-81-gcadbc5f",
-			"Rev": "cadbc5fcaf57121d990f44865099125acc643ac7"
+			"Comment": "v1.1-330-g693be19",
+			"Rev": "693be191a98228377df5e6fe4a747bc993018452"
 		},
 		{
 			"ImportPath": "github.com/pborman/uuid",
@@ -100,8 +100,8 @@
 		},
 		{
 			"ImportPath": "github.com/prometheus/client_golang/prometheus",
-			"Comment": "0.4.0-1-g692492e",
-			"Rev": "692492e54b553a81013254cc1fba4b6dd76fad30"
+			"Comment": "0.7.0-39-g3b78d7a",
+			"Rev": "3b78d7a77f51ccbc364d4bc170920153022cfd08"
 		},
 		{
 			"ImportPath": "github.com/prometheus/client_model/go",
@@ -122,7 +122,7 @@
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",
-			"Rev": "67cbc198fd11dab704b214c1e629a97af392c085"
+			"Rev": "08b1a584251b5b62f458943640fc8ebd4d50aaa5"
 		},
 		{
 			"ImportPath": "github.com/ugorji/go/codec",
