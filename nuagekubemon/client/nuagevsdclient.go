@@ -33,18 +33,27 @@ import (
 )
 
 type NuageVsdClient struct {
-	url          string
-	version      string
-	username     string
-	password     string
-	enterprise   string
-	session      napping.Session
-	enterpriseID string
-	domainID     string
-	zones        map[string]string      //project name -> zone id mapping
-	subnets      map[string]*SubnetList //zone id -> list of subnets mapping
-	pool         IPv4SubnetPool
-	subnetSize   int //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
+	url                   string
+	version               string
+	username              string
+	password              string
+	enterprise            string
+	session               napping.Session
+	enterpriseID          string
+	domainID              string
+	namespaces            map[string]NamespaceData //namespace name -> namespace data
+	subnets               map[string]*SubnetList   //zone id -> list of subnets mapping
+	pool                  IPv4SubnetPool
+	ingressAclTemplateID  string
+	egressAclTemplateID   string
+	nextAvailablePriority int
+	subnetSize            int //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
+}
+
+type NamespaceData struct {
+	ZoneID              string
+	NetworkMacroGroupID string
+	NetworkMacros       map[string]string //service name (qualified with the namespace) -> network macro id
 }
 
 type SubnetList struct {
@@ -678,11 +687,112 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 		}
 		return nvsdc.egressAclTemplateID, nil
 	default:
-		glog.Errorln("Bad response status from VSD Server")
-		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
-		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
-		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+		return "", VsdErrorResponse(resp, &e)
+	}
+}
+
+func (nvsdc *NuageVsdClient) GetAclEntryByPriority(aclTemplateID string, ingress bool, aclEntryPriority int) (*api.VsdAclEntry, error) {
+	result := make([]api.VsdAclEntry, 1)
+	h := nvsdc.session.Header
+	h.Add("X-Nuage-Filter", `priority == `+fmt.Sprintf("%v", aclEntryPriority))
+	e := api.RESTError{}
+	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+	if ingress {
+		url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+	}
+	resp, err := nvsdc.session.Get(url, nil, &result, &e)
+	h.Del("X-Nuage-Filter")
+	if err != nil {
+		glog.Errorf("Error when getting ACL entry with Priority %s: %d", err, aclEntryPriority)
+		return nil, err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry with priority", aclEntryPriority)
+	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
+		if result[0].Priority == aclEntryPriority {
+			return &result[0], nil
+		} else if result[0].Priority == 0 && result[0].ID == "" && result[0].Description == "" {
+			return nil, errors.New("ACL entry not found")
+		} else {
+			return nil, errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Priority, aclEntryPriority))
+		}
+	} else {
+		return nil, VsdErrorResponse(resp, &e)
+	}
+}
+
+func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, aclEntry *api.VsdAclEntry) (*api.VsdAclEntry, error) {
+	result := make([]api.VsdAclEntry, 1)
+	h := nvsdc.session.Header
+	h.Add("X-Nuage-Filter", aclEntry.BuildFilter())
+	e := api.RESTError{}
+	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+	if ingress {
+		url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+	}
+	resp, err := nvsdc.session.Get(url, nil, &result, &e)
+	h.Del("X-Nuage-Filter")
+	if err != nil {
+		glog.Errorf("Error when getting ACL entry %v: %s", aclEntry, err)
+		return nil, err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry: ", aclEntry)
+	if resp.Status() == 200 {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
+		if result[0].IsEqual(aclEntry) {
+			return &result[0], nil
+		} else if result[0].ID == "" {
+			return nil, errors.New("ACL entry not found")
+		} else {
+			return nil, errors.New(fmt.Sprintf("Found ACL entry %v instead of %v", &result[0], aclEntry))
+		}
+	} else {
+		return nil, VsdErrorResponse(resp, &e)
+	}
+}
+
+func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, aclEntry *api.VsdAclEntry) (string, error) {
+	result := make([]api.VsdObject, 1)
+	e := api.RESTError{}
+	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+	if ingress {
+		url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+	}
+	resp, err := nvsdc.session.Post(url, &aclEntry, &result, &e)
+	if err != nil {
+		glog.Error("Error when adding acl template entry", err)
+		return "", err
+	}
+	glog.Infoln("Got a reponse status", resp.Status(),
+		"when creating acl template entry")
+	switch resp.Status() {
+	case 201:
+		glog.Infoln("Created ACL entry with priority: ", aclEntry.Priority)
+		return result[0].ID, nil
+	case 409:
+		acl, err := nvsdc.GetAclEntryByPriority(aclTemplateID, ingress, aclEntry.Priority)
+		if err != nil {
+			return "", err
+		}
+		glog.Infoln("Applied ACL entry with priority: ", aclEntry.Priority)
+		if aclEntry.IsEqual(acl) {
+			return acl.ID, nil
+		} else {
+			//check if any entry matches the desired semantics with a different priority
+			if acl, err = nvsdc.GetAclEntry(aclTemplateID, ingress, aclEntry); err == nil && acl != nil {
+				return acl.ID, nil
+			} else {
+				aclEntry.Priority = aclEntry.Priority + 1
+				return nvsdc.CreateAclEntry(aclTemplateID, ingress, aclEntry)
+			}
+		}
+	default:
+		return "", VsdErrorResponse(resp, &e)
 	}
 }
 
@@ -704,12 +814,7 @@ func (nvsdc *NuageVsdClient) DeleteAclEntry(ingress bool, aclID string) error {
 	case 204:
 		return nil
 	default:
-		glog.Errorln("Bad response status from VSD Server")
-		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
-		glog.Errorf("\t Status:  %v\n", resp.Status())
-		glog.Errorf("\t Message: %v\n", e.Message)
-		glog.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+		return VsdErrorResponse(resp, &e)
 	}
 }
 
@@ -1043,7 +1148,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			if err != nil {
 				return err
 			}
-			nvsdc.zones[nsEvent.Name] = zoneID
+			nvsdc.namespaces[nsEvent.Name] = NamespaceData{ZoneID: zoneID, NetworkMacros: make(map[string]string)}
 			// subnetSize is guaranteed to be between 0 and 32 (inclusive) by
 			// the Init() function defined above, so (32 - subnetSize) will
 			// also produce a number between 0 and 32 (inclusive).
