@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	kcache "github.com/GoogleCloudPlatform/kubernetes/pkg/client/cache"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/watch"
+	kcache "k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 // EventQueue is a Store implementation that provides a sequence of compressed events to a consumer
@@ -44,8 +44,13 @@ type EventQueue struct {
 	queue  []string
 }
 
+// EventQueue implements kcache.Store
+var _ kcache.Store = &EventQueue{}
+
 // Describes the effect of processing a watch event on the event queue's state.
 type watchEventEffect string
+
+type EventQueueStopped struct{}
 
 const (
 	// The watch event should result in an add to the event queue
@@ -84,6 +89,10 @@ var watchEventCompressionMatrix = map[watch.EventType]map[watch.EventType]watch.
 		watch.Deleted:  watch.Deleted,
 	},
 	watch.Deleted: {},
+}
+
+func (es EventQueueStopped) Error() string {
+	return fmt.Sprintf("Event queue was stopped.")
 }
 
 // handleEvent is called by Add, Update, and Delete to determine the effect
@@ -134,6 +143,11 @@ func (eq *EventQueue) handleEvent(obj interface{}, newEventType watch.EventType)
 		eq.queue = eq.queueWithout(key)
 	}
 	return nil
+}
+
+// Cancel function to force Pop function to unblock
+func (eq *EventQueue) Cancel() {
+	eq.cond.Broadcast()
 }
 
 // updateStore updates the stored value for the given key.  Note that deletions are not handled
@@ -211,14 +225,14 @@ func (eq *EventQueue) ListKeys() []string {
 	return list
 }
 
-// ContainedIDs returns a util.StringSet containing all IDs of the enqueued items.
+// ContainedIDs returns a sets.String containing all IDs of the enqueued items.
 // This is a snapshot of a moment in time, and one should keep in mind that
 // other go routines can add or remove items after you call this.
-func (eq *EventQueue) ContainedIDs() util.StringSet {
+func (eq *EventQueue) ContainedIDs() sets.String {
 	eq.lock.RLock()
 	defer eq.lock.RUnlock()
 
-	s := util.StringSet{}
+	s := sets.String{}
 	for _, key := range eq.queue {
 		s.Insert(key)
 	}
@@ -259,6 +273,9 @@ func (eq *EventQueue) Pop() (watch.EventType, interface{}, error) {
 			eq.cond.Wait()
 		}
 
+		if len(eq.queue) == 0 {
+			return watch.Error, nil, EventQueueStopped{}
+		}
 		key := eq.queue[0]
 		eq.queue = eq.queue[1:]
 
@@ -287,7 +304,7 @@ func (eq *EventQueue) Pop() (watch.EventType, interface{}, error) {
 // populates the queue with a watch.Modified event for each of the replaced
 // objects.  The backing store takes ownership of keyToObjs; you should not
 // reference the map again after calling this function.
-func (eq *EventQueue) Replace(objects []interface{}) error {
+func (eq *EventQueue) Replace(objects []interface{}, resourceVersion string) error {
 	eq.lock.Lock()
 	defer eq.lock.Unlock()
 
@@ -302,7 +319,7 @@ func (eq *EventQueue) Replace(objects []interface{}) error {
 		eq.queue = append(eq.queue, key)
 		eq.events[key] = watch.Modified
 	}
-	if err := eq.store.Replace(objects); err != nil {
+	if err := eq.store.Replace(objects, resourceVersion); err != nil {
 		return err
 	}
 
@@ -312,10 +329,22 @@ func (eq *EventQueue) Replace(objects []interface{}) error {
 	return nil
 }
 
-// NewEventQueue returns a new EventQueue ready for action.
+// NewEventQueue returns a new EventQueue.
 func NewEventQueue(keyFn kcache.KeyFunc) *EventQueue {
 	q := &EventQueue{
 		store:  kcache.NewStore(keyFn),
+		events: map[string]watch.EventType{},
+		queue:  []string{},
+		keyFn:  keyFn,
+	}
+	q.cond.L = &q.lock
+	return q
+}
+
+// NewEventQueueForStore returns a new EventQueue that uses the provided store.
+func NewEventQueueForStore(keyFn kcache.KeyFunc, store kcache.Store) *EventQueue {
+	q := &EventQueue{
+		store:  store,
 		events: map[string]watch.EventType{},
 		queue:  []string{},
 		keyFn:  keyFn,

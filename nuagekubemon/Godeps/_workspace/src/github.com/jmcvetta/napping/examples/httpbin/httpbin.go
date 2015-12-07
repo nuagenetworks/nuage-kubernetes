@@ -11,7 +11,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/jmcvetta/napping"
+	"gopkg.in/jmcvetta/napping.v3"
 	"log"
 )
 
@@ -55,7 +55,7 @@ func main() {
 		// resp.Unmarshal(&e)
 		fmt.Println("res:", res.Useragent)
 	} else {
-		fmt.Println("Bad response status from Github server")
+		fmt.Println("Bad response status from httpbin server")
 		fmt.Printf("\t Status:  %v\n", resp.Status())
 		fmt.Printf("\t Message: %v\n", e.Message)
 	}
@@ -64,8 +64,7 @@ func main() {
 
 	url = "http://httpbin.org/get"
 	fmt.Println("URL:>", url)
-	fooParams := napping.Params{"foo": "bar"}
-	p := fooParams
+	p := napping.Params{"foo": "bar"}.AsUrlValues()
 
 	res = ResponseUserAgent{}
 	resp, err = s.Get(url, &p, &res, nil)

@@ -12,9 +12,9 @@ requests (cookies, auth, proxies).
 
 import (
 	"bytes"
-	"errors"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 )
-
-import ()
 
 type Session struct {
 	Client *http.Client
@@ -34,7 +32,7 @@ type Session struct {
 
 	// Optional defaults - can be overridden in a Request
 	Header *http.Header
-	Params *Params
+	Params *url.Values
 }
 
 // Send constructs and sends an HTTP request.
@@ -53,9 +51,17 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	//
 	// Default query parameters
 	//
-	p := Params{}
+	p := url.Values{}
 	if s.Params != nil {
 		for k, v := range *s.Params {
+			p[k] = v
+		}
+	}
+	//
+	// Parameters that were present in URL
+	//
+	if u.Query() != nil {
+		for k, v := range u.Query() {
 			p[k] = v
 		}
 	}
@@ -70,11 +76,11 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	//
 	// Encode parameters
 	//
-	vals := u.Query()
-	for k, v := range p {
-		vals.Set(k, v)
-	}
-	u.RawQuery = vals.Encode()
+	u.RawQuery = p.Encode()
+	//
+	// Attach params to response
+	//
+	r.Params = &p
 	//
 	// Create a Request object; if populated, Data field is JSON encoded as
 	// request body
@@ -116,7 +122,8 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 			s.log(err)
 			return
 		}
-		header.Add("Content-Type", "application/json")
+		// Overwrite the content type to json since we're pushing the payload as json
+		header.Set("Content-Type", "application/json")
 	} else { // no data to encode
 		req, err = http.NewRequest(r.Method, u.String(), nil)
 		if err != nil {
@@ -166,7 +173,10 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	s.log("--------------------------------------------------------------------------------")
 	s.log("REQUEST")
 	s.log("--------------------------------------------------------------------------------")
-	s.log(pretty(req))
+	s.log("Method:", req.Method)
+	s.log("URL:", req.URL)
+	s.log("Header:", req.Header)
+	s.log("Form:", req.Form)
 	s.log("Payload:")
 	if r.RawPayload && s.Log && buf != nil {
 		s.log(base64.StdEncoding.EncodeToString(buf.Bytes()))
@@ -179,6 +189,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 		client = s.Client
 	} else {
 		client = &http.Client{}
+		s.Client = client
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -188,6 +199,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	defer resp.Body.Close()
 	r.status = resp.StatusCode
 	r.response = resp
+
 	//
 	// Unmarshal
 	//
@@ -203,6 +215,9 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 		if resp.StatusCode >= 400 && r.Error != nil {
 			json.Unmarshal(r.body, r.Error) // Should we ignore unmarshall error?
 		}
+	}
+	if r.CaptureResponseBody {
+		r.ResponseBody = bytes.NewBuffer(r.body)
 	}
 	rsp := Response(*r)
 	response = &rsp
@@ -231,7 +246,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 }
 
 // Get sends a GET request.
-func (s *Session) Get(url string, p *Params, result, errMsg interface{}) (*Response, error) {
+func (s *Session) Get(url string, p *url.Values, result, errMsg interface{}) (*Response, error) {
 	r := Request{
 		Method: "GET",
 		Url:    url,
@@ -301,10 +316,11 @@ func (s *Session) Patch(url string, payload, result, errMsg interface{}) (*Respo
 }
 
 // Delete sends a DELETE request.
-func (s *Session) Delete(url string, result, errMsg interface{}) (*Response, error) {
+func (s *Session) Delete(url string, p *url.Values, result, errMsg interface{}) (*Response, error) {
 	r := Request{
 		Method: "DELETE",
 		Url:    url,
+		Params: p,
 		Result: result,
 		Error:  errMsg,
 	}
