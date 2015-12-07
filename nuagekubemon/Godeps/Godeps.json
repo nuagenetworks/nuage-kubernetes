@@ -78,8 +78,8 @@
 		},
 		{
 			"ImportPath": "github.com/jmcvetta/napping",
-			"Comment": "v1-17-g24cd6fd",
-			"Rev": "24cd6fd789202bd59699d1bd74f390c598d48c4e"
+			"Comment": "v3.0.3",
+			"Rev": "58e2b10cc328913a6d3478dfa4546395c71ada81"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
