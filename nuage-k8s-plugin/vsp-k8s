@@ -467,7 +467,7 @@ def get_veth_host_if(pid):
                  (" -- ethtool -S eth0 | sed -ne \'s/.*peer_ifindex: //p\'"))
     if_index = subprocess.check_output([get_ifidx], shell=True).strip()
     veth_host_if = (("ip link show | sed -ne \"s/^" + str(if_index)) +
-                    (r": \([^:@]*\).*/\\1/p\""))
+                    (": \([^:@]*\).*/\\1/p\""))
     return subprocess.check_output([veth_host_if], shell=True).strip()
 
 
