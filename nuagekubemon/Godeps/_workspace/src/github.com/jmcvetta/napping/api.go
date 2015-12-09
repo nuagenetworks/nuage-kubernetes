@@ -9,7 +9,9 @@ package napping
 This module implements the Napping API.
 */
 
-import ()
+import (
+	"net/url"
+)
 
 // Send composes and sends and HTTP request.
 func Send(r *Request) (*Response, error) {
@@ -18,7 +20,7 @@ func Send(r *Request) (*Response, error) {
 }
 
 // Get sends a GET request.
-func Get(url string, p *Params, result, errMsg interface{}) (*Response, error) {
+func Get(url string, p *url.Values, result, errMsg interface{}) (*Response, error) {
 	s := Session{}
 	return s.Get(url, p, result, errMsg)
 }
@@ -54,7 +56,7 @@ func Patch(url string, payload, result, errMsg interface{}) (*Response, error) {
 }
 
 // Delete sends a DELETE request.
-func Delete(url string, result, errMsg interface{}) (*Response, error) {
+func Delete(url string, p *url.Values, result, errMsg interface{}) (*Response, error) {
 	s := Session{}
-	return s.Delete(url, result, errMsg)
+	return s.Delete(url, p, result, errMsg)
 }

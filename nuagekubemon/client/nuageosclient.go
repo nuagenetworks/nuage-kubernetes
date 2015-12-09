@@ -19,20 +19,22 @@
 package client
 
 import (
-	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
-	kclient "github.com/GoogleCloudPlatform/kubernetes/pkg/client"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/cache"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/runtime"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/watch"
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
 	oscache "github.com/openshift/origin/pkg/client/cache"
+	kapi "k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/client/cache"
+	kclient "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/watch"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -68,7 +70,7 @@ func (nosc *NuageOsClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nosc.kubeClient = kubeClient
 }
 
-func (nosc *NuageOsClient) Run(nsChannel chan *api.NamespaceEvent, stop chan bool) {
+func (nosc *NuageOsClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
 	//we will use the kube client APIs than interfacing with the REST API
 	nsList, err := nosc.GetNamespaces()
 	if err != nil {
@@ -81,8 +83,21 @@ func (nosc *NuageOsClient) Run(nsChannel chan *api.NamespaceEvent, stop chan boo
 	nosc.WatchNamespaces(nsChannel, stop)
 }
 
+func (nosc *NuageOsClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
+	//we will use the kube client APIs than interfacing with the REST API
+	serviceList, err := nosc.GetServices()
+	if err != nil {
+		glog.Infof("Got an error: %s while getting services list from kube client", err)
+		return
+	}
+	for _, service := range *serviceList {
+		serviceChannel <- service
+	}
+	nosc.WatchServices(serviceChannel, stop)
+}
+
 func (nosc *NuageOsClient) GetNamespaces() (*[]*api.NamespaceEvent, error) {
-	namespaces, err := nosc.kubeClient.Namespaces().List(labels.Everything(), fields.Everything())
+	namespaces, err := nosc.kubeClient.Namespaces().List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 	if err != nil {
 		return nil, err
 	}
@@ -97,10 +112,10 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 	nsEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func() (runtime.Object, error) {
-			return nosc.kubeClient.Namespaces().List(labels.Everything(), fields.Everything())
+			return nosc.kubeClient.Namespaces().List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 		},
-		WatchFunc: func(resourceVersion string) (watch.Interface, error) {
-			return nosc.kubeClient.Namespaces().Watch(labels.Everything(), fields.Everything(), resourceVersion)
+		WatchFunc: func(rv unversioned.ListOptions) (watch.Interface, error) {
+			return nosc.kubeClient.Namespaces().Watch(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}, ResourceVersion: rv.ResourceVersion})
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Namespace{}, nsEventQueue, 0).Run()
@@ -111,17 +126,55 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 		}
 		switch eventType {
 		case watch.Added:
-			// we should ignore the modified event because status updates cause unnecessary noise
-			// the only time we would care about modified would be if the minion changes its IP address
-			// and hence all nodes need to update their vtep entries for the respective subnet
-			// create minionEvent
-			ns := obj.(*kapi.Namespace)
-			receiver <- &api.NamespaceEvent{Type: api.Added, Name: ns.ObjectMeta.Name}
+			fallthrough
 		case watch.Deleted:
-			// TODO: There is a chance that a Delete event will not get triggered.
-			// Need to use a periodic sync loop that lists and compares.
 			ns := obj.(*kapi.Namespace)
-			receiver <- &api.NamespaceEvent{Type: api.Deleted, Name: ns.ObjectMeta.Name}
+			receiver <- &api.NamespaceEvent{Type: api.EventType(eventType), Name: ns.ObjectMeta.Name}
+		}
+	}
+}
+
+func (nosc *NuageOsClient) GetServices() (*[]*api.ServiceEvent, error) {
+	services, err := nosc.kubeClient.Services(kapi.NamespaceAll).List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
+	if err != nil {
+		return nil, err
+	}
+	servicesList := make([]*api.ServiceEvent, 0)
+	for _, service := range services.Items {
+		labels := GetNuageLabels(&service)
+		if label, exists := labels["private-service"]; !exists || strings.ToLower(label) == "false" {
+
+			servicesList = append(servicesList, &api.ServiceEvent{Type: api.Added, Name: service.ObjectMeta.Name, ClusterIP: service.Spec.ClusterIP, Namespace: service.ObjectMeta.Namespace, NuageLabels: labels})
+		}
+	}
+	return &servicesList, nil
+}
+
+func (nosc *NuageOsClient) WatchServices(receiver chan *api.ServiceEvent, stop chan bool) error {
+	serviceEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
+	listWatch := &cache.ListWatch{
+		ListFunc: func() (runtime.Object, error) {
+			return nosc.kubeClient.Services(kapi.NamespaceAll).List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
+		},
+		WatchFunc: func(rv unversioned.ListOptions) (watch.Interface, error) {
+			return nosc.kubeClient.Services(kapi.NamespaceAll).Watch(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}, ResourceVersion: rv.ResourceVersion})
+		},
+	}
+	cache.NewReflector(listWatch, &kapi.Service{}, serviceEventQueue, 0).Run()
+	for {
+		eventType, obj, err := serviceEventQueue.Pop()
+		if err != nil {
+			return err
+		}
+		switch eventType {
+		case watch.Added:
+			fallthrough
+		case watch.Deleted:
+			service := obj.(*kapi.Service)
+			labels := GetNuageLabels(service)
+			if label, exists := labels["private-service"]; !exists || strings.ToLower(label) == "false" {
+				receiver <- &api.ServiceEvent{Type: api.EventType(eventType), Name: service.ObjectMeta.Name, ClusterIP: service.Spec.ClusterIP, Namespace: service.ObjectMeta.Namespace, NuageLabels: labels}
+			}
 		}
 	}
 }
@@ -140,4 +193,16 @@ func DefaultClientTransport(rt http.RoundTripper) http.RoundTripper {
 	// TODO: this should be configured by the caller, not in this method.
 	transport.MaxIdleConnsPerHost = 100
 	return transport
+}
+
+func GetNuageLabels(input *kapi.Service) map[string]string {
+	labels := input.Labels
+	nuageLabels := make(map[string]string)
+	for k, v := range labels {
+		if strings.HasPrefix(k, "nuage.io") {
+			tokens := strings.Split(k, "/")
+			nuageLabels[tokens[1]] = v
+		}
+	}
+	return nuageLabels
 }

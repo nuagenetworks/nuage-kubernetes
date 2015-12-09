@@ -57,6 +57,10 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 		"", "VSD License File Path")
 	flagSet.StringVar(&nkm.mConfig.ConfigFile, "config",
 		"", "Configuration file for nuagekubemon.  If this argument is specified, all other commandline arguments will be ignored.")
+	flagSet.StringVar(&nkm.mConfig.EnterpriseName, "enterprise",
+		"K8S-Enterprise", "Enterprise in which the OpenShift containers will reside")
+	flagSet.StringVar(&nkm.mConfig.DomainName, "domain",
+		"K8S-Domain", "Domain in which the OpenShift containers will reside")
 	// Set the values for log_dir and logtostderr.  Because this happens before
 	// flag.Parse(), cli arguments will override these.  Also set the DefValue
 	// parameter so -help shows the new defaults.
@@ -102,8 +106,10 @@ func (nkm *NuageKubeMonitor) Run() {
 	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)
 	stop := make(chan bool)
 	nsEventChannel := make(chan *api.NamespaceEvent)
-	go nkm.mOsClient.Run(nsEventChannel, stop)
-	go nkm.mVsdClient.Run(nsEventChannel, stop)
+	serviceEventChannel := make(chan *api.ServiceEvent)
+	go nkm.mOsClient.RunNamespaceWatcher(nsEventChannel, stop)
+	go nkm.mOsClient.RunServiceWatcher(serviceEventChannel, stop)
+	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, stop)
 	//go nkm.mOsNodeClient.Run()
 	select {}
 }

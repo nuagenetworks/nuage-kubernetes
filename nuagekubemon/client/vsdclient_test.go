@@ -20,8 +20,6 @@
 package client
 
 import (
-	"errors"
-	"fmt"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"testing"
 )
@@ -30,17 +28,12 @@ func deleteEnterprise(t *testing.T, vsdClient *NuageVsdClient, id string) error 
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
 	resp, err := vsdClient.session.Delete(vsdClient.url+"enterprises/"+
-		id+"?responseChoice=1", &result, &e)
+		id+"?responseChoice=1", nil, &result, &e)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.Status() != 204 {
-		t.Error("Bad response status from VSD Server when deleting enterprise")
-		t.Errorf("\t Status:  %v\n", resp.Status())
-		t.Errorf("\t Message: %v\n", e.Message)
-		t.Errorf("\t Errors: %v\n", e.Message)
-		return errors.New("Unexpected error code: " +
-			fmt.Sprintf("%v", resp.Status()))
+		return VsdErrorResponse(resp, &e)
 	}
 	return nil
 }
@@ -120,10 +113,7 @@ func TestCreateAdminUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.Status() != 200 {
-		t.Errorf("\t Status:  %v\n", resp.Status())
-		t.Errorf("\t Message: %v\n", e.Message)
-		t.Errorf("\t Errors: %v\n", e.Message)
-		t.Fatal("Bad response status from VSD Server")
+		VsdErrorResponse(resp, &e)
 	}
 	if result[0].ID != adminID {
 		t.Fatal("Admin not in ORGADMIN group!")
