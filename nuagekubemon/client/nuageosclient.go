@@ -70,7 +70,7 @@ func (nosc *NuageOsClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nosc.kubeClient = kubeClient
 }
 
-func (nosc *NuageOsClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
+func (nosc *NuageOsClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent) {
 	//we will use the kube client APIs than interfacing with the REST API
 	nsList, err := nosc.GetNamespaces()
 	if err != nil {
@@ -80,10 +80,6 @@ func (nosc *NuageOsClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEven
 	for _, ns := range *nsList {
 		nsChannel <- ns
 	}
-	nosc.WatchNamespaces(nsChannel, stop)
-}
-
-func (nosc *NuageOsClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
 	//we will use the kube client APIs than interfacing with the REST API
 	serviceList, err := nosc.GetServices()
 	if err != nil {
@@ -93,6 +89,13 @@ func (nosc *NuageOsClient) RunServiceWatcher(serviceChannel chan *api.ServiceEve
 	for _, service := range *serviceList {
 		serviceChannel <- service
 	}
+}
+
+func (nosc *NuageOsClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
+	nosc.WatchNamespaces(nsChannel, stop)
+}
+
+func (nosc *NuageOsClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
 	nosc.WatchServices(serviceChannel, stop)
 }
 

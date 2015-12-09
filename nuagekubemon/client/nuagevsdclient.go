@@ -29,6 +29,7 @@ import (
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -608,6 +609,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 		Name:              "Auto-generated Ingress Policies",
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
+		Active:            true,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(
@@ -650,6 +652,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 		Name:              "Auto-generated Egress Policies",
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
+		Active:            true,
 	}
 	e := api.RESTError{}
 
@@ -846,10 +849,11 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
-		Name:        name,
-		Description: "Auto-generated for OpenShift containers",
-		TemplateID:  domainTemplateID,
-		PATEnabled:  api.PATEnabled,
+		Name:            name,
+		Description:     "Auto-generated for OpenShift containers",
+		TemplateID:      domainTemplateID,
+		PATEnabled:      api.PATEnabled,
+		UnderlayEnabled: api.PATEnabled,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
@@ -1086,32 +1090,29 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		//default to using the validated zone's network macro group; if no specific labels are present.
 		if nmgID == "" {
 			nmgID = nvsdc.namespaces[zone].NetworkMacroGroupID
+			//if we don't have a cached version, get the ID from the VSD
+			if nmgID == "" {
+				nmgID, err = nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, "Service Group For Zone - "+zone)
+				if err != nil {
+					glog.Error("Failed to get Network Macro Group ID: ", err)
+				}
+			}
 		}
-
-		networkMacro := &api.VsdNetworkMacro{Name: `NetworkMacro for service: ` + serviceEvent.Namespace + "/" + serviceEvent.Name, IPType: "IPV4",
-			Address: serviceEvent.ClusterIP, Netmask: "255.255.255.255"}
+		networkMacro := &api.VsdNetworkMacro{
+			Name:    `NetworkMacro for service ` + serviceEvent.Namespace + "--" + serviceEvent.Name,
+			IPType:  "IPV4",
+			Address: serviceEvent.ClusterIP,
+			Netmask: "255.255.255.255",
+		}
 		networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
 		if err != nil {
 			glog.Error("Error when creating the network macro for service", serviceEvent)
 		} else {
 			//add the network macro to the cached datastructure and also to the network macro group obtained via labels/default group
 			nvsdc.namespaces[serviceEvent.Namespace].NetworkMacros[serviceEvent.Name] = networkMacroID
-			nmgPayload := []string{networkMacroID}
-			e := api.RESTError{}
-			resp, err := nvsdc.session.Put(nvsdc.url+"networkmacrogroups/"+nmgID+"/enterprisenetworks", &nmgPayload, nil, &e)
+			err = nvsdc.AddNetworkMacroToNMG(nmgID, networkMacroID)
 			if err != nil {
-				glog.Error("Error when adding network macro to the network macro group", err)
-				return err
-			} else {
-				glog.Infoln("Got a reponse status", resp.Status(), "when adding network macro to the network macro group")
-				switch resp.Status() {
-				case 204:
-					glog.Infoln("Added the network macro to the network macro group")
-				case 409:
-					glog.Infoln("Network macro already present in network macro group")
-				default:
-					return VsdErrorResponse(resp, &e)
-				}
+				glog.Error("Error when adding network macro to network macro group:", err)
 			}
 		}
 	case api.Deleted:
@@ -1379,12 +1380,10 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating network macro group")
 	switch resp.Status() {
 	case 201:
-		glog.Infoln("Created the network macro group: ", result[0].ID)
 		return result[0].ID, nil
 	case 409:
 		//Network Macro Group already exists, call Get to retrieve the ID
-		nmgName := "Service Group For Zone - " + zoneName
-		id, err := nvsdc.GetNetworkMacroGroupID(enterpriseID, nmgName)
+		id, err := nvsdc.GetNetworkMacroGroupID(enterpriseID, payload.Name)
 		if err != nil {
 			glog.Errorf("Error when getting network macro group ID for zone: %s - %s", zoneName, err)
 			return "", err
@@ -1551,7 +1550,6 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacr
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating network macro")
 	switch resp.Status() {
 	case 201:
-		glog.Infoln("Created the network macro: ", result[0].ID)
 		return result[0].ID, nil
 	case 409:
 		//Network Macro already exists, call Get to retrieve the ID
@@ -1572,7 +1570,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacro
 	h.Add("X-Nuage-Filter", `name == "`+networkMacro.Name+`" and IPType =="`+networkMacro.IPType+`" and address == "`+networkMacro.Address+
 		`" and netmask == "`+networkMacro.Netmask+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/networkmacros", nil, &result, &e)
+	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting network macro ID for network macro: %v - %v", networkMacro, err)
@@ -1613,6 +1611,67 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	default:
 		return VsdErrorResponse(resp, &e)
 	}
+}
+
+func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroGroupID, networkMacroID string) error {
+	result := make([]api.VsdObject, 0, 100)
+	e := api.RESTError{}
+	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
+	page := 0
+	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
+	// guarantee that the headers are cleared so that we don't change the
+	// behavior of other functions
+	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
+	defer nvsdc.session.Header.Del("X-Nuage-Page")
+	networkMacroIDList := []string{networkMacroID}
+	for {
+		resp, err := nvsdc.session.Get(nvsdc.url+"networkmacrogroups/"+
+			networkMacroGroupID+"/enterprisenetworks", nil, &result, &e)
+		if err != nil {
+			glog.Errorf("Error when deleting network macro with ID %s: %s", networkMacroID, err)
+			return err
+		}
+		// Using if...else here instead of switch because you can't use 'break'
+		// inside the switch to break from the infinite for-loop
+		if resp.Status() == 204 || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
+			break
+		} else if resp.Status() == 200 {
+			// The response contains a list of network macros.  Add them to the
+			// list
+			for _, networkMacro := range result {
+				if networkMacro.ID == networkMacroID {
+					// The network macro we're trying to add already exists.  No
+					// REST call is necessary.
+					return nil
+				}
+				networkMacroIDList = append(networkMacroIDList, networkMacro.ID)
+			}
+			// Increment the page number for the next call
+			page++
+			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
+		} else {
+			// Something went wrong
+			return VsdErrorResponse(resp, &e)
+		}
+	}
+	nvsdc.session.Header.Del("X-Nuage-PageSize")
+	nvsdc.session.Header.Del("X-Nuage-Page")
+	resp, err := nvsdc.session.Put(nvsdc.url+"networkmacrogroups/"+
+		networkMacroGroupID+"/enterprisenetworks", &networkMacroIDList, nil, &e)
+	if err != nil {
+		glog.Error("Error when adding network macro to the network macro group", err)
+		return err
+	} else {
+		glog.Infoln("Got a reponse status", resp.Status(),
+			"when adding network macro to the network macro group")
+		switch resp.Status() {
+		case 204:
+			glog.Infoln("Added the network macro to the network macro group")
+		default:
+			return VsdErrorResponse(resp, &e)
+		}
+	}
+	return nil
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
