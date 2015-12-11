@@ -109,6 +109,14 @@ func (a *IPv4Subnet) Compare(b *IPv4Subnet) int {
 	return int((a.Address[index] & mask) - (b.Address[index] & mask))
 }
 
+func (a *IPv4Subnet) Contains(b *IPv4Subnet) bool {
+	if a.CIDRMask > b.CIDRMask {
+		// if a is smaller than b (e.g. a is /24, but b is /16), a can't contain b
+		return false
+	}
+	return a.Compare(&IPv4Subnet{Address: b.Address, CIDRMask: a.CIDRMask}) == 0
+}
+
 func CanMerge(a, b *IPv4Subnet) bool {
 	// We can't merge the /0 address space.
 	if a.CIDRMask <= 0 || b.CIDRMask <= 0 {
@@ -181,6 +189,84 @@ func (pool *IPv4SubnetPool) Alloc(size int) (*IPv4Subnet, error) {
 		return nil, err
 	}
 	return loSubnet, nil
+}
+
+/* Attempt to allocate a specific subnet from the pool.  If the subnet is not
+ * available, return an error.
+ */
+func (pool *IPv4SubnetPool) AllocSpecific(subnet *IPv4Subnet) error {
+	// If the subnet is available without splitting anything, just remove it
+	// from the list and return
+	if pool[subnet.CIDRMask] != nil {
+		node := pool[subnet.CIDRMask]
+		// If the subnet is the first item in the list, removing it requires a
+		// special case
+		if node.subnet.Compare(subnet) == 0 {
+			pool[subnet.CIDRMask] = node.next
+			return nil
+		} else {
+			// If the subnet was not the first item, traverse the list until
+			// it's found or there are no items remaining
+			for prev, curr := node, node.next; curr != nil; prev, curr = curr, curr.next {
+				if curr.subnet.Compare(subnet) == 0 {
+					// If we found it, remove the subnet from the list (and let
+					// go GC it)
+					prev.next = curr.next
+					return nil
+				}
+			}
+		}
+	}
+	// Walk the pool until you find the subnet that contains the intended
+	// subnet, then split it until the intended subnet is found.
+	size := subnet.CIDRMask - 1
+	var bigSubnet *IPv4Subnet
+	for size >= 0 && bigSubnet != nil {
+		if pool[size] != nil {
+			if pool[size].subnet.Contains(subnet) {
+				// If we found the containing subnet, remove it from the list
+				bigSubnet = pool[size].subnet
+				pool[size] = pool[size].next
+			} else {
+				for prev, curr := pool[size], pool[size].next; curr != nil; prev, curr = curr, curr.next {
+					if curr.subnet.Contains(subnet) {
+						// If we found the containing subnet, remove it from the list
+						bigSubnet = curr.subnet
+						prev.next = curr.next
+						// Then stop traversing the list
+						break
+					}
+				}
+			}
+		}
+		size--
+	}
+	if bigSubnet != nil {
+		// If we found the subnet during the previous loop, split it until we
+		// get the exact subnet we're looking for (and return other subnets to
+		// the pool along the way)
+		for bigSubnet.Compare(subnet) != 0 && bigSubnet.CIDRMask < subnet.CIDRMask {
+			loSubnet, hiSubnet, err := bigSubnet.Split()
+			if err != nil {
+				// If we hit an error, return the entire subnet to the pool,
+				// then abort
+				pool.Free(bigSubnet)
+				return errors.New("Subnet " + subnet.String() +
+					" not found in pool")
+			}
+			if loSubnet.Contains(subnet) {
+				bigSubnet = loSubnet
+				pool.Free(hiSubnet)
+			} else {
+				bigSubnet = hiSubnet
+				pool.Free(loSubnet)
+			}
+		}
+		if bigSubnet.Compare(subnet) == 0 {
+			return nil
+		}
+	}
+	return errors.New("Subnet " + subnet.String() + " not found in pool")
 }
 
 /* When freeing a subnet, first the pool should be checked for another subnet

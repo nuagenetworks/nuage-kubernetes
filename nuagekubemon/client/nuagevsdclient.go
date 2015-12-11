@@ -967,10 +967,15 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 	case 201:
 		glog.Infoln("Created the subnet:", result[0].ID)
 	case 409:
-		//Subnet already exists, call Get to retrieve the ID
-		if id, err := nvsdc.GetSubnetID(zoneID, subnet); err != nil {
-			glog.Errorf("Error when getting subnet ID: %s", err)
-			return "", err
+		// Subnet already exists, call Get to retrieve the ID
+		if id, err := nvsdc.GetSubnetID(zoneID, name); err != nil {
+			if e.InternalErrorCode == 2504 {
+				// The network is overlapping with an existing one
+				return "", errors.New("Overlapping Subnet")
+			} else {
+				glog.Errorf("Error when getting subnet ID: %s", err)
+				return "", err
+			}
 		} else {
 			return id, nil
 		}
@@ -995,22 +1000,30 @@ func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) GetSubnetID(zoneID string, subnet *IPv4Subnet) (string, error) {
+func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubnet, error) {
 	result := make([]api.VsdSubnet, 1)
 	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `address == "`+subnet.Address.String()+`"`)
+	h.Add("X-Nuage-Filter", `name == "`+subnetName+`"`)
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Get(nvsdc.url+"zones/"+zoneID+"/subnets", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting subnet ID %s", err)
-		return "", err
+		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting subnet ID")
-	if resp.Status() == 200 && result[0].Address == subnet.Address.String() {
-		return result[0].ID, nil
+	if resp.Status() == 200 && result[0].Name == subnetName {
+		return &result[0], nil
 	} else {
-		return "", VsdErrorResponse(resp, &e)
+		return nil, VsdErrorResponse(resp, &e)
+	}
+}
+
+func (nvsdc *NuageVsdClient) GetSubnetID(zoneID, subnetName string) (string, error) {
+	if vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName); err == nil {
+		return vsdSubnet.ID, nil
+	} else {
+		return "", err
 	}
 }
 
@@ -1153,13 +1166,28 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			if err != nil {
 				return err
 			}
-			subnetID, err := nvsdc.CreateSubnet(nsEvent.Name+"-0", zoneID, subnet)
-			if err != nil {
-				nvsdc.pool.Free(subnet)
-				return err
-			} else {
-				nvsdc.subnets[zoneID] = &SubnetList{SubnetID: subnetID, Subnet: subnet, Next: nil}
+			var subnetID string
+			for {
+				subnetID, err = nvsdc.CreateSubnet(nsEvent.Name+"-0", zoneID, subnet)
+				if err == nil {
+					break
+				} else if err.Error() == "Overlapping Subnet" {
+					// If the error was "Overlapping Subnet," get a new subnet
+					// and retry
+					subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+					if err != nil {
+						return errors.New(
+							"Error getting subnet for allocation: " +
+								err.Error())
+					}
+				} else {
+					// Only free the subnet if it wasn't overlapping so that it
+					// doesn't get tried again
+					nvsdc.pool.Free(subnet)
+					return err
+				}
 			}
+			nvsdc.subnets[zoneID] = &SubnetList{SubnetID: subnetID, Subnet: subnet, Next: nil}
 			if nsEvent.Name == "default" {
 				err = nvsdc.CreateDefaultZoneAcls(zoneID)
 				if err != nil {
