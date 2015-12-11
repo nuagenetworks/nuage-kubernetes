@@ -134,7 +134,7 @@ type VsdAclTemplate struct {
 }
 
 type VsdAclEntry struct {
-	DSCP         string
+	DSCP         string `json:"DSCP,omitempty"`
 	ID           string
 	Action       string `json:"action"`
 	Description  string `json:"description"`
