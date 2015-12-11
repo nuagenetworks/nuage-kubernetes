@@ -93,7 +93,7 @@ type VsdSubnet struct {
 	Netmask         string `json:"netmask"`
 	Description     string `json:"description"`
 	PATEnabled      string
-	UnderlayEnabled string `json:"underlayEnabled"`
+	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
 }
 
 // Generic VSD object. Most json objects returned by the VSD REST API will fit
@@ -110,7 +110,7 @@ type VsdDomain struct {
 	Description     string `json:"description"`
 	TemplateID      string `json:"templateID"`
 	PATEnabled      string
-	UnderlayEnabled string `json:"underlayEnabled"`
+	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
 }
 
 type VsdAuthToken struct {
@@ -130,6 +130,7 @@ type VsdAclTemplate struct {
 	Name              string `json:"name"`
 	DefaultAllowIP    bool   `json:"defaultAllowIP"`
 	DefaultAllowNonIP bool   `json:"defaultAllowNonIP"`
+	Active            bool   `json:"active"`
 }
 
 type VsdAclEntry struct {

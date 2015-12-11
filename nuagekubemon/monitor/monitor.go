@@ -107,9 +107,10 @@ func (nkm *NuageKubeMonitor) Run() {
 	stop := make(chan bool)
 	nsEventChannel := make(chan *api.NamespaceEvent)
 	serviceEventChannel := make(chan *api.ServiceEvent)
+	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, stop)
+	nkm.mOsClient.GetExistingEvents(nsEventChannel, serviceEventChannel)
 	go nkm.mOsClient.RunNamespaceWatcher(nsEventChannel, stop)
 	go nkm.mOsClient.RunServiceWatcher(serviceEventChannel, stop)
-	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, stop)
 	//go nkm.mOsNodeClient.Run()
 	select {}
 }
