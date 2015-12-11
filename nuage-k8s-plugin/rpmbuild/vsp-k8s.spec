@@ -27,14 +27,14 @@ install -m 644 vsp-k8s.yaml.template  $RPM_BUILD_ROOT/usr/share/vsp-k8s/vsp-k8s.
 
 test -e /usr/share/openvswitch/scripts/vrs-platform-lib || exit 0
 . /usr/share/openvswitch/scripts/vrs-platform-lib
-add_platform lxc 
+add_platform k8s 
 
 %preun
 
 if [ "$1" = "0" ]; then     # $1 = 0 for uninstall
     test -e /usr/share/openvswitch/scripts/vrs-platform-lib || exit 0
     . /usr/share/openvswitch/scripts/vrs-platform-lib
-    remove_platform lxc 
+    remove_platform k8s 
 fi
 
 %clean
