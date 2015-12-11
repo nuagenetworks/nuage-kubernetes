@@ -131,11 +131,10 @@ type VsdAclTemplate struct {
 	DefaultAllowIP    bool   `json:"defaultAllowIP"`
 	DefaultAllowNonIP bool   `json:"defaultAllowNonIP"`
 	Active            bool   `json:"active"`
-	PolicyState       string `json:"policyState"`
 }
 
 type VsdAclEntry struct {
-	DSCP         string
+	DSCP         string `json:"DSCP,omitempty"`
 	ID           string
 	Action       string `json:"action"`
 	Description  string `json:"description"`
