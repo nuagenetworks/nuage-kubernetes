@@ -287,20 +287,28 @@ def _get_docker_core_version():
 
 
 def find_metadata(options, config):
-    podmeta = get_pod_metadata(options, config)
-    domain = config.get("domainName", "K8S-Domain")
+    domain = "K8S-Domain"
     domaintype = "L3"
-    network = podmeta['labels'].get('nuage.io/subnet',
-                                    options.namespace + '-0')
-    zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
-    user = podmeta['labels'].get('nuage.io/user', 'admin')
-    ent = config.get("enterpriseName", "K8S-Enterprise")
-    pg = podmeta.get('nuage.io/policy-group', None)
+    ent = "K8S-Enterprise"
+    pg = None
     delete_timer = 0
     staticip = None
     pid = None
     veth_host_if = None
     network_mode = None
+
+    if config is not None:
+        domain = config.get("domainName", "K8S-Domain")
+        ent = config.get("enterpriseName", "K8S-Enterprise")
+
+    podmeta = get_pod_metadata(options, config)
+
+    if podmeta is not None and 'labels' in podmeta:
+        network = podmeta['labels'].get('nuage.io/subnet',
+                                        options.namespace + '-0')
+        zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
+        user = podmeta['labels'].get('nuage.io/user', 'admin')
+        pg = podmeta['labels'].get('nuage.io/policy-group', None)
     try:
         get_pid = (("docker inspect --format \"{{.State.Pid}}\" ") +
                    (str(options.id)))
@@ -467,7 +475,7 @@ def get_veth_host_if(pid):
                  (" -- ethtool -S eth0 | sed -ne \'s/.*peer_ifindex: //p\'"))
     if_index = subprocess.check_output([get_ifidx], shell=True).strip()
     veth_host_if = (("ip link show | sed -ne \"s/^" + str(if_index)) +
-                    (": \([^:@]*\).*/\\1/p\""))
+                    (r': \([^:@]*\).*/\1/p"'))
     return subprocess.check_output([veth_host_if], shell=True).strip()
 
 
@@ -558,29 +566,30 @@ def signal_handle(sig_num, frame):
 
 
 def get_pod_metadata(options, config):
-    response = requests.get('https://%s:10250/pods' % socket.gethostname(),
-                            cert=(config.get('clientCert', CERT),
-                                  config.get('clientKey', KEY)),
-                            verify=config.get('CACert', CA_CERT))
-    if response.status_code != 200 or response.json()['kind'] != 'PodList' or\
-            response.json()['items'] is None:
-        return None
-    for pod in response.json()['items']:
-        if pod['metadata']['name'] == options.name and \
-                pod['metadata']['namespace'] == options.namespace:
-            return pod['metadata']
+    if config is not None:
+        response = requests.get('https://%s/api/v1/namespaces/%s/pods/%s' %
+                                (config.get('masterApiServer',
+                                            "localhost:8443"),
+                                 options.namespace, options.name),
+                                cert=(config.get('clientCert', CERT),
+                                      config.get('clientKey', KEY)),
+                                verify=config.get('CACert', CA_CERT))
+        if response.status_code != 200 or response.json()['kind'] != 'Pod' or\
+           response.json()['metadata'] is None:
+            return None
+        return response.json()['metadata']
     return None
 
 
 def read_configfile():
     config = None
-    configfile = '/usr/share/nuagekubemon/nuagekubemon.yaml'
+    configfile = '/usr/share/vsp-k8s/vsp-k8s.yaml'
     if os.path.isfile(configfile):
         with open(configfile, 'r') as config_stream:
             try:
                 config = yaml.load(config_stream)
             except yaml.YAMLError:
-                # Log something here?
+                vlog.err("Cannot read from the config YAML")
                 return None
     return config
 

@@ -1,12 +1,14 @@
 # The client certificate for 'system:nodes:<node-name>', where <node-name> is
 # the hostname of the local system
-clientCert: /usr/share/nuagekubemon/client.crt
+clientCert: /usr/share/vsp-k8s/client.crt
 # The key to the certificate in clientCert above
-clientKey: /usr/share/nuagekubemon/client.key
+clientKey: /usr/share/vsp-k8s/client.key
 # The certificate authority's certificate for the local kubelet.  Usually the
 # same as the CA cert used to create the client Cert/Key pair.
-CACert: /usr/share/nuagekubemon/ca.crt
+CACert: /usr/share/vsp-k8s/ca.crt
 # Name of the enterprise in which pods will reside
 enterpriseName: "K8S-Enterprise"
 # Name of the domain in which pods will reside
 domainName: "K8S-Domain"
+# IP address and port number of master API server
+masterApiServer: "127.0.0.1:8443"
