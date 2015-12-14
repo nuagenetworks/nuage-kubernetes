@@ -1053,8 +1053,12 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting subnet ID")
-	if resp.Status() == 200 && result[0].Name == subnetName {
-		return &result[0], nil
+	if resp.Status() == 200 {
+		if result[0].Name == subnetName {
+			return &result[0], nil
+		} else {
+			return nil, errors.New("Subnet not found")
+		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
 	}
@@ -1199,34 +1203,64 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			if err != nil {
 				return err
 			}
-			nvsdc.namespaces[nsEvent.Name] = NamespaceData{ZoneID: zoneID, NetworkMacros: make(map[string]string)}
-			// subnetSize is guaranteed to be between 0 and 32 (inclusive) by
-			// the Init() function defined above, so (32 - subnetSize) will
-			// also produce a number between 0 and 32 (inclusive).
-			subnet, err := nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
-			if err != nil {
-				return err
+			nvsdc.namespaces[nsEvent.Name] = NamespaceData{
+				ZoneID:        zoneID,
+				NetworkMacros: make(map[string]string),
 			}
 			var subnetID string
-			for {
-				subnetID, err = nvsdc.CreateSubnet(nsEvent.Name+"-0", zoneID, subnet)
-				if err == nil {
-					break
-				} else if err.Error() == "Overlapping Subnet" {
-					// If the error was "Overlapping Subnet," get a new subnet
-					// and retry
+			var subnet *IPv4Subnet
+			// Check if subnet already exists
+			vsdSubnet, err := nvsdc.GetSubnet(zoneID, nsEvent.Name+"-0")
+			if err != nil {
+				// If it didn't exist, allocate an appropriate subnet, then
+				// create it
+				if err.Error() == "Subnet not found" {
+					// subnetSize is guaranteed to be between 0 and 32
+					// (inclusive) by the Init() function defined above, so
+					// (32 - subnetSize) will also produce a number between 0
+					// and 32 (inclusive)
 					subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
 					if err != nil {
-						return errors.New(
-							"Error getting subnet for allocation: " +
-								err.Error())
+						return err
+					}
+					for {
+						subnetID, err = nvsdc.CreateSubnet(nsEvent.Name+"-0",
+							zoneID, subnet)
+						if err == nil {
+							break
+						} else if err.Error() == "Overlapping Subnet" {
+							// If the error was "Overlapping Subnet," get a new
+							// subnet and retry
+							subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+							if err != nil {
+								return errors.New(
+									"Error getting subnet for allocation: " +
+										err.Error())
+							}
+						} else {
+							// Only free the subnet if it wasn't overlapping so
+							// that overlapping subnets are not retried
+							nvsdc.pool.Free(subnet)
+							return err
+						}
 					}
 				} else {
-					// Only free the subnet if it wasn't overlapping so that it
-					// doesn't get tried again
-					nvsdc.pool.Free(subnet)
+					// There was an error, but it wasn't "Subnet not found".
+					// Abort with that error.
 					return err
 				}
+			} else {
+				// If it exists, remove the subnet allocated to it from the pool
+				subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
+					vsdSubnet.Netmask)
+				if err != nil {
+					return err
+				}
+				err = nvsdc.pool.AllocSpecific(subnet)
+				if err != nil {
+					return err
+				}
+				subnetID = vsdSubnet.ID
 			}
 			nvsdc.subnets[zoneID] = &SubnetList{SubnetID: subnetID, Subnet: subnet, Next: nil}
 			if nsEvent.Name == "default" {
@@ -1244,6 +1278,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			}
 			return nil
 		}
+		// else (nvsdc.namespaces[nsEvent.Name] exists)
 		id, err := nvsdc.GetZoneID(nvsdc.domainID, nsEvent.Name)
 		switch {
 		case id == "" && err == nil:
@@ -1266,7 +1301,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					return err
 				}
 			}
-			nvsdc.namespaces[nsEvent.Name] = NamespaceData{ZoneID: id, NetworkMacros: make(map[string]string)}
+			nvsdc.namespaces[nsEvent.Name] = NamespaceData{
+				ZoneID:        id,
+				NetworkMacros: make(map[string]string),
+			}
 			return nil
 		}
 	case api.Deleted:
