@@ -195,7 +195,7 @@ func (lhs *VsdAclEntry) IsEqual(rhs *VsdAclEntry) bool {
 func (lhs *VsdAclEntry) BuildFilter() string {
 	filter := ""
 	if lhs.DSCP != "" {
-		dscpClause := `dscp == "` + lhs.DSCP + `"`
+		dscpClause := `DSCP == "` + lhs.DSCP + `"`
 		filter = dscpClause
 	}
 	if lhs.Action != "" {
@@ -207,7 +207,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.EntityScope != "" {
-		entityScopeClause := `entityscope == "` + lhs.EntityScope + `"`
+		entityScopeClause := `entityScope == "` + lhs.EntityScope + `"`
 		if filter != "" {
 			filter = filter + ` and ` + entityScopeClause
 		} else {
@@ -215,7 +215,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.EtherType != "" {
-		etherTypeClause := `ethertype == "` + lhs.EtherType + `"`
+		etherTypeClause := `etherType == "` + lhs.EtherType + `"`
 		if filter != "" {
 			filter = filter + ` and ` + etherTypeClause
 		} else {
@@ -223,7 +223,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.LocationID != "" {
-		locationIDClause := `locationid == "` + lhs.LocationID + `"`
+		locationIDClause := `locationID == "` + lhs.LocationID + `"`
 		if filter != "" {
 			filter = filter + ` and ` + locationIDClause
 		} else {
@@ -231,7 +231,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.LocationType != "" {
-		locationTypeClause := `locationtype == "` + lhs.LocationType + `"`
+		locationTypeClause := `locationType == "` + lhs.LocationType + `"`
 		if filter != "" {
 			filter = filter + ` and ` + locationTypeClause
 		} else {
@@ -239,7 +239,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.NetworkID != "" {
-		networkIDClause := `networkid == "` + lhs.NetworkID + `"`
+		networkIDClause := `networkID == "` + lhs.NetworkID + `"`
 		if filter != "" {
 			filter = filter + ` and ` + networkIDClause
 		} else {
@@ -247,7 +247,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.NetworkType != "" {
-		networkTypeClause := `networktype == "` + lhs.NetworkType + `"`
+		networkTypeClause := `networkType == "` + lhs.NetworkType + `"`
 		if filter != "" {
 			filter = filter + ` and ` + networkTypeClause
 		} else {
@@ -255,7 +255,7 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 		}
 	}
 	if lhs.PolicyState != "" {
-		policyStateClause := `policystate == "` + lhs.PolicyState + `"`
+		policyStateClause := `policyState == "` + lhs.PolicyState + `"`
 		if filter != "" {
 			filter = filter + ` and ` + policyStateClause
 		} else {
