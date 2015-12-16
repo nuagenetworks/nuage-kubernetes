@@ -28,6 +28,7 @@ import (
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/client"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
 	"io/ioutil"
+	"log"
 )
 
 type NuageKubeMonitor struct {
@@ -70,6 +71,7 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 	logtostderr := flagSet.Lookup("logtostderr")
 	logtostderr.Value.Set("false")
 	logtostderr.DefValue = "false"
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
 func (nkm *NuageKubeMonitor) LoadConfig() error {
