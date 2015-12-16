@@ -260,7 +260,7 @@ def update_ip(nuage_uuid, port, pid, limit=200):
     add_gw = "nsenter -n -t %s -- ip route add default via %s" % (pid, gw)
     try:
         subprocess.call([remove_docker_ip], shell=True)
-        vlog.dbg(("""Removed IP address assigned by docker0 to the pod """
+        vlog.dbg(("""Removed IP address assigned by docker to the pod """
                   """ with UUID %s""") % nuage_uuid)
         subprocess.call([assign_ip], shell=True)
         vlog.dbg("Assigned IP address of %s/%s to pod with UUID %s"
@@ -488,7 +488,7 @@ def setup(options, sock):
     # TODO: once we have the node client, check the namespace exists in VSD
     # we will be given a veth pair at this point.
     # given the UUID, find the veth on the host side.
-    # remove the veth from the docker0 bridge.
+    # remove the veth from the docker bridge.
     # use it's mac to add to the alubr0 and send the
     # xml with the default domain and zone to the VRS.
     # wait to get an IP assigned to the vport and
@@ -515,7 +515,8 @@ def pod_hook(options, sock, setup=True):
             sys.exit(0)
         else:
             if setup:
-                del_from_docker_br = (("brctl delif docker0 ") +
+                del_from_docker_br = (("brctl delif %s ") % 
+                                      config.get('dockerBridgeName', "docker0") + 
                                       (metadata['veth_host_if']))
                 subprocess.call([del_from_docker_br], shell=True)
                 attach_port(metadata, sock)

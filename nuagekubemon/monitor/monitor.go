@@ -103,6 +103,11 @@ func (nkm *NuageKubeMonitor) Run() {
 		glog.Fatalf("Error reading config file %s! Error: %v\n",
 			nkm.mConfig.ConfigFile, err)
 	}
+	if nkm.mConfig.KubeConfigFile == "" {
+		glog.Error(`No valid kubeconfig file specified...nuagekubemon cannot continue.`)
+		glog.Error(`Please restart nuagekubemon after specifying a valid kubeconfig path either in the config file or as a command line parameter`)
+		return
+	}
 	nkm.mOsClient = client.NewNuageOsClient(&(nkm.mConfig))
 	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig))
 	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)

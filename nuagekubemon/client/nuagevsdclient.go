@@ -767,6 +767,7 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 	result := make([]api.VsdAclEntry, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", aclEntry.BuildFilter())
+	glog.Infoln("Build filter is set to", aclEntry.BuildFilter())
 	e := api.RESTError{}
 	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
 	if ingress {
@@ -783,11 +784,13 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
-		if result[0].IsEqual(aclEntry) {
+		if aclEntry.IsEqual(&result[0]) {
 			return &result[0], nil
 		} else if result[0].ID == "" {
+			glog.Error("Acl Entry not found")
 			return nil, errors.New("ACL entry not found")
 		} else {
+			glog.Error("Found an ACL entry that doesn't match the requested one")
 			return nil, errors.New(fmt.Sprintf("Found ACL entry %v instead of %v", &result[0], aclEntry))
 		}
 	} else {
@@ -1053,8 +1056,12 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting subnet ID")
-	if resp.Status() == 200 && result[0].Name == subnetName {
-		return &result[0], nil
+	if resp.Status() == 200 {
+		if result[0].Name == subnetName {
+			return &result[0], nil
+		} else {
+			return nil, errors.New("Subnet not found")
+		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
 	}
@@ -1199,34 +1206,64 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			if err != nil {
 				return err
 			}
-			nvsdc.namespaces[nsEvent.Name] = NamespaceData{ZoneID: zoneID, NetworkMacros: make(map[string]string)}
-			// subnetSize is guaranteed to be between 0 and 32 (inclusive) by
-			// the Init() function defined above, so (32 - subnetSize) will
-			// also produce a number between 0 and 32 (inclusive).
-			subnet, err := nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
-			if err != nil {
-				return err
+			nvsdc.namespaces[nsEvent.Name] = NamespaceData{
+				ZoneID:        zoneID,
+				NetworkMacros: make(map[string]string),
 			}
 			var subnetID string
-			for {
-				subnetID, err = nvsdc.CreateSubnet(nsEvent.Name+"-0", zoneID, subnet)
-				if err == nil {
-					break
-				} else if err.Error() == "Overlapping Subnet" {
-					// If the error was "Overlapping Subnet," get a new subnet
-					// and retry
+			var subnet *IPv4Subnet
+			// Check if subnet already exists
+			vsdSubnet, err := nvsdc.GetSubnet(zoneID, nsEvent.Name+"-0")
+			if err != nil {
+				// If it didn't exist, allocate an appropriate subnet, then
+				// create it
+				if err.Error() == "Subnet not found" {
+					// subnetSize is guaranteed to be between 0 and 32
+					// (inclusive) by the Init() function defined above, so
+					// (32 - subnetSize) will also produce a number between 0
+					// and 32 (inclusive)
 					subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
 					if err != nil {
-						return errors.New(
-							"Error getting subnet for allocation: " +
-								err.Error())
+						return err
+					}
+					for {
+						subnetID, err = nvsdc.CreateSubnet(nsEvent.Name+"-0",
+							zoneID, subnet)
+						if err == nil {
+							break
+						} else if err.Error() == "Overlapping Subnet" {
+							// If the error was "Overlapping Subnet," get a new
+							// subnet and retry
+							subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+							if err != nil {
+								return errors.New(
+									"Error getting subnet for allocation: " +
+										err.Error())
+							}
+						} else {
+							// Only free the subnet if it wasn't overlapping so
+							// that overlapping subnets are not retried
+							nvsdc.pool.Free(subnet)
+							return err
+						}
 					}
 				} else {
-					// Only free the subnet if it wasn't overlapping so that it
-					// doesn't get tried again
-					nvsdc.pool.Free(subnet)
+					// There was an error, but it wasn't "Subnet not found".
+					// Abort with that error.
 					return err
 				}
+			} else {
+				// If it exists, remove the subnet allocated to it from the pool
+				subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
+					vsdSubnet.Netmask)
+				if err != nil {
+					return err
+				}
+				err = nvsdc.pool.AllocSpecific(subnet)
+				if err != nil {
+					return err
+				}
+				subnetID = vsdSubnet.ID
 			}
 			nvsdc.subnets[zoneID] = &SubnetList{SubnetID: subnetID, Subnet: subnet, Next: nil}
 			if nsEvent.Name == "default" {
@@ -1238,12 +1275,13 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			} else {
 				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, zoneID)
 				if err != nil {
-					glog.Error("Got an error when creating zone specific ACLs", nsEvent.Name)
+					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
 					return err
 				}
 			}
 			return nil
 		}
+		// else (nvsdc.namespaces[nsEvent.Name] exists)
 		id, err := nvsdc.GetZoneID(nvsdc.domainID, nsEvent.Name)
 		switch {
 		case id == "" && err == nil:
@@ -1262,11 +1300,14 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			} else {
 				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, id)
 				if err != nil {
-					glog.Error("Got an error when creating zone specific ACLs", nsEvent.Name)
+					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
 					return err
 				}
 			}
-			nvsdc.namespaces[nsEvent.Name] = NamespaceData{ZoneID: id, NetworkMacros: make(map[string]string)}
+			nvsdc.namespaces[nsEvent.Name] = NamespaceData{
+				ZoneID:        id,
+				NetworkMacros: make(map[string]string),
+			}
 			return nil
 		}
 	case api.Deleted:
@@ -1281,7 +1322,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			} else {
 				err := nvsdc.DeleteSpecificZoneAcls(nsEvent.Name)
 				if err != nil {
-					glog.Error("Got an error when deleting network macro group for zone", nsEvent.Name)
+					glog.Error("Got an error when deleting network macro group for zone: ", nsEvent.Name)
 					return err
 				}
 			}
@@ -1344,6 +1385,7 @@ func (nvsdc *NuageVsdClient) CreateDefaultZoneAcls(zoneID string) error {
 	} else {
 		if nsd, exists := nvsdc.namespaces["default"]; exists {
 			nsd.NetworkMacroGroupID = nmgid
+			nvsdc.namespaces["default"] = nsd
 		} else {
 			nvsdc.namespaces["default"] = NamespaceData{ZoneID: zoneID, NetworkMacroGroupID: nmgid, NetworkMacros: make(map[string]string)}
 		}
@@ -1386,6 +1428,7 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 	} else {
 		if nsd, exists := nvsdc.namespaces[zoneName]; exists {
 			nsd.NetworkMacroGroupID = nmgid
+			nvsdc.namespaces[zoneName] = nsd
 		} else {
 			nvsdc.namespaces[zoneName] = NamespaceData{ZoneID: zoneID, NetworkMacroGroupID: nmgid, NetworkMacros: make(map[string]string)}
 		}
@@ -1515,89 +1558,94 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacroGroup(networkMacroGroupID string)
 
 func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	//add ingress and egress ACL entries for allowing zone to default zone communication
-	aclEntry := api.VsdAclEntry{
-		Action:       "FORWARD",
-		DSCP:         "*",
-		Description:  "Allow Traffic Between Zone - " + zoneName + " And Its Services",
-		EntityScope:  "ENTERPRISE",
-		EtherType:    "0x0800",
-		LocationID:   nvsdc.namespaces[zoneName].ZoneID,
-		LocationType: "ZONE",
-		NetworkID:    nvsdc.namespaces[zoneName].NetworkMacroGroupID,
-		NetworkType:  "NETWORK_MACRO_GROUP",
-		PolicyState:  "LIVE",
-		Protocol:     "ANY",
-		Reflexive:    false,
-	}
-	if acl, err := nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry); err == nil && acl != nil {
-		err = nvsdc.DeleteAclEntry(true, acl.ID)
-		if err != nil {
-			glog.Error("Error when deleting the ingress ACL rules for the zone: ", zoneName, aclEntry)
-			return err
-		}
-	} else {
-		glog.Error("Failed to get ingress acl entry to delete", aclEntry)
-		return err
-	}
-	if acl, err := nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry); err == nil && acl != nil {
-		err = nvsdc.DeleteAclEntry(false, acl.ID)
-		if err != nil {
-			glog.Error("Error when deleting the egress ACL rules for the zone: ", zoneName, aclEntry)
-			return err
-		}
-	} else {
-		glog.Error("Failed to get egress acl entry to delete", aclEntry)
-		return err
-	}
+	// aclEntry := api.VsdAclEntry{
+	// 	Action:       "FORWARD",
+	// 	DSCP:         "*",
+	// 	Description:  "Allow Traffic Between Zone - " + zoneName + " And Its Services",
+	// 	EntityScope:  "ENTERPRISE",
+	// 	EtherType:    "0x0800",
+	// 	LocationID:   nvsdc.namespaces[zoneName].ZoneID,
+	// 	LocationType: "ZONE",
+	// 	NetworkID:    nvsdc.namespaces[zoneName].NetworkMacroGroupID,
+	// 	NetworkType:  "NETWORK_MACRO_GROUP",
+	// 	PolicyState:  "LIVE",
+	// 	Protocol:     "ANY",
+	// 	Reflexive:    false,
+	// }
+	// if acl, err := nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry); err == nil && acl != nil {
+	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)
+	// 	if err != nil {
+	// 		glog.Error("Error when deleting the ingress ACL rules for the zone: ", zoneName, aclEntry)
+	// 		return err
+	// 	}
+	// } else {
+	// 	glog.Error("Failed to get ingress acl entry to delete", aclEntry)
+	// 	return err
+	// }
+	// if acl, err := nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry); err == nil && acl != nil {
+	// 	err = nvsdc.DeleteAclEntry(false, acl.ID)
+	// 	if err != nil {
+	// 		glog.Error("Error when deleting the egress ACL rules for the zone: ", zoneName, aclEntry)
+	// 		return err
+	// 	}
+	// } else {
+	// 	glog.Error("Failed to get egress acl entry to delete", aclEntry)
+	// 	return err
+	// }
+	glog.Info("Looking up zone specific network macro group")
 	if nvsdc.namespaces[zoneName].NetworkMacroGroupID != "" {
+		glog.Infof("Found zone specific network macro group with ID: %s for zone name: %s", nvsdc.namespaces[zoneName].NetworkMacroGroupID, zoneName)
 		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.namespaces[zoneName].NetworkMacroGroupID)
 		if err != nil {
-			glog.Error("Failed to delete network macro group for zone", zoneName)
+			glog.Error("Failed to delete network macro group for zone: ", zoneName)
 			return err
 		} else {
+			glog.Infof("Deleted network macro group with ID: %s for zone name: %s", nvsdc.namespaces[zoneName].NetworkMacroGroupID, zoneName)
 			if nsd, exists := nvsdc.namespaces[zoneName]; exists {
 				nsd.NetworkMacroGroupID = ""
+				nvsdc.namespaces[zoneName] = nsd
 			}
 		}
 	}
+	glog.Info("Succeeded in deleting the network macro group")
 	return nil
 }
 
 func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
-	aclEntry := api.VsdAclEntry{
-		Action:       "FORWARD",
-		DSCP:         "*",
-		Description:  "Allow Traffic Between All Zones and Default Zone",
-		EntityScope:  "ENTERPRISE",
-		EtherType:    "0x0800",
-		LocationID:   "",
-		LocationType: "ANY",
-		NetworkID:    nvsdc.namespaces["default"].NetworkMacroGroupID,
-		NetworkType:  "NETWORK_MACRO_GROUP",
-		PolicyState:  "LIVE",
-		Protocol:     "ANY",
-		Reflexive:    false,
-	}
-	if acl, err := nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry); err == nil && acl != nil {
-		err = nvsdc.DeleteAclEntry(true, acl.ID)
-		if err != nil {
-			glog.Error("Error when deleting the ingress ACL rules for the default zone", aclEntry)
-			return err
-		}
-	} else {
-		glog.Error("Failed to get ingress acl entry to delete", aclEntry)
-		return err
-	}
-	if acl, err := nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry); err == nil && acl != nil {
-		err = nvsdc.DeleteAclEntry(false, acl.ID)
-		if err != nil {
-			glog.Error("Error when deleting the egress ACL rules for the default zone", aclEntry)
-			return err
-		}
-	} else {
-		glog.Error("Failed to get egress acl entry to delete", aclEntry)
-		return err
-	}
+	// aclEntry := api.VsdAclEntry{
+	// 	Action:       "FORWARD",
+	// 	DSCP:         "*",
+	// 	Description:  "Allow Traffic Between All Zones and Default Zone",
+	// 	EntityScope:  "ENTERPRISE",
+	// 	EtherType:    "0x0800",
+	// 	LocationID:   "",
+	// 	LocationType: "ANY",
+	// 	NetworkID:    nvsdc.namespaces["default"].NetworkMacroGroupID,
+	// 	NetworkType:  "NETWORK_MACRO_GROUP",
+	// 	PolicyState:  "LIVE",
+	// 	Protocol:     "ANY",
+	// 	Reflexive:    false,
+	// }
+	// if acl, err := nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry); err == nil && acl != nil {
+	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)
+	// 	if err != nil {
+	// 		glog.Error("Error when deleting the ingress ACL rules for the default zone", aclEntry)
+	// 		return err
+	// 	}
+	// } else {
+	// 	glog.Error("Failed to get ingress acl entry to delete", aclEntry)
+	// 	return err
+	// }
+	// if acl, err := nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry); err == nil && acl != nil {
+	// 	err = nvsdc.DeleteAclEntry(false, acl.ID)
+	// 	if err != nil {
+	// 		glog.Error("Error when deleting the egress ACL rules for the default zone", aclEntry)
+	// 		return err
+	// 	}
+	// } else {
+	// 	glog.Error("Failed to get egress acl entry to delete", aclEntry)
+	// 	return err
+	// }
 	if nvsdc.namespaces["default"].NetworkMacroGroupID != "" {
 		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.namespaces["default"].NetworkMacroGroupID)
 		if err != nil {
@@ -1606,6 +1654,7 @@ func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
 		} else {
 			if nsd, exists := nvsdc.namespaces["default"]; exists {
 				nsd.NetworkMacroGroupID = ""
+				nvsdc.namespaces["default"] = nsd
 			}
 		}
 	}

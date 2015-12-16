@@ -21,9 +21,10 @@ package client
 import (
 	"errors"
 	"fmt"
+	"net"
 )
 
-type IPv4Address [4]uint8
+type IPv4Address [4]byte
 
 func (addr IPv4Address) String() string {
 	return fmt.Sprintf("%v.%v.%v.%v", addr[0], addr[1], addr[2], addr[3])
@@ -49,6 +50,43 @@ func IPv4SubnetFromString(input string) (*IPv4Subnet, error) {
 	return output, nil
 }
 
+/* Parse address and netmask separately, and generate an IPv4Subnet
+ * datastructure.
+ * @Param address - IPv4 Address as a string
+ * @Param netmask - Netmask in IPv4 address format (e.g. 255.255.0.0) as a
+ *                  string
+ */
+func IPv4SubnetFromAddrNetmask(address, netmaskStr string) (*IPv4Subnet, error) {
+	// Parse address
+	output := &IPv4Subnet{}
+	n, err := fmt.Sscanf(address, "%d.%d.%d.%d", &output.Address[0],
+		&output.Address[1], &output.Address[2], &output.Address[3])
+	if err != nil {
+		return nil, err
+	}
+	if n != 4 {
+		return nil, errors.New(fmt.Sprintf(
+			"Invalid syntax in address string %q", address))
+	}
+	// Parse netmask
+	var nmA, nmB, nmC, nmD byte
+	n, err = fmt.Sscanf(netmaskStr, "%d.%d.%d.%d", &nmA, &nmB, &nmC, &nmD)
+	if err != nil {
+		return nil, err
+	}
+	if n != 4 {
+		return nil, errors.New(fmt.Sprintf(
+			"Invalid syntax in netmask string %q", netmaskStr))
+	}
+	var length int
+	output.CIDRMask, length = net.IPv4Mask(nmA, nmB, nmC, nmD).Size()
+	if length != 32 {
+		return nil, errors.New(fmt.Sprintf("Failed to parse netmask %q",
+			netmaskStr))
+	}
+	return output, nil
+}
+
 func (subnet IPv4Subnet) String() string {
 	return fmt.Sprintf("%v/%v", subnet.Address, subnet.CIDRMask)
 }
@@ -61,10 +99,10 @@ func (subnet IPv4Subnet) Netmask() IPv4Address {
 	}
 	fullmask := uint((1 << 32) - (1 << uint(32-subnet.CIDRMask)))
 	return IPv4Address{
-		uint8((fullmask / uint(1<<24)) % 256),
-		uint8((fullmask / uint(1<<16)) % 256),
-		uint8((fullmask / 256) % 256),
-		uint8(fullmask % 256),
+		byte((fullmask / uint(1<<24)) % 256),
+		byte((fullmask / uint(1<<16)) % 256),
+		byte((fullmask / 256) % 256),
+		byte(fullmask % 256),
 	}
 }
 
@@ -80,7 +118,7 @@ func (subnet *IPv4Subnet) Split() (*IPv4Subnet, *IPv4Subnet, error) {
 			hiSubnet.Address[i] = subnet.Address[i]
 			mask -= 8
 		case mask > 0:
-			bitmask := uint8(uint(256-(1<<uint(8-mask))) % 256)
+			bitmask := byte(uint(256-(1<<uint(8-mask))) % 256)
 			loSubnet.Address[i] = subnet.Address[i] & bitmask
 			hiSubnet.Address[i] = subnet.Address[i] & bitmask
 			mask = 0
@@ -90,7 +128,7 @@ func (subnet *IPv4Subnet) Split() (*IPv4Subnet, *IPv4Subnet, error) {
 	hiSubnet.CIDRMask = subnet.CIDRMask + 1
 	index := subnet.CIDRMask / 8
 	offset := uint(subnet.CIDRMask % 8)
-	bit := uint8(128) >> offset
+	bit := byte(128) >> offset
 	loSubnet.Address[index] &= ^bit
 	hiSubnet.Address[index] |= bit
 	return loSubnet, hiSubnet, nil
@@ -105,7 +143,7 @@ func (a *IPv4Subnet) Compare(b *IPv4Subnet) int {
 		return n
 	}
 	index := a.CIDRMask / 8
-	mask := uint8((256 - uint(1<<uint(8-(a.CIDRMask%8)))) % 256)
+	mask := byte((256 - uint(1<<uint(8-(a.CIDRMask%8)))) % 256)
 	return int((a.Address[index] & mask) - (b.Address[index] & mask))
 }
 
@@ -141,7 +179,7 @@ func Merge(a, b *IPv4Subnet) (*IPv4Subnet, error) {
 	}
 	newSubnet := &IPv4Subnet{a.Address, a.CIDRMask - 1}
 	index := newSubnet.CIDRMask / 8
-	mask := uint8(uint(1<<8 - 1<<uint(8-(newSubnet.CIDRMask%8))))
+	mask := byte(uint(1<<8 - 1<<uint(8-(newSubnet.CIDRMask%8))))
 	newSubnet.Address[index] &= mask
 	return newSubnet, nil
 }
