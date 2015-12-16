@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type NuageVsdClient struct {
@@ -71,8 +72,15 @@ func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig) *NuageVsdClient {
 
 func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 	h := nvsdc.session.Header
-	h.Add("X-Nuage-Organization", nvsdc.enterprise)
-	h.Add("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
+	// Add the organization header if it's not present
+	if h.Get("X-Nuage-Orgainization") == "" {
+		h.Add("X-Nuage-Organization", nvsdc.enterprise)
+	}
+	if h.Get("Authorization") == "" {
+		h.Add("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
+	} else {
+		h.Set("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
+	}
 	var result [1]api.VsdAuthToken
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Get(nvsdc.url+"me", nil, &result, &e)
@@ -82,6 +90,16 @@ func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 	}
 	glog.Infoln("Got a reponse status", resp.Status())
 	if resp.Status() == 200 {
+		// Launch a separate go routine to get the new token 3 minutes before
+		// this one expires
+		// APIKeyExpiry is in milliseconds, while Unix time is in seconds.
+		delay := time.Duration(result[0].APIKeyExpiry-(time.Now().Unix()*1000))*time.Millisecond - 3*time.Minute
+		// If there's less than 3 minutes until expiration, get the new key when
+		// the old one expires.
+		if delay < 0 {
+			delay = time.Duration(result[0].APIKeyExpiry-(time.Now().Unix()*1000)) * time.Millisecond
+		}
+		time.AfterFunc(delay, func() { nvsdc.GetAuthorizationToken() })
 		h.Set("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+result[0].APIKey)))
 		return nil
 	} else {
