@@ -296,6 +296,9 @@ def find_metadata(options, config):
     pid = None
     veth_host_if = None
     network_mode = None
+    zone = options.namespace
+    network = options.namespace + '-0'
+    user = 'admin'
 
     if config is not None:
         domain = config.get("domainName", "K8S-Domain")
@@ -515,8 +518,9 @@ def pod_hook(options, sock, setup=True):
             sys.exit(0)
         else:
             if setup:
-                del_from_docker_br = (("brctl delif %s ") % 
-                                      config.get('dockerBridgeName', "docker0") + 
+                del_from_docker_br = (("brctl delif %s ") %
+                                      config.get('dockerBridgeName',
+                                                 "docker0") +
                                       (metadata['veth_host_if']))
                 subprocess.call([del_from_docker_br], shell=True)
                 attach_port(metadata, sock)
