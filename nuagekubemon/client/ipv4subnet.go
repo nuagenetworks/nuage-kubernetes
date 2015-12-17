@@ -30,6 +30,13 @@ func (addr IPv4Address) String() string {
 	return fmt.Sprintf("%v.%v.%v.%v", addr[0], addr[1], addr[2], addr[3])
 }
 
+func (addr IPv4Address) ToUint() uint {
+	return uint(addr[0])<<24 +
+		uint(addr[1])<<16 +
+		uint(addr[2])<<8 +
+		uint(addr[3])
+}
+
 type IPv4Subnet struct {
 	Address  IPv4Address
 	CIDRMask int //e.g. 24, not 255.255.255.0
@@ -142,9 +149,11 @@ func (a *IPv4Subnet) Compare(b *IPv4Subnet) int {
 	if n := b.CIDRMask - a.CIDRMask; n != 0 {
 		return n
 	}
-	index := a.CIDRMask / 8
-	mask := byte((256 - uint(1<<uint(8-(a.CIDRMask%8)))) % 256)
-	return int((a.Address[index] & mask) - (b.Address[index] & mask))
+	netmask := a.Netmask().ToUint()
+	aAddr := a.Address.ToUint()
+	bAddr := b.Address.ToUint()
+	// Compare only significant bits by &-ing the addresses with the netmask
+	return int((aAddr & netmask) - (bAddr & netmask))
 }
 
 func (a *IPv4Subnet) Contains(b *IPv4Subnet) bool {
