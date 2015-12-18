@@ -45,6 +45,7 @@ type NuageVsdClient struct {
 	namespaces            map[string]NamespaceData //namespace name -> namespace data
 	subnets               map[string]*SubnetList   //zone id -> list of subnets mapping
 	pool                  IPv4SubnetPool
+	clusterNetwork        *IPv4Subnet //clusterNetworkCIDR used to generate pool
 	ingressAclTemplateID  string
 	egressAclTemplateID   string
 	nextAvailablePriority int
@@ -303,7 +304,8 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	ipPool, err := IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
+	var err error
+	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in init: %s\n", err)
 	}
@@ -313,20 +315,20 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 			nvsdc.subnetSize)
 		nvsdc.subnetSize = 8
 	}
-	if nvsdc.subnetSize > (32 - ipPool.CIDRMask) {
+	if nvsdc.subnetSize > (32 - nvsdc.clusterNetwork.CIDRMask) {
 		// If the size of the subnet (in bits) is larger than the total pool
 		// size (in bits), we can't even allocate 1 subnet.  Default to using
 		// half the remaining bits per subnet, rounded down (/24 has 8 bits
 		// remaining, so use 4 bits per subnet).
-		newSize := (32 - ipPool.CIDRMask) / 2
+		newSize := (32 - nvsdc.clusterNetwork.CIDRMask) / 2
 		glog.Fatalf("Cannot allocate %d bit subnets from %s.  Using %d bits per subnet.",
-			nvsdc.subnetSize, ipPool.String(), newSize)
+			nvsdc.subnetSize, nvsdc.clusterNetwork.String(), newSize)
 		nvsdc.subnetSize = newSize
 	}
 	// A null IPv4SubnetPool acts like all addresses are allocated, so we can
 	// initialize it to have the available cluster address space by just
 	// Free()-ing it.
-	nvsdc.pool.Free(ipPool)
+	nvsdc.pool.Free(nvsdc.clusterNetwork)
 	nvsdc.namespaces = make(map[string]NamespaceData)
 	nvsdc.subnets = make(map[string]*SubnetList)
 	nvsdc.CreateSession()
@@ -633,40 +635,48 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
+		Priority:          0,
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(
-		nvsdc.url+"domains/"+domainID+"/ingressacltemplates",
-		&payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when applying ingress acl template", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(),
-		"when creating ingress acl template")
-	switch resp.Status() {
-	case 201:
-		nvsdc.ingressAclTemplateID = result[0].ID
-		glog.Infoln("Applied default ingress ACL")
-		err := nvsdc.CreateIngressAclEntries()
+	for {
+		resp, err := nvsdc.session.Post(
+			nvsdc.url+"domains/"+domainID+"/ingressacltemplates",
+			&payload, &result, &e)
 		if err != nil {
+			glog.Error("Error when applying ingress acl template", err)
 			return "", err
 		}
-		return nvsdc.ingressAclTemplateID, nil
-	case 409:
-		ingressAclTemplate, err := nvsdc.GetIngressAclTemplate(domainID, payload.Name)
-		if err != nil {
-			return "", err
+		glog.Infoln("Got a reponse status", resp.Status(),
+			"when creating ingress acl template")
+		switch resp.Status() {
+		case 201:
+			nvsdc.ingressAclTemplateID = result[0].ID
+			glog.Infoln("Applied default ingress ACL")
+			err := nvsdc.CreateIngressAclEntries()
+			if err != nil {
+				return "", err
+			}
+			return nvsdc.ingressAclTemplateID, nil
+		case 409:
+			if e.InternalErrorCode == 2533 {
+				ingressAclTemplate, err := nvsdc.GetIngressAclTemplate(domainID, payload.Name)
+				if err != nil {
+					return "", err
+				}
+				nvsdc.ingressAclTemplateID = ingressAclTemplate.ID
+				glog.Infoln("Applied default ingress ACL")
+				err = nvsdc.CreateIngressAclEntries()
+				if err != nil {
+					return "", err
+				}
+				return nvsdc.ingressAclTemplateID, nil
+			} else {
+				// Increment priority, and retry
+				payload.Priority++
+			}
+		default:
+			return "", VsdErrorResponse(resp, &e)
 		}
-		nvsdc.ingressAclTemplateID = ingressAclTemplate.ID
-		glog.Infoln("Applied default ingress ACL")
-		err = nvsdc.CreateIngressAclEntries()
-		if err != nil {
-			return "", err
-		}
-		return nvsdc.ingressAclTemplateID, nil
-	default:
-		return "", VsdErrorResponse(resp, &e)
 	}
 }
 
@@ -677,41 +687,48 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
+		Priority:          0,
 	}
 	e := api.RESTError{}
-
-	resp, err := nvsdc.session.Post(
-		nvsdc.url+"domains/"+domainID+"/egressacltemplates",
-		&payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when applying egress acl template", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(),
-		"when creating egress acl template")
-	switch resp.Status() {
-	case 201:
-		nvsdc.egressAclTemplateID = result[0].ID
-		glog.Infoln("Applied default egress ACL")
-		err := nvsdc.CreateEgressAclEntries()
+	for {
+		resp, err := nvsdc.session.Post(
+			nvsdc.url+"domains/"+domainID+"/egressacltemplates",
+			&payload, &result, &e)
 		if err != nil {
+			glog.Error("Error when applying egress acl template", err)
 			return "", err
 		}
-		return nvsdc.egressAclTemplateID, nil
-	case 409:
-		egressAclTemplate, err := nvsdc.GetEgressAclTemplate(domainID, payload.Name)
-		if err != nil {
-			return "", err
+		glog.Infoln("Got a reponse status", resp.Status(),
+			"when creating egress acl template")
+		switch resp.Status() {
+		case 201:
+			nvsdc.egressAclTemplateID = result[0].ID
+			glog.Infoln("Applied default egress ACL")
+			err := nvsdc.CreateEgressAclEntries()
+			if err != nil {
+				return "", err
+			}
+			return nvsdc.egressAclTemplateID, nil
+		case 409:
+			if e.InternalErrorCode == 2533 {
+				egressAclTemplate, err := nvsdc.GetEgressAclTemplate(domainID, payload.Name)
+				if err != nil {
+					return "", err
+				}
+				nvsdc.egressAclTemplateID = egressAclTemplate.ID
+				glog.Infoln("Applied default egress ACL")
+				err = nvsdc.CreateEgressAclEntries()
+				if err != nil {
+					return "", err
+				}
+				return nvsdc.egressAclTemplateID, nil
+			} else {
+				// Increment priority, and retry
+				payload.Priority++
+			}
+		default:
+			return "", VsdErrorResponse(resp, &e)
 		}
-		nvsdc.egressAclTemplateID = egressAclTemplate.ID
-		glog.Infoln("Applied default egress ACL")
-		err = nvsdc.CreateEgressAclEntries()
-		if err != nil {
-			return "", err
-		}
-		return nvsdc.egressAclTemplateID, nil
-	default:
-		return "", VsdErrorResponse(resp, &e)
 	}
 }
 
@@ -1261,7 +1278,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				}
 				err = nvsdc.pool.AllocSpecific(subnet)
 				if err != nil {
-					return err
+					if !nvsdc.clusterNetwork.Contains(subnet) {
+						glog.Error(subnet.String(),
+							" is not a member of clusterNetworkCIDR ",
+							nvsdc.clusterNetwork.String())
+					}
 				}
 				subnetID = vsdSubnet.ID
 			}
