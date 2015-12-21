@@ -1,3 +1,10 @@
+%define vsp_k8s_plugin vsp-k8s
+%define vsp_k8s_plugin_dir /usr/libexec/kubernetes/kubelet-plugins/net/exec/nuage~%{vsp_k8s_plugin}
+%define vsp_k8s_datadir /usr/share/%{vsp_k8s_plugin} 
+%define vsp_k8s_yaml %{vsp_k8s_plugin}.yaml
+%define vsp_k8s_yaml_path %{vsp_k8s_datadir}/%{vsp_k8s_yaml}
+%define nuage_vrs_platform_script /usr/share/openvswitch/scripts/vrs-platform-lib 
+
 Name: nuage-k8s-plugin 
 Version: 0.0
 Release: 1%{?dist}
@@ -12,38 +19,54 @@ Requires: nuage-openvswitch, bridge-utils, python-yaml, python-requests
 %description
 %{summary}
 
-%build
-
 %prep
 %setup -q
 
+%build
+
+%pre
+if [ "$1" = "2" ]; then
+	cp $RPM_BUILD_ROOT%{vsp_k8s_yaml_path} $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}.orig
+fi
+
 %install
-install --directory $RPM_BUILD_ROOT/usr/libexec/kubernetes/kubelet-plugins/net/exec/nuage~vsp-k8s
-install --directory $RPM_BUILD_ROOT/usr/share/vsp-k8s
-install -m 755 vsp-k8s $RPM_BUILD_ROOT/usr/libexec/kubernetes/kubelet-plugins/net/exec/nuage~vsp-k8s
-install -m 644 vsp-k8s.yaml.template  $RPM_BUILD_ROOT/usr/share/vsp-k8s/vsp-k8s.yaml
+install --directory $RPM_BUILD_ROOT%{vsp_k8s_plugin_dir}
+install --directory $RPM_BUILD_ROOT%{vsp_k8s_datadir}
+install -m 755 %{vsp_k8s_plugin} $RPM_BUILD_ROOT%{vsp_k8s_plugin_dir}
+install -m 644 %{vsp_k8s_yaml}.template  $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}
 
 %post 
 
-test -e /usr/share/openvswitch/scripts/vrs-platform-lib || exit 0
-. /usr/share/openvswitch/scripts/vrs-platform-lib
+test -e %{nuage_vrs_platform_script} || exit 0
+. %{nuage_vrs_platform_script}
 add_platform k8s 
+
+if [ "$1" = "2" ]; then
+	cp $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}.orig $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}
+fi
 
 %preun
 
 if [ "$1" = "0" ]; then     # $1 = 0 for uninstall
-    test -e /usr/share/openvswitch/scripts/vrs-platform-lib || exit 0
-    . /usr/share/openvswitch/scripts/vrs-platform-lib
+    test -e %{nuage_vrs_platform_script} || exit 0
+    . %{nuage_vrs_platform_script}
     remove_platform k8s 
+fi
+
+%postun
+if [ "$1" = "0" ]; then
+   rm -rf $RPM_BUILD_ROOT%{vsp_k8s_datadir}
+   rm -rf $RPM_BUILD_ROOT%{vsp_k8s_plugin_dir}
 fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
-/usr/share/vsp-k8s
-/usr/libexec/kubernetes/kubelet-plugins/net/exec/nuage~vsp-k8s/vsp-k8s
-%attr(644, root, nobody) /usr/share/vsp-k8s/vsp-k8s.yaml
+%{vsp_k8s_datadir}
+%{vsp_k8s_plugin_dir}
+%{vsp_k8s_plugin_dir}/%{vsp_k8s_plugin}
+%attr(644, root, nobody) %{vsp_k8s_yaml_path}
 
 %doc
 
