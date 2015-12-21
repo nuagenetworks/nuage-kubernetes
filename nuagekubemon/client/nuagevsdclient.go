@@ -187,22 +187,10 @@ func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string
 		glog.Errorf("Error when getting admin group ID: %s", err)
 		return "", err
 	}
-	groupPayload := []string{adminId}
-	e = api.RESTError{}
-	resp, err = nvsdc.session.Put(nvsdc.url+"groups/"+groupId+"/users", &groupPayload, nil, &e)
+	err = nvsdc.AddUserToGroup(adminId, groupId)
 	if err != nil {
-		glog.Error("Error when adding admin user to the admin group", err)
+		glog.Errorf("Failed to add %s to admin group", user)
 		return "", err
-	} else {
-		glog.Infoln("Got a reponse status", resp.Status(), "when adding user to the admin group")
-		switch resp.Status() {
-		case 204:
-			glog.Infoln("Added the admin user to the admin group")
-		case 409:
-			glog.Infoln("Admin user already in admin group")
-		default:
-			return "", VsdErrorResponse(resp, &e)
-		}
 	}
 	return adminId, nil
 }
@@ -1206,7 +1194,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		} else {
 			//add the network macro to the cached datastructure and also to the network macro group obtained via labels/default group
 			nvsdc.namespaces[serviceEvent.Namespace].NetworkMacros[serviceEvent.Name] = networkMacroID
-			err = nvsdc.AddNetworkMacroToNMG(nmgID, networkMacroID)
+			err = nvsdc.AddNetworkMacroToNMG(networkMacroID, nmgID)
 			if err != nil {
 				glog.Error("Error when adding network macro to network macro group:", err)
 			}
@@ -1790,7 +1778,80 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	}
 }
 
-func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroGroupID, networkMacroID string) error {
+func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
+	result := make([]api.VsdUser, 0, 100)
+	e := api.RESTError{}
+	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
+	page := 0
+	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
+	// guarantee that the headers are cleared so that we don't change the
+	// behavior of other functions
+	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
+	defer nvsdc.session.Header.Del("X-Nuage-Page")
+	userIDList := []string{userID}
+	for {
+		resp, err := nvsdc.session.Get(nvsdc.url+"groups/"+groupID+"/users",
+			nil, &result, &e)
+		if err != nil {
+			glog.Errorf("Error when adding user %s to group %s: %s", userID,
+				groupID, err)
+			return err
+		}
+		if resp.Status() == 204 || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
+			break
+		} else if resp.Status() == 200 {
+			// Add all the items on this page to the list
+			for _, user := range result {
+				if user.ID == userID {
+					// The user is already a part of the intended group, so no
+					// extra work is necessary.
+					return nil
+				}
+				userIDList = append(userIDList, user.ID)
+			}
+			// If there's less than 100 items in the page, we must've reached
+			// the last page.  Break here instead of getting the next
+			// (guaranteed empty) page.
+			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
+				if count < 100 {
+					break
+				}
+			} else {
+				// Something went wrong with parsing the x-nuage-count header
+				return errors.New("Invalid X-Nuage-Count: " + err.Error())
+			}
+			// Update headers to get the next page
+			page++
+			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
+		} else {
+			// Something went wrong
+			return VsdErrorResponse(resp, &e)
+		}
+	}
+	// Delete headers.  Calling Header.Del(...) on a non-existent header is a
+	// no-op, so the `defer ...Header.Del(...)` calls above are still valid.
+	nvsdc.session.Header.Del("X-Nuage-PageSize")
+	nvsdc.session.Header.Del("X-Nuage-Page")
+	resp, err := nvsdc.session.Put(nvsdc.url+"groups/"+
+		groupID+"/users", &userIDList, nil, &e)
+	if err != nil {
+		glog.Errorf("Error when adding user %s to group %s: %s", userID,
+			groupID, err)
+		return err
+	} else {
+		glog.Infoln("Got a reponse status", resp.Status(),
+			"when adding user to group")
+		switch resp.Status() {
+		case 204:
+			glog.Infof("Added user %s to group %s", userID, groupID)
+		default:
+			return VsdErrorResponse(resp, &e)
+		}
+	}
+	return nil
+}
+
+func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGroupID string) error {
 	result := make([]api.VsdObject, 0, 100)
 	e := api.RESTError{}
 	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
@@ -1805,7 +1866,7 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroGroupID, networkMa
 		resp, err := nvsdc.session.Get(nvsdc.url+"networkmacrogroups/"+
 			networkMacroGroupID+"/enterprisenetworks", nil, &result, &e)
 		if err != nil {
-			glog.Errorf("Error when deleting network macro with ID %s: %s", networkMacroID, err)
+			glog.Errorf("Error when adding network macro with ID %s: %s", networkMacroID, err)
 			return err
 		}
 		// Using if...else here instead of switch because you can't use 'break'
