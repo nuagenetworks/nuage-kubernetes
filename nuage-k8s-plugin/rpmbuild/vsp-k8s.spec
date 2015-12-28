@@ -27,6 +27,7 @@ Requires: nuage-openvswitch, bridge-utils, python-yaml, python-requests
 %pre
 if [ "$1" = "2" ]; then
 	cp $RPM_BUILD_ROOT%{vsp_k8s_yaml_path} $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}.orig
+	rm -f $RPM_BUILD_ROOT/%{vsp_k8s_plugin_dir}/%{vsp_k8s_plugin}
 fi
 
 %install
