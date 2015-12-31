@@ -438,9 +438,7 @@ def get_metadata(options, config):
     if 'network_mode' in metadata and metadata['network_mode'] == "host":
         vlog.dbg("Pod Infra container is in Host networking mode...\
         nothing to do for Nuage Plugin")
-        return (True, None)
-    else:
-        return (True, metadata)
+    return (True, metadata)
 
 
 def get_connected_socket():
