@@ -1355,14 +1355,14 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			if nsEvent.Name == "default" {
 				err := nvsdc.DeleteDefaultZoneAcls(zone.ZoneID)
 				if err != nil {
+					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting default zone's ACL entries")
-					return err
 				}
 			} else {
 				err := nvsdc.DeleteSpecificZoneAcls(nsEvent.Name)
 				if err != nil {
+					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting network macro group for zone: ", nsEvent.Name)
-					return err
 				}
 			}
 			if subnetsHead, exists := nvsdc.subnets[zone.ZoneID]; exists {
@@ -1400,14 +1400,14 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			if nsEvent.Name == "default" {
 				err = nvsdc.DeleteDefaultZoneAcls(id)
 				if err != nil {
+					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting default zone's ACL entries")
-					return err
 				}
 			} else {
 				err = nvsdc.DeleteSpecificZoneAcls(nsEvent.Name)
 				if err != nil {
+					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting network macro group for zone", nsEvent.Name)
-					return err
 				}
 			}
 			return nvsdc.DeleteZone(id)
