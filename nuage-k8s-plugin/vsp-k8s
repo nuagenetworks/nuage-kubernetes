@@ -52,10 +52,10 @@ KEY = "/usr/share/nuagekubemon/client.key"
 def create_internal_port(port, vm_name, nuage_uuid, pid):
     # Create the internal ovs port for the name space
     # Include vm-uuid as external_id.
-    create_port = ("""ovs-vsctl add-port alubr0 %s """
-                   """-- set interface %s """
+    create_port = ("""ovs-vsctl --no-wait --if-exists del-port """
+                   """alubr0 %s -- add-port alubr0 %s -- set interface %s """
                    """'external-ids={vm-uuid=%s,vm-name=%s}'""" %
-                   (port, port, str(nuage_uuid), vm_name))
+                   (port, port, port, str(nuage_uuid), vm_name))
     # set the MAC address of the port
     local_mac = random_mac()
     set_mac = (("""nsenter -n -t %s -- ip link set dev %s address %s""") %
@@ -431,7 +431,7 @@ def detach_port(metadata, sock):
         # Send undefine event
         send_undefine(vm_name, nuage_uuid, sock)
         # Delete the port from OVS
-        delete_port = "ovs-vsctl del-port alubr0 %s" % port
+        delete_port = "ovs-vsctl --no-wait del-port alubr0 %s" % port
         subprocess.check_output([delete_port], shell=True)
         # Clean up any links
         subprocess.call('find -L /var/run/netns -type l -delete',
