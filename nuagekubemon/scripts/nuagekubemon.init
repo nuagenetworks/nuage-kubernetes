@@ -14,7 +14,7 @@ RUNAS=root
 PIDFILE=/var/run/nuagekubemon.pid
 
 start() {
-  if [ -f /var/run/$PIDFILE ] && kill -0 $(cat /var/run/$PIDFILE); then
+  if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE"); then
     echo 'service nuagekubemon already running' >&2
     return 1
   fi
