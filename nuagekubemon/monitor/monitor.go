@@ -71,6 +71,9 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 	logtostderr := flagSet.Lookup("logtostderr")
 	logtostderr.Value.Set("false")
 	logtostderr.DefValue = "false"
+	stderrlogthreshold := flagSet.Lookup("stderrlogthreshold")
+	stderrlogthreshold.Value.Set("4")
+	stderrlogthreshold.DefValue = "4"
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
