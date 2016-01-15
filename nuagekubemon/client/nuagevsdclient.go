@@ -822,43 +822,43 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 }
 
 func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, aclEntry *api.VsdAclEntry) (string, error) {
-	result := make([]api.VsdObject, 1)
-	e := api.RESTError{}
-	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
-	if ingress {
-		url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
-	}
-	resp, err := nvsdc.session.Post(url+"?responseChoice=1", &aclEntry, &result, &e)
-	if err != nil {
-		glog.Error("Error when adding acl template entry", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(),
-		"when creating acl template entry")
-	switch resp.Status() {
-	case 201:
-		glog.Infoln("Created ACL entry with priority: ", aclEntry.Priority)
-		return result[0].ID, nil
-	case 409:
-		VsdErrorResponse(resp, &e)
-		acl, err := nvsdc.GetAclEntryByPriority(aclTemplateID, ingress, aclEntry.Priority)
+	//check if any entry matches the desired semantics with a different priority
+	if acl, err := nvsdc.GetAclEntry(aclTemplateID, ingress, aclEntry); err == nil && acl != nil {
+		return acl.ID, nil
+	} else {
+		result := make([]api.VsdObject, 1)
+		e := api.RESTError{}
+		url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+		if ingress {
+			url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+		}
+		resp, err := nvsdc.session.Post(url, &aclEntry, &result, &e)
 		if err != nil {
+			glog.Error("Error when adding acl template entry", err)
 			return "", err
 		}
-		glog.Infoln("Applied ACL entry with priority: ", aclEntry.Priority)
-		if aclEntry.IsEqual(acl) {
-			return acl.ID, nil
-		} else {
-			//check if any entry matches the desired semantics with a different priority
-			if acl, err = nvsdc.GetAclEntry(aclTemplateID, ingress, aclEntry); err == nil && acl != nil {
+		glog.Infoln("Got a reponse status", resp.Status(),
+			"when creating acl template entry")
+		switch resp.Status() {
+		case 201:
+			glog.Infoln("Created ACL entry with priority: ", aclEntry.Priority)
+			return result[0].ID, nil
+		case 409:
+			VsdErrorResponse(resp, &e)
+			acl, err := nvsdc.GetAclEntryByPriority(aclTemplateID, ingress, aclEntry.Priority)
+			if err != nil {
+				return "", err
+			}
+			glog.Infoln("Applied ACL entry with priority: ", aclEntry.Priority)
+			if aclEntry.IsEqual(acl) {
 				return acl.ID, nil
 			} else {
 				aclEntry.Priority = aclEntry.Priority + 1
 				return nvsdc.CreateAclEntry(aclTemplateID, ingress, aclEntry)
 			}
+		default:
+			return "", VsdErrorResponse(resp, &e)
 		}
-	default:
-		return "", VsdErrorResponse(resp, &e)
 	}
 }
 
@@ -1494,17 +1494,17 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 	}
 	_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
 	if err != nil {
-		glog.Error("Error when creating the ACL rules for the default zone")
+		glog.Error("Error when creating the ACL rules for the zone: ", zoneName)
 		return err
 	} else {
-		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1)
+		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1 - 300)
 	}
 	_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
 	if err != nil {
-		glog.Error("Error when creating the ACL rules for the default zone")
+		glog.Error("Error when creating the ACL rules for the zone: ", zoneName)
 		return err
 	} else {
-		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1)
+		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1 - 300)
 	}
 	return nil
 }
