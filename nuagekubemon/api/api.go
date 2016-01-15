@@ -207,14 +207,16 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 			filter = actionClause
 		}
 	}
-	if lhs.EntityScope != "" {
-		entityScopeClause := `entityScope == "` + lhs.EntityScope + `"`
-		if filter != "" {
-			filter = filter + ` and ` + entityScopeClause
-		} else {
-			filter = entityScopeClause
-		}
-	}
+	// The entity scope is not filterable currently in VSD
+
+	// if lhs.EntityScope != "" {
+	// 	entityScopeClause := `entityScope == "` + lhs.EntityScope + `"`
+	// 	if filter != "" {
+	// 		filter = filter + ` and ` + entityScopeClause
+	// 	} else {
+	// 		filter = entityScopeClause
+	// 	}
+	// }
 	if lhs.EtherType != "" {
 		etherTypeClause := `etherType == "` + lhs.EtherType + `"`
 		if filter != "" {
