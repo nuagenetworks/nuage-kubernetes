@@ -27,6 +27,7 @@ import sys
 import json
 import requests
 import os
+import os.path
 import md5
 
 import yaml
@@ -40,6 +41,7 @@ import ovs.unixctl
 import ovs.unixctl.server
 import argparse
 
+
 prog_name = os.path.basename(sys.argv[0])
 assert prog_name[:4] == "vsp-"
 platform = prog_name[4:].upper()
@@ -51,6 +53,10 @@ VERSION = "0.0.1-%s" % prog_name
 CA_CERT = "/usr/share/%s/ca.crt" % prog_name
 CERT = "/usr/share/%s/nuage.crt" % prog_name
 KEY = "/usr/share/%s/nuage.key" % prog_name
+
+REST_CERT = "/usr/share/%s/nuageMonClient.crt" % prog_name
+REST_KEY = "/usr/share/%s/nuageMonClient.key" % prog_name
+REST_CA = "/usr/share/%s/nuageMonCA.crt" % prog_name
 
 
 def create_internal_port(port, vm_name, nuage_uuid, pid, mtu):
@@ -308,7 +314,17 @@ def _get_docker_core_version():
     return version
 
 
-def find_metadata(options, config):
+def _is_bridge_network_mode(container_id):
+    get_network_mode = (("docker inspect --format ") +
+                        ("\"{{.HostConfig.NetworkMode}}\" ") +
+                        (str(container_id)))
+    network_mode = subprocess.check_output([get_network_mode], shell=True)
+    network_mode = network_mode.strip()
+    return network_mode.lower() == 'bridge' or \
+        network_mode.lower() == 'default'
+
+
+def find_metadata(options, config, setup):
     domain = "%s-Domain" % platform
     domaintype = "L3"
     ent = "%s-Enterprise" % platform
@@ -317,7 +333,6 @@ def find_metadata(options, config):
     staticip = None
     pid = None
     veth_host_if = None
-    network_mode = None
     zone = options.namespace
     network = options.namespace + '-0'
     user = 'admin'
@@ -334,15 +349,58 @@ def find_metadata(options, config):
         zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
         user = podmeta['labels'].get('nuage.io/user', 'admin')
         pg = podmeta['labels'].get('nuage.io/policy-group', None)
+
+    client_cert = config.get("nuageMonClientCert", REST_CERT)
+    client_key = config.get("nuageMonClientKey", REST_KEY)
+    server_ca = config.get("nuageMonCA", REST_CA)
+    vlog.dbg("Using %s as client certificate" % client_cert)
+    vlog.dbg("Using %s as client key" % client_key)
+    vlog.dbg("Using %s to verify server certificate" % server_ca)
+    if setup:
+        # TODO: automatically fall back to http if https is not available
+        fetched_pod_data = requests.post(
+            "%s/namespaces/%s/pods" % (config.get("nuageMonRestServer",
+                                                  "https://localhost:8444"),
+                                       options.namespace),
+            json={"podName": options.name},
+            cert=(client_cert, client_key),
+            verify=server_ca
+        )
+        if fetched_pod_data.status_code == 409:
+            fetched_pod_data = requests.get(
+                "%s/namespaces/%s/pods/%s" %
+                (config.get("nuageMonRestServer", "https://localhost:8444"),
+                 options.namespace, options.name),
+                cert=(client_cert, client_key),
+                verify=server_ca
+            )
+        if fetched_pod_data.status_code != 200 or \
+                fetched_pod_data.json() is None:
+            vlog.warn("Unexpected response from master:\n%d: %s" %
+                      (fetched_pod_data.status_code, fetched_pod_data.text))
+            network = options.namespace + '-0'
+        else:
+            network = fetched_pod_data.json().get("SubnetName", network)
+        vlog.info('Using network "%s"' % network)
+    else:
+        delete_resp = requests.delete(
+            "%s/namespaces/%s/pods/%s" %
+            (config.get("nuageMonRestServer", "https://localhost:8444"),
+             options.namespace, options.name),
+            cert=(client_cert, client_key),
+            verify=server_ca
+        )
+        if delete_resp.status_code not in [200, 404]:
+            # 200 is a successful delete, and 404 means it didn't exist in the
+            # first place, which is just as good in this case.  Any other
+            # response should be logged as an anomaly.
+            vlog.warn("Unexpected response from master:\n%d: %s" %
+                      (delete_resp.status_code, delete_resp.text))
+
     try:
         get_pid = (("docker inspect --format \"{{.State.Pid}}\" ") +
                    (str(options.id)))
         pid = subprocess.check_output([get_pid], shell=True).strip()
-        get_network_mode = (("docker inspect --format ") +
-                            ("\"{{.HostConfig.NetworkMode}}\" ") +
-                            (str(options.id)))
-        network_mode = subprocess.check_output([get_network_mode], shell=True)
-        network_mode = network_mode.strip()
         name = options.name
         veth_host_if = get_veth_host_if(pid)
     except:
@@ -354,7 +412,6 @@ def find_metadata(options, config):
                         "domain": domain,
                         "zone": zone,
                         "network": network,
-                        "network_mode": network_mode,
                         "uuid": _get_nuage_uuid(options),
                         "veth_host_if": veth_host_if,
                         "user": user,
@@ -376,7 +433,6 @@ def find_metadata(options, config):
         if network and user and ent:
             metadata = {"domaintype": domaintype,
                         "network": network,
-                        "network_mode": network_mode,
                         "uuid": _get_nuage_uuid(options),
                         "veth_host_if": veth_host_if,
                         "user": user,
@@ -455,16 +511,6 @@ def detach_port(metadata, sock):
         vlog.err("Failed to delete port %s" % nuage_uuid)
 
 
-def get_metadata(options, config):
-    metadata = find_metadata(options, config)
-    if metadata is None:
-        return (False, None)
-    if 'network_mode' in metadata and metadata['network_mode'] == "host":
-        vlog.dbg("Pod Infra container is in Host networking mode...\
-        nothing to do for Nuage Plugin")
-    return (True, metadata)
-
-
 def get_connected_socket():
     SOCKETNAME = "vm-events.ctl"
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -527,27 +573,25 @@ def teardown(options, sock):
 
 
 def pod_hook(options, sock, setup=True):
+    if not _is_bridge_network_mode(options.id):
+        vlog.info(
+            "Network mode is not bridge networking, nothing to do for Nuage")
+        sys.exit(0)
     config = read_configfile()
-    ret, metadata = get_metadata(options, config)
-    if not ret:
-        vlog.err("Cannot get metadata for UUID: %s while calling setup() \
-        hook for the pid" % str(options.id))
+    metadata = find_metadata(options, config, setup)
+    if metadata is None:
+        vlog.err("Cannot get metadata for UUID: %s while calling setup() "
+                 "hook for the pid" % str(options.id))
         sys.exit(1)
+    if setup:
+        del_from_docker_br = (("brctl delif %s ") %
+                              config.get('dockerBridgeName',
+                                         "docker0") +
+                              (metadata['veth_host_if']))
+        subprocess.call([del_from_docker_br], shell=True)
+        attach_port(metadata, sock)
     else:
-        if 'network_mode' in metadata and metadata['network_mode'] == "host":
-            vlog.info("Network mode is host networking, \
-            nothing to do for Nuage")
-            sys.exit(0)
-        else:
-            if setup:
-                del_from_docker_br = (("brctl delif %s ") %
-                                      config.get('dockerBridgeName',
-                                                 "docker0") +
-                                      (metadata['veth_host_if']))
-                subprocess.call([del_from_docker_br], shell=True)
-                attach_port(metadata, sock)
-            else:
-                detach_port(metadata, sock)
+        detach_port(metadata, sock)
 
 
 # Warning: Make sure we don't log anything in the status hook invocation.
@@ -600,7 +644,7 @@ def get_pod_metadata(options, config):
     if config is not None:
         response = requests.get('%s/api/v1/namespaces/%s/pods/%s' %
                                 (config.get('masterApiServer',
-                                            "https://localhost:8443"),
+                                            "https://localhost:9443"),
                                  options.namespace, options.name),
                                 cert=(config.get('clientCert', CERT),
                                       config.get('clientKey', KEY)),

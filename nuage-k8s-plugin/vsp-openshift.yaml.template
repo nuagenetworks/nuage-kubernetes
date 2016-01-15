@@ -12,7 +12,15 @@ enterpriseName: "Openshift-Enterprise"
 domainName: "Openshift-Domain"
 # IP address and port number of master API server
 masterApiServer: "https://127.0.0.1:8443"
+# Host name and port of the kubemon REST API
+nuageMonRestServer: "https://localhost:9443"
 # Bridge name for the docker bridge
 dockerBridgeName: "docker0"
 # Network MTU
 interfaceMTU: 1460
+# Certificate for connecting to the kubemon REST API
+nuageMonClientCert: /usr/share/vsp-openshift/nuageMonClient.crt
+# Key to the certificate in nuageMonClientCert
+nuageMonClientKey: /usr/share/vsp-openshift/nuageMonClient.key
+# CA certificate for verifying the master's nuageMon server
+nuageMonCA: /usr/share/vsp-openshift/nuageMonCA.crt

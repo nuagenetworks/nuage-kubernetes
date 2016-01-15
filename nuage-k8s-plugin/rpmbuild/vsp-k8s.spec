@@ -14,7 +14,7 @@ Group: System Environments/Daemons
 License: ALU EULA and ASL 2.0	
 Source0: nuage-k8s-plugin-%{version}.tar.gz
 
-Requires: nuage-openvswitch, bridge-utils, python-yaml, python-requests
+Requires: nuage-openvswitch, bridge-utils, python-yaml, python-requests >= 2.3.0
 
 %description
 %{summary}

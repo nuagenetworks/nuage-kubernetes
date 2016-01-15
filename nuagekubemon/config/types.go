@@ -26,15 +26,24 @@ import (
 )
 
 type NuageKubeMonConfig struct {
-	KubeConfigFile   string       `yaml:"kubeConfig"`
-	MasterConfigFile string       `yaml:"masterConfig"`
-	NuageVsdApiUrl   string       `yaml:"vsdApiUrl"`
-	NuageVspVersion  string       `yaml:"vspVersion"`
-	LicenseFile      string       `yaml:"licenseFile"`
-	EnterpriseName   string       `yaml:"enterpriseName"`
-	DomainName       string       `yaml:"domainName"`
-	ConfigFile       string       `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
-	MasterConfig     MasterConfig `yaml:"-"`
+	KubeConfigFile   string           `yaml:"kubeConfig"`
+	MasterConfigFile string           `yaml:"masterConfig"`
+	NuageVsdApiUrl   string           `yaml:"vsdApiUrl"`
+	NuageVspVersion  string           `yaml:"vspVersion"`
+	LicenseFile      string           `yaml:"licenseFile"`
+	EnterpriseName   string           `yaml:"enterpriseName"`
+	DomainName       string           `yaml:"domainName"`
+	RestServer       RestServerConfig `yaml:"nuageMonServer"`
+	ConfigFile       string           `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
+	MasterConfig     MasterConfig     `yaml:"-"`
+}
+
+type RestServerConfig struct {
+	Url                  string `yaml:"URL"`
+	CertificateDirectory string `yaml:"certificateDirectory"`
+	ClientCA             string `yaml:"clientCA"`
+	ServerCertificate    string `yaml:"serverCertificate"`
+	ServerKey            string `yaml:"serverKey"`
 }
 
 type networkConfig struct {
@@ -46,6 +55,18 @@ type networkConfig struct {
 /* Fields we care about in the openshift master-config.yaml */
 type MasterConfig struct {
 	NetworkConfig networkConfig `yaml:"networkConfig"`
+}
+
+type NamespaceUpdateEvent int
+
+const (
+	AddSubnet NamespaceUpdateEvent = iota
+	DeleteSubnet
+)
+
+type NamespaceUpdateRequest struct {
+	NamespaceID string //Name of the namespace in the NamespaceData map
+	Event       NamespaceUpdateEvent
 }
 
 type NamespaceMap map[string]bool

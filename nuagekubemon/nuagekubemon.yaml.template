@@ -15,3 +15,20 @@ enterpriseName: "K8S-Enterprise"
 domainName: "K8S-Domain"
 # Location where logs should be saved
 log_dir: '/var/log/nuagekubemon'
+nuageMonServer:
+    # Port on which to serve the REST API.  Default is 8444
+    URL: 0.0.0.0:9443
+    # Directory where certificates reside.
+    certificateDirectory: '/usr/share/nuagekubemon'
+    # Location of the CA certificate used to verify clients.  The default is
+    # [certificateDirectory]/nuageMonCA.crt.  This option is only necessary if the
+    # file is not in the default location.
+    #clientCA: '/usr/share/nuagekubemon/nuageMonCA.crt'
+    # Location of the server certificate used for SSL communication.  The
+    # default is [certificateDirectory]/nuageMonServer.crt.  This option is only
+    # necessary if the file is not in the default location.
+    #serverCertificate: '/usr/share/nuagekubemon/nuageMonServer.crt'
+    # Location of the server private key used for SSL communication.  The
+    # default is [certificateDirectory]/nuageMonServer.key.  This option is only
+    # necessary if the file is not in the default location.
+    #serverKey: '/usr/share/nuagekubemon/nuageMonServer.key'
