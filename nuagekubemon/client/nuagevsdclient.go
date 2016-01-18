@@ -832,7 +832,7 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 		if ingress {
 			url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
 		}
-		resp, err := nvsdc.session.Post(url, &aclEntry, &result, &e)
+		resp, err := nvsdc.session.Post(url+"?responseChoice=1", &aclEntry, &result, &e)
 		if err != nil {
 			glog.Error("Error when adding acl template entry", err)
 			return "", err
