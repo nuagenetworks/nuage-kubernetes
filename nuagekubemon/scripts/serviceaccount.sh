@@ -2,33 +2,34 @@
 # Parse CLI options
 for i in "$@"; do
     case $i in
-        --ca=*)
-            CA_CERT="${i#*=}"
+        --master-cert-dir=*)
+            MASTER_DIR="${i#*=}"
+            CA_CERT=${MASTER_DIR}/ca.crt
+            CA_KEY=${MASTER_DIR}/ca.key
+            CA_SERIAL=${MASTER_DIR}/ca.serial.txt
+            ADMIN_FILE=${MASTER_DIR}/admin.kubeconfig
         ;;
         --server=*)
             SERVER="${i#*=}"
         ;;
-        --output=*)
-            CONFIG_FILE="${i#*=}"
-        ;;
-        --adminconfig=*)
-            ADMIN_FILE="${i#*=}"
+        --output-cert-dir=*)
+            OUTDIR="${i#*=}"
+            CONFIG_FILE=${OUTDIR}/nuage.kubeconfig
         ;;
     esac
 done
 
 # If any are missing, print the usage and exit
-if [ -z $CA_CERT ] || [ -z $SERVER ] || [ -z $CONFIG_FILE ] || [ -z $ADMIN_FILE ]; then
-	echo "Invalid syntax: $@"
-	echo "Usage:"
-	echo "  $0 --ca=/path/to/ca.crt --server=<address>:<port> --output=/path/to/nuage.kubeconfig --adminconfig=/path/to/admin.kubeconfig"
-	echo "--ca:     Certificate for the OpenShift CA"
-	echo "--server: Address of Kubernetes API server (default port is 8443)"
-	echo "--output: File to save configuration to"
-	echo "--adminconfig: kubeconfig with system:admin, used to create the service account and assign necessary privileges"
-	echo ""
-	echo "All options are required"
-	exit 1
+if [ -z $SERVER ] || [ -z $OUTDIR ] || [ -z $MASTER_DIR ]; then
+    echo "Invalid syntax: $@"
+    echo "Usage:"
+    echo "  $0 --server=<address>:<port> --output-cert-dir=/path/to/output/dir/ --master-cert-dir=/path/to/master/"
+    echo "--master-cert-dir:  Directory where the master's configuration is held"
+    echo "--server:           Address of Kubernetes API server (default port is 8443)"
+    echo "--output-cert-dir:  Directory to put artifacts in"
+    echo ""
+    echo "All options are required"
+    exit 1
 fi
 
 # Login as admin so that we can create the service account
@@ -48,33 +49,15 @@ ACCOUNT_CONFIG='
 # Create the account with the included info
 echo $ACCOUNT_CONFIG|oc create --config=$ADMIN_FILE -f -
 
-# Get one of the account tokens
-TOKEN_NAME=$(oc describe serviceaccount nuage --config=$ADMIN_FILE|awk '/^Tokens:/{ print $2 }'|head -n 1)
-TOKEN=$(oc describe secret $TOKEN_NAME --config=$ADMIN_FILE|awk '/^token:/{ print $2 }'|head -n 1)
-
 # Add the cluser-reader role, which allows this service account read access to
 # everything in the cluster except secrets
-oadm policy add-cluster-role-to-user cluster-reader system:serviceaccount:default:nuage --config=$ADMIN_FILE
+oadm policy add-cluster-role-to-user cluster-reader system:serviceaccounts:default:nuage --config=$ADMIN_FILE
 
-# Login as the user to create the config file (kubeconfig data is automatically
-# written to the file specified with --config)
-oc login --api-version='v1' --certificate-authority=$CA_CERT --server=$SERVER --token=$TOKEN --config=$CONFIG_FILE
+# Generate certificates and a kubeconfig for the service account
+oadm create-api-client-config --certificate-authority=${CA_CERT} --client-dir=${OUTDIR} --signer-cert=${CA_CERT} --signer-key=${CA_KEY} --signer-serial=${CA_SERIAL} --user=system:serviceaccounts:default:nuage --master=${SERVER} --public-master=${SERVER} --basename='nuage'
 
-# Verify that we logged in correctly
-if ! [ $(oc whoami --config=$CONFIG_FILE) == 'system:serviceaccount:default:nuage' ]; then
-	echo "Service account creation failed!"
-	exit 1
-fi
-
-# The kubeconfig file references the file specified in $CA_CERT by default, but
-# we want the cert string in the kubeconfig so that it isn't necessary to keep
-# the $CA_CERT file around, or keep the kubeconfig on the machine it was
-# generated on.  `oc config view --flatten` will fix that
-oc config view --flatten --config=$CONFIG_FILE > ${CONFIG_FILE}.tmp
-mv ${CONFIG_FILE}.tmp $CONFIG_FILE
-
-# Reverify the finalized kubeconfig
-if ! [ $(oc whoami --config=$CONFIG_FILE) == 'system:serviceaccount:default:nuage' ]; then
-	echo "Service account creation failed!"
-	exit 1
+# Verify the finalized kubeconfig
+if ! [ $(oc whoami --config=$CONFIG_FILE) == 'system:serviceaccounts:default:nuage' ]; then
+    echo "Service account creation failed!"
+    exit 1
 fi
