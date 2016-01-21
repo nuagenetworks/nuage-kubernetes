@@ -43,8 +43,8 @@ install -m 644 %{nuagekubemon_yaml}.template  $RPM_BUILD_ROOT%{nuagekubemon_yaml
 %post
 if [ "$1" = "2" ]; then
 	mv $RPM_BUILD_ROOT%{nuagekubemon_yaml_path}.orig $RPM_BUILD_ROOT%{nuagekubemon_yaml_path}
-	/sbin/chkconfig --add %{nuagekubemon_service}
 fi
+/sbin/chkconfig --add %{nuagekubemon_service}
 
 %preun
 if [ "$1" = "0" ]; then
