@@ -29,6 +29,7 @@ import (
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
 	"io/ioutil"
 	"log"
+	"os"
 )
 
 type NuageKubeMonitor struct {
@@ -99,7 +100,7 @@ func (nkm *NuageKubeMonitor) LoadConfig() error {
 }
 
 func (nkm *NuageKubeMonitor) Run() {
-	glog.Info("Starting NuageKubeMonitor...")
+	glog.Infof("Starting %s...", os.Args[0])
 	// Read the config file if it was specified.  If there was an error reading
 	// it, don't continue.
 	if err := nkm.LoadConfig(); err != nil {
