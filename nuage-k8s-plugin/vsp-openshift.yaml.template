@@ -1,0 +1,16 @@
+# The client certificate for 'system:nodes:<node-name>', where <node-name> is
+# the hostname of the local system
+clientCert: /usr/share/vsp-openshift/client.crt
+# The key to the certificate in clientCert above
+clientKey: /usr/share/vsp-openshift/client.key
+# The certificate authority's certificate for the local kubelet.  Usually the
+# same as the CA cert used to create the client Cert/Key pair.
+CACert: /usr/share/vsp-openshift/ca.crt
+# Name of the enterprise in which pods will reside
+enterpriseName: "Openshift-Enterprise"
+# Name of the domain in which pods will reside
+domainName: "Openshift-Domain"
+# IP address and port number of master API server
+masterApiServer: "https://127.0.0.1:8443"
+# Bridge name for the docker bridge
+dockerBridgeName: "docker0"
