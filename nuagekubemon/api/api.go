@@ -151,12 +151,22 @@ type VsdAclEntry struct {
 	Reflexive    bool   `json:"reflexive"`
 }
 
+const MAX_VSD_ACL_PRIORITY = 1000000000 //the maximum priority allowed in VSD is 1 billion.
+
 type VsdNetworkMacro struct {
 	ID      string
 	Name    string `json:"name"`
 	IPType  string `json:"IPType"`
 	Address string `json:"address"`
 	Netmask string `json:"netmask"`
+}
+
+func (acl *VsdAclEntry) TryNextAclPriority() {
+	if acl.Priority == MAX_VSD_ACL_PRIORITY {
+		acl.Priority = acl.Priority - 1
+	} else {
+		acl.Priority = acl.Priority + 1
+	}
 }
 
 func (lhs *VsdAclEntry) IsEqual(rhs *VsdAclEntry) bool {
