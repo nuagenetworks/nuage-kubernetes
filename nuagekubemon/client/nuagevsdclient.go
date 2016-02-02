@@ -47,6 +47,7 @@ type NuageVsdClient struct {
 	subnets               map[string]*SubnetList   //zone id -> list of subnets mapping
 	pool                  IPv4SubnetPool
 	clusterNetwork        *IPv4Subnet //clusterNetworkCIDR used to generate pool
+	serviceNetwork        *IPv4Subnet
 	ingressAclTemplateID  string
 	egressAclTemplateID   string
 	nextAvailablePriority int
@@ -313,7 +314,11 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	var err error
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
-		glog.Fatalf("Failure in init: %s\n", err)
+		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
+	}
+	nvsdc.serviceNetwork, err = IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ServiceCIDR)
+	if err != nil {
+		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
 	nvsdc.subnetSize = nkmConfig.OsMasterConfig.NetworkConfig.SubnetLength
 	if nvsdc.subnetSize < 0 || nvsdc.subnetSize > 32 {
@@ -596,10 +601,30 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	aclEntry.Action = "DROP"
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
-	aclEntry.Priority = 1000000000 //the maximum priority allowed in VSD is 1 billion.
+	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
 	_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating ingress acl entry", err)
+	}
+	networkMacro := &api.VsdNetworkMacro{
+		Name:    `NetworkMacro for Service CIDR`,
+		IPType:  "IPV4",
+		Address: nvsdc.serviceNetwork.Address.String(),
+		Netmask: nvsdc.serviceNetwork.Netmask().String(),
+	}
+	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
+	if err != nil {
+		glog.Error("Error when creating the network macro for service CIDR")
+	} else {
+		//
+		aclEntry.Priority = aclEntry.Priority - 1
+		aclEntry.NetworkType = "NETWORK_MACRO"
+		aclEntry.NetworkID = networkMacroID
+		aclEntry.Description = "Drop traffic from domain to the service CIDR"
+		_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+		if err != nil {
+			glog.Error("Error when creating ingress acl entry", err)
+		}
 	}
 	return nil
 }
@@ -626,10 +651,30 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	aclEntry.Action = "DROP"
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
-	aclEntry.Priority = 1000000000 //the maximum priority allowed in VSD is 1 billion.
+	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
 	_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating egress acl entry", err)
+	}
+	networkMacro := &api.VsdNetworkMacro{
+		Name:    `NetworkMacro for Service CIDR`,
+		IPType:  "IPV4",
+		Address: nvsdc.serviceNetwork.Address.String(),
+		Netmask: nvsdc.serviceNetwork.Netmask().String(),
+	}
+	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
+	if err != nil {
+		glog.Error("Error when creating the network macro for service CIDR")
+	} else {
+		//
+		aclEntry.Priority = aclEntry.Priority - 1
+		aclEntry.NetworkType = "NETWORK_MACRO"
+		aclEntry.NetworkID = networkMacroID
+		aclEntry.Description = "Drop traffic from domain to the service CIDR"
+		_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+		if err != nil {
+			glog.Error("Error when creating ingress acl entry", err)
+		}
 	}
 	return nil
 }
@@ -853,7 +898,7 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 			if aclEntry.IsEqual(acl) {
 				return acl.ID, nil
 			} else {
-				aclEntry.Priority = aclEntry.Priority + 1
+				aclEntry.TryNextAclPriority()
 				return nvsdc.CreateAclEntry(aclTemplateID, ingress, aclEntry)
 			}
 		default:
