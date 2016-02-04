@@ -2,20 +2,18 @@
 
 ###########################################################################
 #
-#   Filename:           nuage-k8s
+#   Filename:           nuage-vsp-plugin
 #
 #   Author:             Aniket Bhat
 #   Created:            August 8, 2015
 #
-#   Description:        Nuage Kubernetes Plugin
+#   Description:        Nuage VSP Plugin
 #
 ###########################################################################
 #
 #              Copyright (c) 2015 Nuage Networks
 #
 ###########################################################################
-
-VERSION = "0.0.1-vsp-k8s"
 
 import subprocess
 import re
@@ -28,10 +26,11 @@ import signal
 import sys
 import json
 import requests
-import yaml
-import os.path
 import os
 import md5
+
+import yaml
+
 
 sys.path.append('/usr/share/openvswitch/python')
 
@@ -41,12 +40,17 @@ import ovs.unixctl
 import ovs.unixctl.server
 import argparse
 
-vlog = ovs.nuage.vlog.Vlog("vsp-k8s")
+prog_name = os.path.basename(sys.argv[0])
+assert prog_name[:4] == "vsp-"
+platform = prog_name[4:].upper()
 
+vlog = ovs.nuage.vlog.Vlog(prog_name)
 
-CA_CERT = "/usr/share/vsp-k8s/ca.crt"
-CERT = "/usr/share/vsp-k8s/nuage.crt"
-KEY = "/usr/share/vsp-k8s/nuage.key"
+VERSION = "0.0.1-%s" % prog_name
+
+CA_CERT = "/usr/share/%s/ca.crt" % prog_name
+CERT = "/usr/share/%s/nuage.crt" % prog_name
+KEY = "/usr/share/%s/nuage.key" % prog_name
 
 
 def create_internal_port(port, vm_name, nuage_uuid, pid):
@@ -298,9 +302,9 @@ def _get_docker_core_version():
 
 
 def find_metadata(options, config):
-    domain = "K8S-Domain"
+    domain = "%s-Domain" % platform
     domaintype = "L3"
-    ent = "K8S-Enterprise"
+    ent = "%s-Enterprise" % platform
     pg = None
     delete_timer = 0
     staticip = None
@@ -312,8 +316,8 @@ def find_metadata(options, config):
     user = 'admin'
 
     if config is not None:
-        domain = config.get("domainName", "K8S-Domain")
-        ent = config.get("enterpriseName", "K8S-Enterprise")
+        domain = config.get("domainName", "%s-Domain" % platform)
+        ent = config.get("enterpriseName", "%s-Enterprise" % platform)
 
     podmeta = get_pod_metadata(options, config)
 
@@ -551,20 +555,20 @@ def invalid(options, sock):
 
 
 def nuage_parser():
-    parser = argparse.ArgumentParser(prog="vsp-k8s",
-                                     description="Nuage Kubernetes Plugin")
+    parser = argparse.ArgumentParser(prog=prog_name,
+                                     description="Nuage Node Plugin")
     group = parser.add_argument_group(title="Plugin Options")
     group.add_argument("action",
-                       help="nuage k8s agent action (init/setup/teardown)",
+                       help="nuage plugin action (init/setup/teardown)",
                        default="init")
     group.add_argument("namespace", nargs='?',
-                       help="k8s namespace for the pod",
+                       help="namespace for the pod",
                        default="")
     group.add_argument("name", nargs='?',
-                       help="name of the k8s pod",
+                       help="name of the pod",
                        default="")
     group.add_argument("id", nargs='?',
-                       help="Docker ID of the k8s pod",
+                       help="Docker ID of the pod",
                        default="")
     ovs.nuage.vlog.add_args(parser)
     args = parser.parse_args()
@@ -597,7 +601,7 @@ def get_pod_metadata(options, config):
 
 def read_configfile():
     config = None
-    configfile = '/usr/share/vsp-k8s/vsp-k8s.yaml'
+    configfile = '/usr/share/%(program)s/%(program)s.yaml' % {"program": prog_name}
     if os.path.isfile(configfile):
         with open(configfile, 'r') as config_stream:
             try:
@@ -620,12 +624,12 @@ def main():
         nuage_trigger(options, sock)
     except Exception as e:
         vlog.err(e)
-        vlog.err("Nuage K8S plugin cannot be executed")
+        vlog.err("Nuage VSP exec plugin cannot be executed")
         raise e
     except:
         raise
     finally:
-        vlog.dbg("Nuage K8S plugin is exiting ...")
+        vlog.dbg("Nuage VSP exec plugin is exiting ...")
 
 
 if __name__ == "__main__":
