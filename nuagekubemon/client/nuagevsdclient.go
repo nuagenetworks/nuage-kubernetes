@@ -618,7 +618,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	} else {
 		//
 		aclEntry.Priority = aclEntry.Priority - 1
-		aclEntry.NetworkType = "NETWORK_MACRO"
+		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 		aclEntry.NetworkID = networkMacroID
 		aclEntry.Description = "Drop traffic from domain to the service CIDR"
 		_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
@@ -668,7 +668,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	} else {
 		//
 		aclEntry.Priority = aclEntry.Priority - 1
-		aclEntry.NetworkType = "NETWORK_MACRO"
+		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 		aclEntry.NetworkID = networkMacroID
 		aclEntry.Description = "Drop traffic from domain to the service CIDR"
 		_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
