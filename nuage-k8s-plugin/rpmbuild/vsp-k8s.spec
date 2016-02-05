@@ -38,9 +38,11 @@ install -m 644 %{vsp_k8s_yaml}.template  $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}
 
 %post 
 
+if [ "$1" = "1" ]; then # first time install only.
 test -e %{nuage_vrs_platform_script} || exit 0
 . %{nuage_vrs_platform_script}
 add_platform k8s 
+fi
 
 if [ "$1" = "2" ]; then
 	cp $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}.orig $RPM_BUILD_ROOT%{vsp_k8s_yaml_path}
