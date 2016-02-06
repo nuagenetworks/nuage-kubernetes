@@ -49,13 +49,10 @@ func TestReadKubemonConfig(t *testing.T) {
 		t.Fatalf("kubeConfig mismatch! Expected: %q, Got: %q",
 			kubeConfig, myConfig.KubeConfigFile)
 	}
-	if myConfig.OsClusterAdmin != openshiftAdmin {
-		t.Fatalf("openshiftAdmin mismatch! Expected: %q, Got: %q",
-			openshiftAdmin, myConfig.OsClusterAdmin)
-	}
-	if myConfig.OsMasterConfigFile != openshiftMasterConfig {
+
+	if myConfig.MasterConfigFile != openshiftMasterConfig {
 		t.Fatalf("openshiftMasterConfig mismatch! Expected: %q, Got: %q",
-			openshiftMasterConfig, myConfig.OsMasterConfigFile)
+			openshiftMasterConfig, myConfig.MasterConfigFile)
 	}
 	if myConfig.NuageVsdApiUrl != vsdApiUrl {
 		t.Fatalf("vsdApiUrl mismatch! Expected: %q, Got: %q",

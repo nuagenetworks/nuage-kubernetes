@@ -30,12 +30,14 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"fmt"
+	"path"
 )
 
 type NuageKubeMonitor struct {
 	mConfig    config.NuageKubeMonConfig
 	mVsdClient *client.NuageVsdClient
-	mOsClient  *client.NuageOsClient
+	mOsClient  *client.NuageClusterClient
 	//mOsNodeClient nuageosnodeclient.NuageOsNodeClient
 }
 
@@ -45,11 +47,10 @@ func NewNuageKubeMonitor() *NuageKubeMonitor {
 }
 
 func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
-	flagSet.StringVar(&nkm.mConfig.OsClusterAdmin, "osusername",
-		"system:admin", "User name of the cluster administrator")
+	programName := path.Base(os.Args[0])
 	flagSet.StringVar(&nkm.mConfig.KubeConfigFile, "kubeconfig",
 		"", "kubeconfig File for Openshift User")
-	flagSet.StringVar(&nkm.mConfig.OsMasterConfigFile, "osmasterconfig",
+	flagSet.StringVar(&nkm.mConfig.MasterConfigFile, "masterconfig",
 		"", "Path to master-config.yaml for the cluster master")
 	flagSet.StringVar(&nkm.mConfig.NuageVsdApiUrl, "nuagevsdurl",
 		"", "Nuage VSD URL")
@@ -60,15 +61,15 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 	flagSet.StringVar(&nkm.mConfig.ConfigFile, "config",
 		"", "Configuration file for nuagekubemon.  If this argument is specified, all other commandline arguments will be ignored.")
 	flagSet.StringVar(&nkm.mConfig.EnterpriseName, "enterprise",
-		"K8S-Enterprise", "Enterprise in which the OpenShift containers will reside")
+		config.DefaultEnterprise(), "Enterprise in which the containers will reside")
 	flagSet.StringVar(&nkm.mConfig.DomainName, "domain",
-		"K8S-Domain", "Domain in which the OpenShift containers will reside")
+		config.DefaultDomain(), "Domain in which the containers will reside")
 	// Set the values for log_dir and logtostderr.  Because this happens before
 	// flag.Parse(), cli arguments will override these.  Also set the DefValue
 	// parameter so -help shows the new defaults.
 	log_dir := flagSet.Lookup("log_dir")
-	log_dir.Value.Set("/var/log/nuagekubemon")
-	log_dir.DefValue = "/var/log/nuagekubemon"
+	log_dir.Value.Set(fmt.Sprintf("/var/log/%s", programName))
+	log_dir.DefValue = fmt.Sprintf("/var/log/%s", programName)
 	logtostderr := flagSet.Lookup("logtostderr")
 	logtostderr.Value.Set("false")
 	logtostderr.DefValue = "false"
@@ -89,18 +90,19 @@ func (nkm *NuageKubeMonitor) LoadConfig() error {
 			return err
 		}
 	}
-	if nkm.mConfig.OsMasterConfigFile == "" {
-		return errors.New("No OpenShift master config file specified")
+	if nkm.mConfig.MasterConfigFile == "" {
+		return errors.New("No master config file specified")
 	}
-	osMasterData, err := ioutil.ReadFile(nkm.mConfig.OsMasterConfigFile)
+	osMasterData, err := ioutil.ReadFile(nkm.mConfig.MasterConfigFile)
 	if err != nil {
 		return err
 	}
-	return nkm.mConfig.OsMasterConfig.Parse(osMasterData)
+	return nkm.mConfig.MasterConfig.Parse(osMasterData)
 }
 
 func (nkm *NuageKubeMonitor) Run() {
-	glog.Infof("Starting %s...", os.Args[0])
+	programName := path.Base(os.Args[0])
+	glog.Infof("Starting %s...", programName)
 	// Read the config file if it was specified.  If there was an error reading
 	// it, don't continue.
 	if err := nkm.LoadConfig(); err != nil {
@@ -108,8 +110,9 @@ func (nkm *NuageKubeMonitor) Run() {
 			nkm.mConfig.ConfigFile, err)
 	}
 	if nkm.mConfig.KubeConfigFile == "" {
-		glog.Error(`No valid kubeconfig file specified...nuagekubemon cannot continue.`)
-		glog.Error(`Please restart nuagekubemon after specifying a valid kubeconfig path either in the config file or as a command line parameter`)
+		glog.Error(fmt.Sprintf("No valid kubeconfig file specified...%s cannot continue.", programName))
+		glog.Error(fmt.Sprintf("Please restart %s after specifying a valid kubeconfig path either in the config file or as a command line parameter",
+			programName))
 		return
 	}
 	nkm.mOsClient = client.NewNuageOsClient(&(nkm.mConfig))

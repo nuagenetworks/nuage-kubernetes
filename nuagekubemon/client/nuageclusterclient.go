@@ -1,12 +1,12 @@
 /*
 ###########################################################################
 #
-#   Filename:           nuageosclient.go
+#   Filename:           nuageClusterclient.go
 #
 #   Author:             Aniket Bhat
 #   Created:            July 20, 2015
 #
-#   Description:        NuageKubeMon Openshift Client Interface
+#   Description:        Nuage VSP Cluster Client Interface
 #
 ###########################################################################
 #
@@ -38,18 +38,18 @@ import (
 	"time"
 )
 
-type NuageOsClient struct {
+type NuageClusterClient struct {
 	kubeConfig *kclient.Config
 	kubeClient *kclient.Client
 }
 
-func NewNuageOsClient(nkmConfig *config.NuageKubeMonConfig) *NuageOsClient {
-	nosc := new(NuageOsClient)
+func NewNuageOsClient(nkmConfig *config.NuageKubeMonConfig) *NuageClusterClient {
+	nosc := new(NuageClusterClient)
 	nosc.Init(nkmConfig)
 	return nosc
 }
 
-func (nosc *NuageOsClient) Init(nkmConfig *config.NuageKubeMonConfig) {
+func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	loadingRules := &clientcmd.ClientConfigLoadingRules{}
 	loadingRules.ExplicitPath = nkmConfig.KubeConfigFile
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
@@ -70,7 +70,7 @@ func (nosc *NuageOsClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nosc.kubeClient = kubeClient
 }
 
-func (nosc *NuageOsClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent) {
+func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent) {
 	//we will use the kube client APIs than interfacing with the REST API
 	nsList, err := nosc.GetNamespaces()
 	if err != nil {
@@ -91,15 +91,15 @@ func (nosc *NuageOsClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent,
 	}
 }
 
-func (nosc *NuageOsClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
+func (nosc *NuageClusterClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
 	nosc.WatchNamespaces(nsChannel, stop)
 }
 
-func (nosc *NuageOsClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
+func (nosc *NuageClusterClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
 	nosc.WatchServices(serviceChannel, stop)
 }
 
-func (nosc *NuageOsClient) GetNamespaces() (*[]*api.NamespaceEvent, error) {
+func (nosc *NuageClusterClient) GetNamespaces() (*[]*api.NamespaceEvent, error) {
 	namespaces, err := nosc.kubeClient.Namespaces().List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (nosc *NuageOsClient) GetNamespaces() (*[]*api.NamespaceEvent, error) {
 	return &namespaceList, nil
 }
 
-func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, stop chan bool) error {
+func (nosc *NuageClusterClient) WatchNamespaces(receiver chan *api.NamespaceEvent, stop chan bool) error {
 	nsEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func() (runtime.Object, error) {
@@ -137,7 +137,7 @@ func (nosc *NuageOsClient) WatchNamespaces(receiver chan *api.NamespaceEvent, st
 	}
 }
 
-func (nosc *NuageOsClient) GetServices() (*[]*api.ServiceEvent, error) {
+func (nosc *NuageClusterClient) GetServices() (*[]*api.ServiceEvent, error) {
 	services, err := nosc.kubeClient.Services(kapi.NamespaceAll).List(unversioned.ListOptions{LabelSelector: unversioned.LabelSelector{Selector: labels.Everything()}, FieldSelector: unversioned.FieldSelector{Selector: fields.Everything()}})
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (nosc *NuageOsClient) GetServices() (*[]*api.ServiceEvent, error) {
 	return &servicesList, nil
 }
 
-func (nosc *NuageOsClient) WatchServices(receiver chan *api.ServiceEvent, stop chan bool) error {
+func (nosc *NuageClusterClient) WatchServices(receiver chan *api.ServiceEvent, stop chan bool) error {
 	serviceEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func() (runtime.Object, error) {

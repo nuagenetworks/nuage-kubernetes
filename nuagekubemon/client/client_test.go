@@ -61,11 +61,9 @@ func TestMain(m *testing.M) {
 }
 
 func addArgs(myConfig *config.NuageKubeMonConfig, flagSet *flag.FlagSet) {
-	flagSet.StringVar(&myConfig.OsClusterAdmin, "osusername",
-		"system:admin", "User name of the cluster administrator")
 	flagSet.StringVar(&myConfig.KubeConfigFile, "kubeconfig",
 		"", "kubeconfig File for Openshift User")
-	flagSet.StringVar(&myConfig.OsMasterConfigFile, "osmasterconfig",
+	flagSet.StringVar(&myConfig.MasterConfigFile, "masterconfig",
 		"", "Path to master-config.yaml for the cluster master")
 	flagSet.StringVar(&myConfig.NuageVsdApiUrl, "nuagevsdurl",
 		"", "Nuage VSD URL")

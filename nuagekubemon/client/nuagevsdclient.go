@@ -91,7 +91,7 @@ func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 		return err
 	}
 	glog.Infoln("Got a reponse status", resp.Status())
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Launch a separate go routine to get the new token 3 minutes before
 		// this one expires
 		// APIKeyExpiry is in milliseconds, while Unix time is in seconds.
@@ -123,10 +123,10 @@ func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, er
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating the enterprise")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		glog.Infoln("Created the enterprise: ", result[0].ID)
 		return result[0].ID, nil
-	case 409:
+	case http.StatusConflict:
 		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
 		for _, resterr := range e.Errors {
@@ -168,10 +168,10 @@ func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating the admin user")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		glog.Infoln("Created the admin user: ", result[0].ID)
 		adminId = result[0].ID
-	case 409:
+	case http.StatusConflict:
 		//Enterprise already exists, call Get to retrieve the ID
 		id, erradminID := nvsdc.GetAdminID(enterpriseID, "admin")
 		if erradminID != nil {
@@ -208,7 +208,7 @@ func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, erro
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting user ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -237,7 +237,7 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ID of group ORGADMIN")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -266,7 +266,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting enterprise ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -312,15 +312,15 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	var err error
-	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ClusterCIDR)
+	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
 	}
-	nvsdc.serviceNetwork, err = IPv4SubnetFromString(nkmConfig.OsMasterConfig.NetworkConfig.ServiceCIDR)
+	nvsdc.serviceNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ServiceCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
-	nvsdc.subnetSize = nkmConfig.OsMasterConfig.NetworkConfig.SubnetLength
+	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.SubnetLength
 	if nvsdc.subnetSize < 0 || nvsdc.subnetSize > 32 {
 		glog.Errorf("Invalid hostSubnetLength of %d.  Using default value of 8",
 			nvsdc.subnetSize)
@@ -412,9 +412,9 @@ func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
 	}
 	glog.Infoln("License Install: reponse status", resp.Status())
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		glog.Infoln("Installed the license: ", result[0].LicenseId)
-	case 409:
+	case http.StatusConflict:
 		//TODO: license already exists, call Get to retrieve the ID? Do we need to delete the existing license?
 		glog.Info("License already exists")
 	default:
@@ -432,7 +432,7 @@ func (nvsdc *NuageVsdClient) GetLicense() error {
 		return err
 	}
 	glog.Infoln("GetLicense() got a reponse status", resp.Status())
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		return nil
 	} else {
 		return VsdErrorResponse(resp, &e)
@@ -453,10 +453,10 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating domain template")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		glog.Infoln("Created the domain: ", result[0].ID)
 		return result[0].ID, nil
-	case 409:
+	case http.StatusConflict:
 		//Enterprise already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetDomainTemplateID(enterpriseID, domainTemplateName)
 		if err != nil {
@@ -481,7 +481,7 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain template ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -510,7 +510,7 @@ func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ingress ACL template ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -540,7 +540,7 @@ func (nvsdc *NuageVsdClient) GetAclTemplateByID(templateID string, ingress bool)
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL template")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -562,7 +562,7 @@ func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.V
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting egress ACL template ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -700,7 +700,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 		glog.Infoln("Got a reponse status", resp.Status(),
 			"when creating ingress acl template")
 		switch resp.Status() {
-		case 201:
+		case http.StatusCreated:
 			nvsdc.ingressAclTemplateID = result[0].ID
 			glog.Infoln("Applied default ingress ACL")
 			err := nvsdc.CreateIngressAclEntries()
@@ -708,7 +708,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 				return "", err
 			}
 			return nvsdc.ingressAclTemplateID, nil
-		case 409:
+		case http.StatusConflict:
 			if e.InternalErrorCode == 2533 {
 				ingressAclTemplate, err := nvsdc.GetIngressAclTemplate(domainID, payload.Name)
 				if err != nil {
@@ -752,7 +752,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 		glog.Infoln("Got a reponse status", resp.Status(),
 			"when creating egress acl template")
 		switch resp.Status() {
-		case 201:
+		case http.StatusCreated:
 			nvsdc.egressAclTemplateID = result[0].ID
 			glog.Infoln("Applied default egress ACL")
 			err := nvsdc.CreateEgressAclEntries()
@@ -760,7 +760,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 				return "", err
 			}
 			return nvsdc.egressAclTemplateID, nil
-		case 409:
+		case http.StatusConflict:
 			if e.InternalErrorCode == 2533 {
 				egressAclTemplate, err := nvsdc.GetEgressAclTemplate(domainID, payload.Name)
 				if err != nil {
@@ -791,7 +791,7 @@ func (nvsdc *NuageVsdClient) UpdateAclTemplate(aclTemplate *api.VsdAclTemplate, 
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Put(
 		url, aclTemplate, nil, &e)
-	if err != nil || resp.Status() != 204 {
+	if err != nil || resp.Status() != http.StatusNoContent {
 		VsdErrorResponse(resp, &e)
 		return err
 	}
@@ -814,7 +814,7 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(aclTemplateID string, ingress
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry with priority", aclEntryPriority)
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -848,7 +848,7 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry: ", aclEntry)
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -885,10 +885,10 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 		glog.Infoln("Got a reponse status", resp.Status(),
 			"when creating acl template entry")
 		switch resp.Status() {
-		case 201:
+		case http.StatusCreated:
 			glog.Infoln("Created ACL entry with priority: ", aclEntry.Priority)
 			return result[0].ID, nil
-		case 409:
+		case http.StatusConflict:
 			VsdErrorResponse(resp, &e)
 			acl, err := nvsdc.GetAclEntryByPriority(aclTemplateID, ingress, aclEntry.Priority)
 			if err != nil {
@@ -922,7 +922,7 @@ func (nvsdc *NuageVsdClient) DeleteAclEntry(ingress bool, aclID string) error {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when deleting acl")
 	switch resp.Status() {
-	case 204:
+	case http.StatusNoContent:
 		return nil
 	default:
 		return VsdErrorResponse(resp, &e)
@@ -941,7 +941,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting zone ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -975,10 +975,10 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating domain")
 	switch resp.Status() {
-	case 201:
+	case http.StatusOK:
 		glog.Infoln("Created the domain:", result[0].ID)
 		return result[0].ID, nil
-	case 409:
+	case http.StatusConflict:
 		//Domain already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetDomainID(enterpriseID, name)
 		if err != nil {
@@ -1002,7 +1002,7 @@ func (nvsdc *NuageVsdClient) DeleteDomain(id string) error {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when deleting domain")
 	switch resp.Status() {
-	case 204:
+	case http.StatusNoContent:
 		return nil
 	default:
 		return VsdErrorResponse(resp, &e)
@@ -1023,10 +1023,10 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating zone")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		glog.Infoln("Created the zone:", result[0].ID)
 		return result[0].ID, nil
-	case 409:
+	case http.StatusConflict:
 		//Zone already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetZoneID(domainID, name)
 		if err != nil {
@@ -1051,7 +1051,7 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when deleting zone")
 	switch resp.Status() {
-	case 204:
+	case http.StatusNoContent:
 		return nil
 	default:
 		return VsdErrorResponse(resp, &e)
@@ -1076,9 +1076,9 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating subnet")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		glog.Infoln("Created the subnet:", result[0].ID)
-	case 409:
+	case http.StatusConflict:
 		// Subnet already exists, call Get to retrieve the ID
 		if id, err := nvsdc.GetSubnetID(zoneID, name); err != nil {
 			if e.InternalErrorCode == 2504 {
@@ -1106,7 +1106,7 @@ func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
 		return err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when deleting subnet")
-	if resp.Status() != 204 {
+	if resp.Status() != http.StatusNoContent {
 		return VsdErrorResponse(resp, &e)
 	}
 	return nil
@@ -1124,7 +1124,7 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting subnet ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		if result[0].Name == subnetName {
 			return &result[0], nil
 		} else {
@@ -1155,7 +1155,7 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting domain ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -1581,9 +1581,9 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating network macro group")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		return result[0].ID, nil
-	case 409:
+	case http.StatusConflict:
 		//Network Macro Group already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetNetworkMacroGroupID(enterpriseID, payload.Name)
 		if err != nil {
@@ -1608,7 +1608,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroGroupID(enterpriseID, nmgName string
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting network macro group ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -1637,7 +1637,7 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacroGroup(networkMacroGroupID string)
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when deleting network macro group")
 	switch resp.Status() {
-	case 204:
+	case http.StatusNoContent:
 		return nil
 	default:
 		return VsdErrorResponse(resp, &e)
@@ -1759,9 +1759,9 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacr
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating network macro")
 	switch resp.Status() {
-	case 201:
+	case http.StatusCreated:
 		return result[0].ID, nil
-	case 409:
+	case http.StatusConflict:
 		//Network Macro already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetNetworkMacroID(enterpriseID, networkMacro)
 		if err != nil {
@@ -1787,7 +1787,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacro
 		return "", err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting network macro ID")
-	if resp.Status() == 200 {
+	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -1816,7 +1816,7 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when deleting network macro")
 	switch resp.Status() {
-	case 204:
+	case http.StatusNoContent:
 		return nil
 	default:
 		return VsdErrorResponse(resp, &e)
@@ -1842,9 +1842,9 @@ func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
 				groupID, err)
 			return err
 		}
-		if resp.Status() == 204 || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
+		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
 			break
-		} else if resp.Status() == 200 {
+		} else if resp.Status() == http.StatusOK {
 			// Add all the items on this page to the list
 			for _, user := range result {
 				if user.ID == userID {
@@ -1887,7 +1887,7 @@ func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
 		glog.Infoln("Got a reponse status", resp.Status(),
 			"when adding user to group")
 		switch resp.Status() {
-		case 204:
+		case http.StatusNoContent:
 			glog.Infof("Added user %s to group %s", userID, groupID)
 		default:
 			return VsdErrorResponse(resp, &e)
@@ -1916,9 +1916,9 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 		}
 		// Using if...else here instead of switch because you can't use 'break'
 		// inside the switch to break from the infinite for-loop
-		if resp.Status() == 204 || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
+		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
 			break
-		} else if resp.Status() == 200 {
+		} else if resp.Status() == http.StatusOK {
 			// The response contains a list of network macros.  Add them to the
 			// list
 			for _, networkMacro := range result {
@@ -1948,7 +1948,7 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 		glog.Infoln("Got a reponse status", resp.Status(),
 			"when adding network macro to the network macro group")
 		switch resp.Status() {
-		case 204:
+		case http.StatusNoContent:
 			glog.Infoln("Added the network macro to the network macro group")
 		default:
 			return VsdErrorResponse(resp, &e)
