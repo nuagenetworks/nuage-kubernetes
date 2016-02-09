@@ -54,7 +54,7 @@ func DefaultEnterprise() string {
 	programName := path.Base(os.Args[0])
 
 	enterprise := "Openshift-Enterprise"
-	if strings.Compare(strings.ToLower(programName), "nuagekubemon") == 0 {
+	if strings.ToLower(programName) == "nuagekubemon" {
 		enterprise = "K8S-Enterprise"
 	}
 
@@ -65,7 +65,7 @@ func DefaultDomain() string {
 	programName := path.Base(os.Args[0])
 
 	domain := "Openshift-Domain"
-	if strings.Compare(strings.ToLower(programName), "nuagekubemon") == 0 {
+	if strings.ToLower(programName) == "nuagekubemon" {
 		domain = "K8S-Domain"
 	}
 
