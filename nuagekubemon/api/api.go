@@ -33,6 +33,11 @@ const (
 	PATDisabled  = "DISABLED"
 )
 
+const (
+	IngressAclTemplateName = "Auto-generated Ingress Policies"
+	EgressAclTemplateName  = "Auto-generated Egress Policies"
+)
+
 type Namespace string
 
 type NamespaceEvent struct {
