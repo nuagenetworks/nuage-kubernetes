@@ -6,7 +6,7 @@
 #   Author:             Aniket Bhat
 #   Created:            July 20, 2015
 #
-#   Description:        NuageKubeMon config types
+#   Description:        Nuage Monitor config types
 #
 ###########################################################################
 #
@@ -20,22 +20,24 @@ package config
 
 import (
 	"gopkg.in/yaml.v2"
+	"os"
+	"path"
+	"strings"
 )
 
 type NuageKubeMonConfig struct {
-	KubeConfigFile     string       `yaml:"kubeConfig"`
-	OsClusterAdmin     string       `yaml:"openshiftAdmin"`
-	OsMasterConfigFile string       `yaml:"openshiftMasterConfig"`
-	NuageVsdApiUrl     string       `yaml:"vsdApiUrl"`
-	NuageVspVersion    string       `yaml:"vspVersion"`
-	LicenseFile        string       `yaml:"licenseFile"`
-	EnterpriseName     string       `yaml:"enterpriseName"`
-	DomainName         string       `yaml:"domainName"`
-	ConfigFile         string       `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
-	OsMasterConfig     MasterConfig `yaml:"-"`
+	KubeConfigFile   string       `yaml:"kubeConfig"`
+	MasterConfigFile string       `yaml:"masterConfig"`
+	NuageVsdApiUrl   string       `yaml:"vsdApiUrl"`
+	NuageVspVersion  string       `yaml:"vspVersion"`
+	LicenseFile      string       `yaml:"licenseFile"`
+	EnterpriseName   string       `yaml:"enterpriseName"`
+	DomainName       string       `yaml:"domainName"`
+	ConfigFile       string       `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
+	MasterConfig     MasterConfig `yaml:"-"`
 }
 
-type openshiftNetworkConfig struct {
+type networkConfig struct {
 	ClusterCIDR  string `yaml:"clusterNetworkCIDR"`
 	SubnetLength int    `yaml:"hostSubnetLength"`
 	ServiceCIDR  string `yaml:"serviceNetworkCIDR"`
@@ -43,22 +45,47 @@ type openshiftNetworkConfig struct {
 
 /* Fields we care about in the openshift master-config.yaml */
 type MasterConfig struct {
-	NetworkConfig openshiftNetworkConfig `yaml:"networkConfig"`
+	NetworkConfig networkConfig `yaml:"networkConfig"`
 }
 
 type NamespaceMap map[string]bool
+
+func DefaultEnterprise() string {
+	programName := path.Base(os.Args[0])
+
+	enterprise := "Openshift-Enterprise"
+	if strings.Compare(strings.ToLower(programName), "nuagekubemon") == 0 {
+		enterprise = "K8S-Enterprise"
+	}
+
+	return enterprise
+}
+
+func DefaultDomain() string {
+	programName := path.Base(os.Args[0])
+
+	domain := "Openshift-Domain"
+	if strings.Compare(strings.ToLower(programName), "nuagekubemon") == 0 {
+		domain = "K8S-Domain"
+	}
+
+	return domain
+}
 
 func (conf *NuageKubeMonConfig) Parse(data []byte) error {
 	if err := yaml.Unmarshal(data, conf); err != nil {
 		return err
 	}
+
 	// TODO: Bounds checking and other validation on fields
 	if conf.EnterpriseName == "" {
-		conf.EnterpriseName = "K8S-Enterprise"
+		conf.EnterpriseName = DefaultEnterprise()
 	}
+
 	if conf.DomainName == "" {
-		conf.DomainName = "K8S-Domain"
+		conf.DomainName = DefaultDomain()
 	}
+
 	return nil
 }
 
