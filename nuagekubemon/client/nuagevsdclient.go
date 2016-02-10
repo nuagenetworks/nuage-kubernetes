@@ -682,7 +682,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	payload := api.VsdAclTemplate{
-		Name:              "Auto-generated Ingress Policies",
+		Name:              api.IngressAclTemplateName,
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
@@ -734,7 +734,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	payload := api.VsdAclTemplate{
-		Name:              "Auto-generated Egress Policies",
+		Name:              api.EgressAclTemplateName,
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
@@ -861,6 +861,27 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 			glog.Error("Found an ACL entry that doesn't match the requested one")
 			return nil, errors.New(fmt.Sprintf("Found ACL entry %v instead of %v", &result[0], aclEntry))
 		}
+	} else if resp.Status() == http.StatusNotFound {
+		VsdErrorResponse(resp, &e)
+		if ingress {
+			aclTemplate, err := nvsdc.GetIngressAclTemplate(nvsdc.domainID, api.IngressAclTemplateName)
+			if err != nil {
+				glog.Error("Failed to fetch the ingress acl template ID from VSD")
+				return nil, err
+			}
+			nvsdc.ingressAclTemplateID = aclTemplate.ID
+			glog.Infoln("Refreshed ingress ACL template")
+			return nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, aclEntry)
+		} else {
+			aclTemplate, err := nvsdc.GetEgressAclTemplate(nvsdc.domainID, api.EgressAclTemplateName)
+			if err != nil {
+				glog.Error("Failed to fetch the egress acl template ID from VSD")
+				return nil, err
+			}
+			nvsdc.egressAclTemplateID = aclTemplate.ID
+			glog.Infoln("Refreshed egress ACL template")
+			return nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, aclEntry)
+		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
 	}
@@ -900,6 +921,27 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 			} else {
 				aclEntry.TryNextAclPriority()
 				return nvsdc.CreateAclEntry(aclTemplateID, ingress, aclEntry)
+			}
+		case http.StatusNotFound:
+			VsdErrorResponse(resp, &e)
+			if ingress {
+				aclTemplate, err := nvsdc.GetIngressAclTemplate(nvsdc.domainID, api.IngressAclTemplateName)
+				if err != nil {
+					glog.Error("Failed to fetch the ingress acl template ID from VSD")
+					return "", err
+				}
+				nvsdc.ingressAclTemplateID = aclTemplate.ID
+				glog.Infoln("Refreshed ingress ACL template")
+				return nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, aclEntry)
+			} else {
+				aclTemplate, err := nvsdc.GetEgressAclTemplate(nvsdc.domainID, api.EgressAclTemplateName)
+				if err != nil {
+					glog.Error("Failed to fetch the egress acl template ID from VSD")
+					return "", err
+				}
+				nvsdc.egressAclTemplateID = aclTemplate.ID
+				glog.Infoln("Refreshed egress ACL template")
+				return nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, aclEntry)
 			}
 		default:
 			return "", VsdErrorResponse(resp, &e)

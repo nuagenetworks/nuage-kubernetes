@@ -402,7 +402,7 @@ func TestCreateSubnet(t *testing.T) {
 	// Guarantee that the subnet gets deleted when we're done too
 	defer vsdClient.DeleteSubnet(subnetID)
 	// Verify that it was created as defined
-	id, err := vsdClient.GetSubnetID(zoneID, subnet)
+	id, err := vsdClient.GetSubnetID(zoneID, "test-subnet")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +477,7 @@ func TestDeleteSubnet(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Verify that it no longer exists
-	_, err = vsdClient.GetSubnetID(zoneID, subnet)
+	_, err = vsdClient.GetSubnetID(zoneID, "test-subnet")
 	if err == nil {
 		t.Fatal("Subnet not deleted!")
 	}
