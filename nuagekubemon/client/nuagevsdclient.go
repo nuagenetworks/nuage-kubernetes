@@ -1017,7 +1017,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when creating domain")
 	switch resp.Status() {
-	case http.StatusOK:
+	case http.StatusCreated:
 		glog.Infoln("Created the domain:", result[0].ID)
 		return result[0].ID, nil
 	case http.StatusConflict:
