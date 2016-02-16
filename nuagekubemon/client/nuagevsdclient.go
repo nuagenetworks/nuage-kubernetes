@@ -75,7 +75,7 @@ func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig) *NuageVsdClient {
 func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 	h := nvsdc.session.Header
 	// Add the organization header if it's not present
-	if h.Get("X-Nuage-Orgainization") == "" {
+	if h.Get("X-Nuage-Organization") == "" {
 		h.Add("X-Nuage-Organization", nvsdc.enterprise)
 	}
 	if h.Get("Authorization") == "" {
@@ -593,7 +593,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 		Protocol:     "ANY",
 		Reflexive:    false,
 	}
-	_, err := nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+	_, err := nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating ingress acl entry", err)
 		return err
@@ -602,7 +602,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
-	_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating ingress acl entry", err)
 	}
@@ -621,7 +621,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 		aclEntry.NetworkID = networkMacroID
 		aclEntry.Description = "Drop traffic from domain to the service CIDR"
-		_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+		_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 		if err != nil {
 			glog.Error("Error when creating ingress acl entry", err)
 		}
@@ -643,7 +643,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 		Protocol:     "ANY",
 		Reflexive:    false,
 	}
-	_, err := nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+	_, err := nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating egress acl entry", err)
 		return err
@@ -652,7 +652,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
-	_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating egress acl entry", err)
 	}
@@ -671,7 +671,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 		aclEntry.NetworkID = networkMacroID
 		aclEntry.Description = "Drop traffic from domain to the service CIDR"
-		_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+		_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 		if err != nil {
 			glog.Error("Error when creating ingress acl entry", err)
 		}
@@ -798,14 +798,14 @@ func (nvsdc *NuageVsdClient) UpdateAclTemplate(aclTemplate *api.VsdAclTemplate, 
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) GetAclEntryByPriority(aclTemplateID string, ingress bool, aclEntryPriority int) (*api.VsdAclEntry, error) {
+func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriority int) (*api.VsdAclEntry, error) {
 	result := make([]api.VsdAclEntry, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `priority == `+fmt.Sprintf("%v", aclEntryPriority))
 	e := api.RESTError{}
-	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+	url := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
 	if ingress {
-		url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+		url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 	}
 	resp, err := nvsdc.session.Get(url, nil, &result, &e)
 	h.Del("X-Nuage-Filter")
@@ -831,15 +831,15 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(aclTemplateID string, ingress
 	}
 }
 
-func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, aclEntry *api.VsdAclEntry) (*api.VsdAclEntry, error) {
+func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry) (*api.VsdAclEntry, error) {
 	result := make([]api.VsdAclEntry, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", aclEntry.BuildFilter())
 	glog.Infoln("Build filter is set to", aclEntry.BuildFilter())
 	e := api.RESTError{}
-	url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+	url := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
 	if ingress {
-		url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+		url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 	}
 	resp, err := nvsdc.session.Get(url, nil, &result, &e)
 	h.Del("X-Nuage-Filter")
@@ -871,7 +871,6 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 			}
 			nvsdc.ingressAclTemplateID = aclTemplate.ID
 			glog.Infoln("Refreshed ingress ACL template")
-			return nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, aclEntry)
 		} else {
 			aclTemplate, err := nvsdc.GetEgressAclTemplate(nvsdc.domainID, api.EgressAclTemplateName)
 			if err != nil {
@@ -880,23 +879,23 @@ func (nvsdc *NuageVsdClient) GetAclEntry(aclTemplateID string, ingress bool, acl
 			}
 			nvsdc.egressAclTemplateID = aclTemplate.ID
 			glog.Infoln("Refreshed egress ACL template")
-			return nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, aclEntry)
 		}
+		return nvsdc.GetAclEntry(ingress, aclEntry)
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, aclEntry *api.VsdAclEntry) (string, error) {
+func (nvsdc *NuageVsdClient) CreateAclEntry(ingress bool, aclEntry *api.VsdAclEntry) (string, error) {
 	//check if any entry matches the desired semantics with a different priority
-	if acl, err := nvsdc.GetAclEntry(aclTemplateID, ingress, aclEntry); err == nil && acl != nil {
+	if acl, err := nvsdc.GetAclEntry(ingress, aclEntry); err == nil && acl != nil {
 		return acl.ID, nil
 	} else {
 		result := make([]api.VsdObject, 1)
 		e := api.RESTError{}
-		url := nvsdc.url + "egressacltemplates/" + aclTemplateID + "/egressaclentrytemplates"
+		url := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
 		if ingress {
-			url = nvsdc.url + "ingressacltemplates/" + aclTemplateID + "/ingressaclentrytemplates"
+			url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 		}
 		resp, err := nvsdc.session.Post(url+"?responseChoice=1", &aclEntry, &result, &e)
 		if err != nil {
@@ -911,7 +910,7 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 			return result[0].ID, nil
 		case http.StatusConflict:
 			VsdErrorResponse(resp, &e)
-			acl, err := nvsdc.GetAclEntryByPriority(aclTemplateID, ingress, aclEntry.Priority)
+			acl, err := nvsdc.GetAclEntryByPriority(ingress, aclEntry.Priority)
 			if err != nil {
 				return "", err
 			}
@@ -920,7 +919,7 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 				return acl.ID, nil
 			} else {
 				aclEntry.TryNextAclPriority()
-				return nvsdc.CreateAclEntry(aclTemplateID, ingress, aclEntry)
+				return nvsdc.CreateAclEntry(ingress, aclEntry)
 			}
 		case http.StatusNotFound:
 			VsdErrorResponse(resp, &e)
@@ -932,7 +931,6 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 				}
 				nvsdc.ingressAclTemplateID = aclTemplate.ID
 				glog.Infoln("Refreshed ingress ACL template")
-				return nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, aclEntry)
 			} else {
 				aclTemplate, err := nvsdc.GetEgressAclTemplate(nvsdc.domainID, api.EgressAclTemplateName)
 				if err != nil {
@@ -941,8 +939,8 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(aclTemplateID string, ingress bool, 
 				}
 				nvsdc.egressAclTemplateID = aclTemplate.ID
 				glog.Infoln("Refreshed egress ACL template")
-				return nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, aclEntry)
 			}
+			return nvsdc.CreateAclEntry(ingress, aclEntry)
 		default:
 			return "", VsdErrorResponse(resp, &e)
 		}
@@ -1520,12 +1518,12 @@ func (nvsdc *NuageVsdClient) CreateDefaultZoneAcls(zoneID string) error {
 		Protocol:     "ANY",
 		Reflexive:    false,
 	}
-	_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the default zone")
 		return err
 	}
-	_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the default zone")
 		return err
@@ -1536,12 +1534,12 @@ func (nvsdc *NuageVsdClient) CreateDefaultZoneAcls(zoneID string) error {
 	aclEntry.NetworkType = "ANY"
 	aclEntry.NetworkID = ""
 	aclEntry.Priority = 2
-	_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the default zone")
 		return err
 	}
-	_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the default zone")
 		return err
@@ -1579,14 +1577,14 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 		Protocol:     "ANY",
 		Reflexive:    false,
 	}
-	_, err = nvsdc.CreateAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the zone: ", zoneName)
 		return err
 	} else {
 		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1 - 300)
 	}
-	_, err = nvsdc.CreateAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry)
+	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the zone: ", zoneName)
 		return err
@@ -1702,7 +1700,7 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	// 	Protocol:     "ANY",
 	// 	Reflexive:    false,
 	// }
-	// if acl, err := nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry); err == nil && acl != nil {
+	// if acl, err := nvsdc.GetAclEntry(true, &aclEntry); err == nil && acl != nil {
 	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)
 	// 	if err != nil {
 	// 		glog.Error("Error when deleting the ingress ACL rules for the zone: ", zoneName, aclEntry)
@@ -1712,7 +1710,7 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	// 	glog.Error("Failed to get ingress acl entry to delete", aclEntry)
 	// 	return err
 	// }
-	// if acl, err := nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry); err == nil && acl != nil {
+	// if acl, err := nvsdc.GetAclEntry(false, &aclEntry); err == nil && acl != nil {
 	// 	err = nvsdc.DeleteAclEntry(false, acl.ID)
 	// 	if err != nil {
 	// 		glog.Error("Error when deleting the egress ACL rules for the zone: ", zoneName, aclEntry)
@@ -1756,7 +1754,7 @@ func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
 	// 	Protocol:     "ANY",
 	// 	Reflexive:    false,
 	// }
-	// if acl, err := nvsdc.GetAclEntry(nvsdc.ingressAclTemplateID, true, &aclEntry); err == nil && acl != nil {
+	// if acl, err := nvsdc.GetAclEntry(true, &aclEntry); err == nil && acl != nil {
 	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)
 	// 	if err != nil {
 	// 		glog.Error("Error when deleting the ingress ACL rules for the default zone", aclEntry)
@@ -1766,7 +1764,7 @@ func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
 	// 	glog.Error("Failed to get ingress acl entry to delete", aclEntry)
 	// 	return err
 	// }
-	// if acl, err := nvsdc.GetAclEntry(nvsdc.egressAclTemplateID, false, &aclEntry); err == nil && acl != nil {
+	// if acl, err := nvsdc.GetAclEntry(false, &aclEntry); err == nil && acl != nil {
 	// 	err = nvsdc.DeleteAclEntry(false, acl.ID)
 	// 	if err != nil {
 	// 		glog.Error("Error when deleting the egress ACL rules for the default zone", aclEntry)
