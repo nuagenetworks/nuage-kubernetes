@@ -53,7 +53,7 @@ CERT = "/usr/share/%s/nuage.crt" % prog_name
 KEY = "/usr/share/%s/nuage.key" % prog_name
 
 
-def create_internal_port(port, vm_name, nuage_uuid, pid):
+def create_internal_port(port, vm_name, nuage_uuid, pid, mtu):
     # Create the internal ovs port for the name space
     # Include vm-uuid as external_id.
     create_port = ("""ovs-vsctl --no-wait --if-exists del-port """
@@ -62,16 +62,23 @@ def create_internal_port(port, vm_name, nuage_uuid, pid):
                    (port, port, port, str(nuage_uuid), vm_name))
     # set the MAC address of the port
     local_mac = random_mac()
-    set_mac = (("""nsenter -n -t %s -- ip link set dev %s address %s""") %
-               (pid, 'eth0', str(local_mac)))
+    set_intf_params = (("""nsenter -n -t %s -- ip link set dev %s """
+                        """address %s mtu %s""") %
+                       (pid, 'eth0', str(local_mac), mtu))
+    set_veth_host_params = "ip link set dev %s mtu %s" % (port, mtu)
     try:
         cmd = create_port
         subprocess.call([cmd], shell=True)
         vlog.dbg("Created a port %s on alubr0" % port)
-        cmd = set_mac
+        cmd = set_intf_params
         out = subprocess.check_output([cmd], shell=True).strip()
-        vlog.dbg("Assigned mac for port %s is %s with output %s"
-                 % (port, local_mac if local_mac else "empty", out))
+        vlog.dbg("""Assigned mac for port %s is %s """
+                 """and assigned mtu is %s with output %s"""
+                 % (port, local_mac if local_mac else "empty", mtu, out))
+        cmd = set_veth_host_params
+        out = subprocess.check_output([cmd], shell=True).strip()
+        vlog.dbg("Assigned mtu for port %s is %s with output %s"
+                 % (port, mtu, out))
     except:
         vlog.err("Container linking failed at %s" % cmd)
         raise NameError('NameSpaceLinkFail')
@@ -314,11 +321,11 @@ def find_metadata(options, config):
     zone = options.namespace
     network = options.namespace + '-0'
     user = 'admin'
-
+    mtu = 1460
     if config is not None:
         domain = config.get("domainName", "%s-Domain" % platform)
         ent = config.get("enterpriseName", "%s-Enterprise" % platform)
-
+        mtu = config.get("interfaceMTU", mtu)
     podmeta = get_pod_metadata(options, config)
 
     if podmeta is not None and 'labels' in podmeta:
@@ -354,6 +361,7 @@ def find_metadata(options, config):
                         "ent": ent,
                         "pid": pid,
                         "delete_timer": delete_timer,
+                        "mtu": mtu if mtu else 1460,
                         "name": name}
             if pg is not None:
                 metadata['pg'] = pg
@@ -375,6 +383,7 @@ def find_metadata(options, config):
                         "ent": ent,
                         "pid": pid,
                         "delete_timer": delete_timer,
+                        "mtu": mtu if mtu else 1460,
                         "name": name}
             if pg is not None:
                 metadata['pg'] = pg
@@ -546,6 +555,10 @@ def pod_hook(options, sock, setup=True):
 def status(options, sock):
     status_dict = {'apiVersion': "v1beta1", 'kind': "PodNetworkStatus",
                    'ip': check_ip(_get_nuage_uuid(options))}
+    if status_dict['ip'] == "0.0.0.0":
+        vlog.info("Got an empty IP for pod %s" % options.name)
+        vlog.info("This is normal if the pod has host networking")
+        sys.exit(1)
     print json.dumps(status_dict).encode('utf-8')
 
 
@@ -601,7 +614,8 @@ def get_pod_metadata(options, config):
 
 def read_configfile():
     config = None
-    configfile = '/usr/share/%(program)s/%(program)s.yaml' % {"program": prog_name}
+    configfile = ('/usr/share/%(program)s/%(program)s.yaml'
+                  % {"program": prog_name})
     if os.path.isfile(configfile):
         with open(configfile, 'r') as config_stream:
             try:

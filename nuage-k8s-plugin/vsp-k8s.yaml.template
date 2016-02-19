@@ -14,3 +14,5 @@ domainName: "K8S-Domain"
 masterApiServer: "https://127.0.0.1:8443"
 # Bridge name for the docker bridge
 dockerBridgeName: "docker0"
+# Network MTU
+interfaceMTU: 1460
