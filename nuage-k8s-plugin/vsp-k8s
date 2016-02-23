@@ -407,7 +407,7 @@ def attach_port(metadata, sock):
     port = metadata['veth_host_if']
     # Create the internal port
     local_mac = create_internal_port(port, vm_name, nuage_uuid,
-                                     metadata['pid'])
+                                     metadata['pid'], metadata['mtu'])
     if local_mac == "":
         vlog.err(("""Could not obtain local mac when creating internal"""
                   """ port for container with UUID %s""") % str(nuage_uuid))
