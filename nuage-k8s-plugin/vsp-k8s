@@ -671,7 +671,7 @@ def read_configfile():
 
 
 def main():
-    sock = get_connected_socket()
+    sock = None
     try:
         signal.signal(signal.SIGTERM, signal_handle)
         options = nuage_parser()
@@ -679,7 +679,11 @@ def main():
         if action is None:
             vlog.err("action must be provided")
             sys.exit(1)
+        if action in ['setup', 'teardown']:
+            sock = get_connected_socket()
         nuage_trigger(options, sock)
+        if sock:
+            sock.close()
     except Exception as e:
         vlog.err(e)
         vlog.err("Nuage VSP exec plugin cannot be executed")
