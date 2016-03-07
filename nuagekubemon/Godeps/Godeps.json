@@ -26,11 +26,6 @@
 			"Rev": "2b27fe17a1b3fb8472fde96d768fa70996adf201"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/units",
-			"Comment": "v1.4.1-4045-g2b27fe1",
-			"Rev": "2b27fe17a1b3fb8472fde96d768fa70996adf201"
-		},
-		{
 			"ImportPath": "github.com/docker/libcontainer/cgroups",
 			"Comment": "v1.4.0-446-gae812bd",
 			"Rev": "ae812bdca78084dc322037225d170e1883521d87"
@@ -70,6 +65,14 @@
 		{
 			"ImportPath": "github.com/google/gofuzz",
 			"Rev": "bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5"
+		},
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "2aad27d3101b8183f8fa1bebdbc2cdb74fcef090"
 		},
 		{
 			"ImportPath": "github.com/imdario/mergo",
@@ -119,6 +122,10 @@
 		{
 			"ImportPath": "github.com/prometheus/procfs",
 			"Rev": "490cc6eb5fa45bf8a8b7b73c8bc82a8160e8531d"
+		},
+		{
+			"ImportPath": "github.com/rfredette/sleepy",
+			"Rev": "cfe6f1d22d0fc80d7eb179af9b98996ac26be787"
 		},
 		{
 			"ImportPath": "github.com/spf13/pflag",

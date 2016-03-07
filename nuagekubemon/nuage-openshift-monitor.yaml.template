@@ -1,7 +1,5 @@
 # .kubeconfig that includes the nuage service account
 kubeConfig: "/usr/share/nuage-openshift-monitor/nuage.kubeconfig"
-# name of the nuage service account, or another account with 'cluster-reader'
-# permissions
 # Openshift master config file
 masterConfig: "/path/to/master-config.yaml"
 # URL of the VSD Architect
@@ -17,3 +15,20 @@ enterpriseName: "Openshift-Enterprise"
 domainName: "Openshift-Domain"
 # Location where logs should be saved
 log_dir: '/var/log/nuage-openshift-monitor'
+nuageMonServer:
+    # Port on which to serve the REST API.  Default is 8444
+    URL: 0.0.0.0:9443
+    # Directory where certificates reside.
+    certificateDirectory: '/usr/share/nuage-openshift-monitor'
+    # Location of the CA certificate used to verify clients.  The default is
+    # [certificateDirectory]/nuageMonCA.crt.  This option is only necessary if the
+    # file is not in the default location.
+    #clientCA: '/usr/share/nuage-openshift-monitor/nuageMonCA.crt'
+    # Location of the server certificate used for SSL communication.  The
+    # default is [certificateDirectory]/nuageMonServer.crt.  This option is only
+    # necessary if the file is not in the default location.
+    #serverCertificate: '/usr/share/nuage-openshift-monitor/nuageMonServer.crt'
+    # Location of the server private key used for SSL communication.  The
+    # default is [certificateDirectory]/nuageMonServer.key.  This option is only
+    # necessary if the file is not in the default location.
+    #serverKey: '/usr/share/nuage-openshift-monitor/nuageMonServer.key'

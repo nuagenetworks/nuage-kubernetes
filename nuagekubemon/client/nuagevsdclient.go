@@ -20,6 +20,7 @@ package client
 import (
 	"crypto/sha1"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -27,8 +28,10 @@ import (
 	"github.com/jmcvetta/napping"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
+	"github.com/rfredette/sleepy"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -44,26 +47,35 @@ type NuageVsdClient struct {
 	enterpriseID          string
 	domainID              string
 	namespaces            map[string]NamespaceData //namespace name -> namespace data
-	subnets               map[string]*SubnetList   //zone id -> list of subnets mapping
+	pods                  *PodList                 //<namespace>/<pod-name> -> subnet
 	pool                  IPv4SubnetPool
 	clusterNetwork        *IPv4Subnet //clusterNetworkCIDR used to generate pool
 	serviceNetwork        *IPv4Subnet
 	ingressAclTemplateID  string
 	egressAclTemplateID   string
 	nextAvailablePriority int
-	subnetSize            int //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
+	subnetSize            int         //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
+	restAPI               *sleepy.API //TODO: split the rest server into its own package
+	restServer            *http.Server
+	newSubnetQueue        chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
 }
 
 type NamespaceData struct {
 	ZoneID              string
+	Name                string
 	NetworkMacroGroupID string
 	NetworkMacros       map[string]string //service name (qualified with the namespace) -> network macro id
+	Subnets             *SubnetNode
+	NeedsNewSubnet      bool
+	numSubnets          int //used for naming new subnets (nsname-0, nsname-1, etc.)
 }
 
-type SubnetList struct {
-	SubnetID string
-	Subnet   *IPv4Subnet
-	Next     *SubnetList
+type SubnetNode struct {
+	SubnetID   string
+	Subnet     *IPv4Subnet
+	SubnetName string
+	ActiveIPs  int //Number of IP addresses that are accounted for in this subnet.
+	Next       *SubnetNode
 }
 
 func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig) *NuageVsdClient {
@@ -341,7 +353,8 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	// Free()-ing it.
 	nvsdc.pool.Free(nvsdc.clusterNetwork)
 	nvsdc.namespaces = make(map[string]NamespaceData)
-	nvsdc.subnets = make(map[string]*SubnetList)
+	nvsdc.newSubnetQueue = make(chan config.NamespaceUpdateRequest)
+	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue)
 	nvsdc.CreateSession()
 	nvsdc.nextAvailablePriority = 0
 
@@ -383,11 +396,78 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
+	err = nvsdc.StartRestServer(nkmConfig.RestServer)
+	if err != nil {
+		glog.Fatal(err)
+	}
+}
+
+func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConfig) error {
+	// Process config options
+	url := restServerCfg.Url
+	if url == "" {
+		url = "0.0.0.0:9443"
+	}
+	certDir := restServerCfg.CertificateDirectory
+	if certDir == "" {
+		certDir = "/usr/share/" + os.Args[0]
+	}
+	clientCA := restServerCfg.ClientCA
+	if clientCA == "" {
+		clientCA = certDir + "/nuageMonCA.crt"
+	}
+	glog.Infof("Using %s as rest server CA", clientCA)
+	serverCert := restServerCfg.ServerCertificate
+	if serverCert == "" {
+		serverCert = certDir + "/nuageMonServer.crt"
+	}
+	glog.Infof("Using %s as rest server cert", serverCert)
+	serverKey := restServerCfg.ServerKey
+	if serverKey == "" {
+		serverKey = certDir + "/nuageMonServer.key"
+	}
+	glog.Infof("Using %s as rest server key", serverKey)
+	CAPool := x509.NewCertPool()
+	// Read in the CA certificate, and add it to the pool of valid CAs
+	clientCAData, err := ioutil.ReadFile(clientCA)
+	if err != nil {
+		return err
+	}
+	/*clientCACert, err := x509.ParseCertificate(clientCAData)
+	if err != nil {
+		return err
+	}*/
+	CAPool.AppendCertsFromPEM(clientCAData)
+	// Create the rest API router, and add endpoints
+	nvsdc.restAPI = sleepy.NewAPI()
+	nvsdc.restAPI.AddResource(nvsdc.pods, "/namespaces/{namespace}/pods",
+		"/namespaces/{namespace}/pods/{podName}")
+	// Create the server config
+	nvsdc.restServer = &http.Server{
+		Addr:           url,
+		Handler:        nvsdc.restAPI.Mux(),
+		MaxHeaderBytes: 1 << 20, // not sure if this is necessary
+		TLSConfig: &tls.Config{
+			Certificates: make([]tls.Certificate, 1),
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientCAs:    CAPool,
+			RootCAs:      CAPool,
+			MinVersion:   tls.VersionTLS10,
+		},
+	}
+	// Add the server certificate to the certificate chain
+	nvsdc.restServer.TLSConfig.Certificates[0], err = tls.LoadX509KeyPair(serverCert, serverKey)
+	if err != nil {
+		return err
+	}
+	// TODO: if TLS setup is unsucessful, serve over http instead
+	go nvsdc.restServer.ListenAndServeTLS(serverCert, serverKey)
+	return nil
 }
 
 func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
 	if licensePath == "" {
-		glog.Error("No license file specified")
+		glog.Info("No license file specified")
 		//check if a license already exists.
 		// if it does then its not an error
 		return nvsdc.GetLicense()
@@ -1220,7 +1300,70 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 			nvsdc.HandleNsEvent(nsEvent)
 		case serviceEvent := <-serviceChannel:
 			nvsdc.HandleServiceEvent(serviceEvent)
+		case nsUpdateReq := <-nvsdc.newSubnetQueue:
+			switch nsUpdateReq.Event {
+			case config.AddSubnet:
+				nvsdc.CreateAdditionalSubnet(nsUpdateReq.NamespaceID)
+			}
+		}
+	}
+}
 
+func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
+	nvsdc.pods.editLock.Lock()
+	defer nvsdc.pods.editLock.Unlock()
+	namespace, exists := nvsdc.namespaces[namespaceID]
+	if !exists {
+		glog.Warningf("Got event to update namespace %q, but no namespace "+
+			"found with that name", namespaceID)
+		return
+	}
+	subnetName := namespace.Name + "-" + strconv.Itoa(namespace.numSubnets)
+	glog.Infof("Creating subnet %q", subnetName)
+	subnet, err := nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+	if err != nil {
+		glog.Warningf(
+			"Error allocating new subnet for namespace %s: %s",
+			namespace.Name, err.Error())
+		return
+	}
+	for {
+		subnetID, err := nvsdc.CreateSubnet(subnetName, namespace.ZoneID, subnet)
+		if err == nil {
+			// Step through the existing list to get to the tail
+			subnetNode := namespace.Subnets
+			for subnetNode.Next != nil {
+				subnetNode = subnetNode.Next
+			}
+			// Then add the new subnet at the end of the list
+			subnetNode.Next = &SubnetNode{
+				SubnetID:   subnetID,
+				Subnet:     subnet,
+				SubnetName: subnetName,
+				ActiveIPs:  0,
+				Next:       nil,
+			}
+			namespace.numSubnets++
+			namespace.NeedsNewSubnet = false
+			nvsdc.namespaces[namespaceID] = namespace
+			glog.Infof("Successfully created subnet %q", subnetName)
+			return
+		} else if err.Error() == "Overlapping Subnet" {
+			// If this subnet overlaps with one in the VSD, don't return
+			// it to the pool (since it won't work anyway), but get a
+			// new subnet and retry.
+			subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+			if err != nil {
+				glog.Warningf(
+					"Error allocating new subnet for namespace %s: %s",
+					namespace.Name, err.Error())
+				return
+			}
+		} else {
+			glog.Warningf(
+				"Error allocating new subnet for namespace %s: %s",
+				namespace.Name, err.Error())
+			return
 		}
 	}
 }
@@ -1309,19 +1452,23 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
 	switch nsEvent.Type {
 	case api.Added:
-		if _, exists := nvsdc.namespaces[nsEvent.Name]; !exists {
+		namespace, exists := nvsdc.namespaces[nsEvent.Name]
+		if !exists {
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
 			}
-			nvsdc.namespaces[nsEvent.Name] = NamespaceData{
+			namespace := NamespaceData{
 				ZoneID:        zoneID,
+				Name:          nsEvent.Name,
 				NetworkMacros: make(map[string]string),
 			}
+			nvsdc.namespaces[nsEvent.Name] = namespace
 			var subnetID string
 			var subnet *IPv4Subnet
 			// Check if subnet already exists
-			vsdSubnet, err := nvsdc.GetSubnet(zoneID, nsEvent.Name+"-0")
+			subnetName := nsEvent.Name + "-0"
+			vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName)
 			if err != nil {
 				// If it didn't exist, allocate an appropriate subnet, then
 				// create it
@@ -1335,8 +1482,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 						return err
 					}
 					for {
-						subnetID, err = nvsdc.CreateSubnet(nsEvent.Name+"-0",
-							zoneID, subnet)
+						subnetID, err = nvsdc.CreateSubnet(subnetName, zoneID,
+							subnet)
 						if err == nil {
 							break
 						} else if err.Error() == "Overlapping Subnet" {
@@ -1377,7 +1524,14 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				}
 				subnetID = vsdSubnet.ID
 			}
-			nvsdc.subnets[zoneID] = &SubnetList{SubnetID: subnetID, Subnet: subnet, Next: nil}
+			namespace.Subnets = &SubnetNode{
+				SubnetID:   subnetID,
+				SubnetName: subnetName,
+				Subnet:     subnet,
+				Next:       nil,
+			}
+			namespace.numSubnets++
+			nvsdc.namespaces[nsEvent.Name] = namespace
 			if nsEvent.Name == "default" {
 				err = nvsdc.CreateDefaultZoneAcls(zoneID)
 				if err != nil {
@@ -1416,9 +1570,9 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					return err
 				}
 			}
-			nvsdc.namespaces[nsEvent.Name] = NamespaceData{
-				ZoneID:        id,
-				NetworkMacros: make(map[string]string),
+			namespace.ZoneID = id
+			if namespace.NetworkMacros == nil {
+				namespace.NetworkMacros = make(map[string]string)
 			}
 			return nil
 		}
@@ -1438,7 +1592,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					glog.Error("Got an error when deleting network macro group for zone: ", nsEvent.Name)
 				}
 			}
-			if subnetsHead, exists := nvsdc.subnets[zone.ZoneID]; exists {
+			if subnetsHead := zone.Subnets; subnetsHead != nil {
 				subnet := subnetsHead
 				for subnet != nil {
 					err := nvsdc.DeleteSubnet(subnet.SubnetID)
@@ -1454,8 +1608,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					subnet = subnet.Next
 				}
 				// Now that all subnets are deleted, remove the list associated
-				// with this zone
-				delete(nvsdc.subnets, zone.ZoneID)
+				// with this zone (remove the reference to the list so it can be
+				// garbage collected)
+				zone.Subnets = nil
+				zone.numSubnets = 0
 			}
 			delete(nvsdc.namespaces, nsEvent.Name)
 			return nvsdc.DeleteZone(zone.ZoneID)
@@ -1499,7 +1655,12 @@ func (nvsdc *NuageVsdClient) CreateDefaultZoneAcls(zoneID string) error {
 			nsd.NetworkMacroGroupID = nmgid
 			nvsdc.namespaces["default"] = nsd
 		} else {
-			nvsdc.namespaces["default"] = NamespaceData{ZoneID: zoneID, NetworkMacroGroupID: nmgid, NetworkMacros: make(map[string]string)}
+			nvsdc.namespaces["default"] = NamespaceData{
+				ZoneID:              zoneID,
+				Name:                "default",
+				NetworkMacroGroupID: nmgid,
+				NetworkMacros:       make(map[string]string),
+			}
 		}
 	}
 	//add ingress and egress ACL entries for allowing zone to default zone communication
@@ -1558,7 +1719,12 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 			nsd.NetworkMacroGroupID = nmgid
 			nvsdc.namespaces[zoneName] = nsd
 		} else {
-			nvsdc.namespaces[zoneName] = NamespaceData{ZoneID: zoneID, NetworkMacroGroupID: nmgid, NetworkMacros: make(map[string]string)}
+			nvsdc.namespaces[zoneName] = NamespaceData{
+				ZoneID:              zoneID,
+				Name:                zoneName,
+				NetworkMacroGroupID: nmgid,
+				NetworkMacros:       make(map[string]string),
+			}
 		}
 	}
 	//add ingress and egress ACL entries for allowing zone to default zone communication
