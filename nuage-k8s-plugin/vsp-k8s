@@ -213,15 +213,18 @@ def _send_vm_event_to_ovs(nuage_uuid, eventStr, vm_name, nuagexml=None):
 def send_msg(msg, sock, retry_count=0):
     ret = 0
     try:
+        if retry_count == 5:
+            vlog.warn("Exceeded retries when trying to send message")
+            return
         vlog.dbg("Trying to send message over the socket")
         ret = sock.sendall(msg)
         vlog.dbg("Message succesfully sent")
     except Exception, e:
         vlog.err("Got an exception %s while sending vm_event" % str(e))
-        if socket.errno in [errno.EBUSY, errno.EAGAIN]:
-            # Retry 5 times every second
+        if socket.errno in [errno.EBUSY, errno.EAGAIN, errno.EPIPE]:
+            # Retry 5 times every 0.3 seconds
             vlog.err("Socket is busy, try again...")
-            time.sleep(1)
+            time.sleep(0.3)
             send_msg(msg, sock, retry_count=(retry_count + 1))
     return ret
 
