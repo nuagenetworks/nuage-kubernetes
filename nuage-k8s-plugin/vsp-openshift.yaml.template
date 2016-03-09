@@ -24,3 +24,6 @@ nuageMonClientCert: /usr/share/vsp-openshift/nuageMonClient.crt
 nuageMonClientKey: /usr/share/vsp-openshift/nuageMonClient.key
 # CA certificate for verifying the master's nuageMon server
 nuageMonCA: /usr/share/vsp-openshift/nuageMonCA.crt
+# Logging level for the plugin
+# allowed options are: "dbg", "info", "warn", "err", "emer", "off"
+logLevel: "err"

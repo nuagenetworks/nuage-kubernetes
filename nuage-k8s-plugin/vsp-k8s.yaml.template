@@ -24,3 +24,6 @@ nuageMonClientCert: /usr/share/vsp-k8s/nuageMonClient.crt
 nuageMonClientKey: /usr/share/vsp-k8s/nuageMonClient.key
 # CA certificate for verifying the master's nuageMon server
 nuageMonCA: /usr/share/vsp-k8s/nuageMonCA.crt
+# Logging level for the plugin
+# allowed options are: "dbg", "info", "warn", "err", "emer", "off"
+logLevel: "err"
