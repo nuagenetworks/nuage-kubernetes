@@ -215,17 +215,26 @@ def send_msg(msg, sock, retry_count=0):
     try:
         if retry_count == 5:
             vlog.warn("Exceeded retries when trying to send message")
-            return
+            return -1
         vlog.dbg("Trying to send message over the socket")
         ret = sock.sendall(msg)
         vlog.dbg("Message succesfully sent")
-    except Exception, e:
-        vlog.err("Got an exception %s while sending vm_event" % str(e))
-        if socket.errno in [errno.EBUSY, errno.EAGAIN, errno.EPIPE]:
-            # Retry 5 times every 0.3 seconds
+    except socket.error, (errcode, errmsg):
+        vlog.err("Got an exception %s while sending vm_event" % str(errmsg))
+        if errcode in [errno.EBUSY, errno.EAGAIN]:
+            ''' Retry five times every 0.3s '''
             vlog.err("Socket is busy, try again...")
             time.sleep(0.3)
-            send_msg(msg, sock, retry_count=(retry_count + 1))
+        else:
+            vlog.err("Socket is not connected...")
+            sock.close()
+            time.sleep(0.3)
+            sock = get_connected_socket()
+        return send_msg(msg, sock, retry_count=(retry_count + 1))
+    except Exception as e:
+        vlog.err("Got a non-socket exception %s while sending vm_event"
+                 % str(e))
+        ret = -1
     return ret
 
 
@@ -363,7 +372,7 @@ def find_metadata(options, config, setup):
         # TODO: automatically fall back to http if https is not available
         json_data = {"podName": options.name}
         if zone != options.namespace:
-            vlog.dbg("User specified zone: " + zone + 
+            vlog.dbg("User specified zone: " + zone +
                      " namespace: " + options.namespace)
             json_data['desiredZone'] = zone
             json_data['desiredSubnet'] = network
@@ -388,7 +397,7 @@ def find_metadata(options, config, setup):
         if fetched_pod_data.status_code != 200 or \
                 fetched_pod_data.json() is None:
             vlog.err("Unexpected response from master:\n%d: %s" %
-                      (fetched_pod_data.status_code, fetched_pod_data.text))
+                     (fetched_pod_data.status_code, fetched_pod_data.text))
             return None
         else:
             network = fetched_pod_data.json().get("SubnetName", network)
@@ -529,8 +538,12 @@ def get_connected_socket():
     try:
         sock.connect(server_address)
         vlog.dbg("Connected to the vrs...")
-    except socket.error:
-        vlog.err("Couldn't open a socket to the VRS")
+    except socket.error, (errcode, errmsg):
+        vlog.err("Couldn't open a socket to the VRS because %s" % str(errmsg))
+        sock.close()
+        sock = None
+    except Exception:
+        vlog.err("Caught a non-socket exception when connecting to the VRS")
     return sock
 
 
@@ -538,9 +551,11 @@ def _get_nuage_uuid(options):
     return str(uuid.UUID(str(options.id)[0:32]))
 
 
-def nuage_trigger(options, sock):
+def nuage_trigger(options, sock, config):
     if options.id is None:
         vlog.err("Container UUID must be provided")
+        if sock:
+            sock.close()
         sys.exit(1)
     actions = {'init': init,
                'setup': setup,
@@ -548,7 +563,7 @@ def nuage_trigger(options, sock):
                'status': status}
     hook = actions.get(options.action, invalid)
     vlog.dbg("Invoking %s hook" % options.action)
-    hook(options, sock)
+    hook(options, sock, config)
     vlog.dbg("Exiting %s hook" % options.action)
 
 
@@ -561,11 +576,11 @@ def get_veth_host_if(pid):
     return subprocess.check_output([veth_host_if], shell=True).strip()
 
 
-def init(options, sock):
+def init(options, sock, config):
     pass
 
 
-def setup(options, sock):
+def setup(options, sock, config):
     # nuage_uuid = get_nuage_uuid(options) Do we need nuage_uuid at all?
     # TODO: once we have the node client, check the namespace exists in VSD
     # we will be given a veth pair at this point.
@@ -576,23 +591,26 @@ def setup(options, sock):
     # wait to get an IP assigned to the vport and
     # configure that IP on the interface inside the container (update_ip).
     # In the status hook, return the IP from the vport (check_ip)
-    pod_hook(options, sock, True)
+    pod_hook(options, sock, config, True)
 
 
-def teardown(options, sock):
-    pod_hook(options, sock, False)
+def teardown(options, sock, config):
+    pod_hook(options, sock, config, False)
 
 
-def pod_hook(options, sock, setup=True):
+def pod_hook(options, sock, config, setup=True):
     if not _is_bridge_network_mode(options.id):
         vlog.info(
             "Network mode is not bridge networking, nothing to do for Nuage")
+        if sock:
+            sock.close()
         sys.exit(0)
-    config = read_configfile()
     metadata = find_metadata(options, config, setup)
     if metadata is None:
         vlog.err("Cannot get metadata for UUID: %s while calling setup() "
                  "hook for the pid" % str(options.id))
+        if sock:
+            sock.close()
         sys.exit(1)
     if setup:
         del_from_docker_br = (("brctl delif %s ") %
@@ -607,7 +625,7 @@ def pod_hook(options, sock, setup=True):
 
 # Warning: Make sure we don't log anything in the status hook invocation.
 # Exec hooks are notorious - they gobble logs too.
-def status(options, sock):
+def status(options, sock, config):
     status_dict = {'apiVersion': "v1beta1", 'kind': "PodNetworkStatus",
                    'ip': check_ip(_get_nuage_uuid(options))}
     if status_dict['ip'] == "0.0.0.0":
@@ -686,13 +704,17 @@ def main():
     try:
         signal.signal(signal.SIGTERM, signal_handle)
         options = nuage_parser()
+        config = read_configfile()
+        ovs.nuage.vlog.Vlog.set_level("any", "console", "off")
+        ovs.nuage.vlog.Vlog.set_level("any", "file",
+                                      config.get('logLevel', "err"))
         action = options.action
         if action is None:
             vlog.err("action must be provided")
             sys.exit(1)
         if action in ['setup', 'teardown']:
             sock = get_connected_socket()
-        nuage_trigger(options, sock)
+        nuage_trigger(options, sock, config)
         if sock:
             sock.close()
     except Exception as e:
