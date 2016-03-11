@@ -361,11 +361,19 @@ def find_metadata(options, config, setup):
     vlog.dbg("Using %s to verify server certificate" % server_ca)
     if setup:
         # TODO: automatically fall back to http if https is not available
+        json_data = {"podName": options.name}
+        if zone != options.namespace:
+            vlog.dbg("User specified zone: " + zone + 
+                     " namespace: " + options.namespace)
+            json_data['desiredZone'] = zone
+            json_data['desiredSubnet'] = network
+
+        vlog.dbg("Sending json %s" % str(json_data))
         fetched_pod_data = requests.post(
             "%s/namespaces/%s/pods" % (config.get("nuageMonRestServer",
                                                   "https://localhost:8444"),
                                        options.namespace),
-            json={"podName": options.name},
+            json=json_data,
             cert=(client_cert, client_key),
             verify=server_ca
         )
@@ -379,9 +387,9 @@ def find_metadata(options, config, setup):
             )
         if fetched_pod_data.status_code != 200 or \
                 fetched_pod_data.json() is None:
-            vlog.warn("Unexpected response from master:\n%d: %s" %
+            vlog.err("Unexpected response from master:\n%d: %s" %
                       (fetched_pod_data.status_code, fetched_pod_data.text))
-            network = options.namespace + '-0'
+            return None
         else:
             network = fetched_pod_data.json().get("SubnetName", network)
         vlog.info('Using network "%s"' % network)

@@ -53,16 +53,50 @@ func (pods PodList) Post(urlVars map[string]string, values url.Values,
 	http.Header) {
 	namespace, exists := urlVars["namespace"]
 	if !exists {
+		glog.Error("Namespace info missing for the POST request")
 		return http.StatusNotFound, nil, nil
 	}
 	podName, exists := bodyJson["podName"]
 	if !exists {
+		glog.Error("Podname missing from the JSON data")
 		return http.StatusBadRequest, nil, nil
 	}
 	podNameString, isString := podName.(string)
 	if !isString || podNameString == "" {
+		glog.Error("Invalid pod name")
 		return http.StatusBadRequest, nil, nil
 	}
+
+	desiredZone, zoneSpecified:= bodyJson["desiredZone"]
+	if zoneSpecified {
+		desiredZoneStr, isString := desiredZone.(string)
+		if !isString || desiredZoneStr == "" {
+			glog.Error("Invalid zone name")
+			return http.StatusBadRequest, nil, nil
+		}
+		glog.Info("Specified zone: %s", desiredZoneStr)
+
+		desiredSubnet, subnetSpecified := bodyJson["desiredSubnet"]
+		if !subnetSpecified {
+			glog.Error("Invalid request: Subnet absent")
+			return http.StatusBadRequest, nil, nil;
+		}
+
+		desiredSubnetStr, isString := desiredSubnet.(string)
+		if !isString || desiredSubnetStr == "" {
+			glog.Error("Invalid subnet name")
+			return http.StatusBadRequest, nil, nil;
+		}
+
+		_, nuageMonManagedZone := pods.namespaces[desiredZoneStr]
+		if !nuageMonManagedZone {
+			return http.StatusOK, podListJson{SubnetName: desiredSubnetStr}, nil
+		} else {
+			glog.Error("Invalid zone parameter: Zone controlled by Nuage Monitor")
+			return http.StatusBadRequest, nil, nil
+		}
+	}
+
 	// lock for reading. Holding RLock() doesn't block other RLock() calls, but
 	// does block Lock() calls, which should be used for writing.  We can't
 	// defer RUnlock() here, because we need to RUnlock() then Lock() before
