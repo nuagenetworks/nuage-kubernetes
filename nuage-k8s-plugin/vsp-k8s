@@ -210,27 +210,30 @@ def _send_vm_event_to_ovs(nuage_uuid, eventStr, vm_name, nuagexml=None):
     return message
 
 
-def send_msg(msg, sock, retry_count=0):
+def send_msg(msg, retry_count=0):
     ret = 0
+    sock = None
     try:
         if retry_count == 5:
             vlog.warn("Exceeded retries when trying to send message")
             return -1
         vlog.dbg("Trying to send message over the socket")
-        ret = sock.sendall(msg)
-        vlog.dbg("Message succesfully sent")
+        sock = get_connected_socket()
+        if sock:
+            ret = sock.sendall(msg)
+            vlog.dbg("Message %s succesfully sent" % msg)
+            sock.close()
     except socket.error, (errcode, errmsg):
         vlog.err("Got an exception %s while sending vm_event" % str(errmsg))
         if errcode in [errno.EBUSY, errno.EAGAIN]:
             ''' Retry five times every 0.3s '''
-            vlog.err("Socket is busy, try again...")
-            time.sleep(0.3)
+            vlog.err("Socket is busy, close and try again...")
         else:
             vlog.err("Socket is not connected...")
+        if sock:
             sock.close()
-            time.sleep(0.3)
-            sock = get_connected_socket()
-        return send_msg(msg, sock, retry_count=(retry_count + 1))
+        time.sleep(0.3)
+        return send_msg(msg, retry_count=(retry_count + 1))
     except Exception as e:
         vlog.err("Got a non-socket exception %s while sending vm_event"
                  % str(e))
@@ -368,6 +371,10 @@ def find_metadata(options, config, setup):
     vlog.dbg("Using %s as client certificate" % client_cert)
     vlog.dbg("Using %s as client key" % client_key)
     vlog.dbg("Using %s to verify server certificate" % server_ca)
+    session = requests.Session()
+    session.cert = (client_cert, client_key)
+    session.verify = server_ca
+
     if setup:
         # TODO: automatically fall back to http if https is not available
         json_data = {"podName": options.name}
@@ -378,37 +385,36 @@ def find_metadata(options, config, setup):
             json_data['desiredSubnet'] = network
 
         vlog.dbg("Sending json %s" % str(json_data))
-        fetched_pod_data = requests.post(
+        fetched_pod_data = session.post(
             "%s/namespaces/%s/pods" % (config.get("nuageMonRestServer",
-                                                  "https://localhost:8444"),
+                                                  "https://localhost:9443"),
                                        options.namespace),
             json=json_data,
-            cert=(client_cert, client_key),
-            verify=server_ca
+            timeout=5
         )
         if fetched_pod_data.status_code == 409:
-            fetched_pod_data = requests.get(
+            fetched_pod_data = session.get(
                 "%s/namespaces/%s/pods/%s" %
-                (config.get("nuageMonRestServer", "https://localhost:8444"),
+                (config.get("nuageMonRestServer", "https://localhost:9443"),
                  options.namespace, options.name),
-                cert=(client_cert, client_key),
-                verify=server_ca
+                timeout=5
             )
         if fetched_pod_data.status_code != 200 or \
                 fetched_pod_data.json() is None:
             vlog.err("Unexpected response from master:\n%d: %s" %
                      (fetched_pod_data.status_code, fetched_pod_data.text))
+            if session:
+                session.close()
             return None
         else:
             network = fetched_pod_data.json().get("SubnetName", network)
         vlog.info('Using network "%s"' % network)
     else:
-        delete_resp = requests.delete(
+        delete_resp = session.delete(
             "%s/namespaces/%s/pods/%s" %
-            (config.get("nuageMonRestServer", "https://localhost:8444"),
+            (config.get("nuageMonRestServer", "https://localhost:9443"),
              options.namespace, options.name),
-            cert=(client_cert, client_key),
-            verify=server_ca
+            timeout=5
         )
         if delete_resp.status_code not in [200, 404]:
             # 200 is a successful delete, and 404 means it didn't exist in the
@@ -416,7 +422,8 @@ def find_metadata(options, config, setup):
             # response should be logged as an anomaly.
             vlog.warn("Unexpected response from master:\n%d: %s" %
                       (delete_resp.status_code, delete_resp.text))
-
+    if session:
+        session.close()
     try:
         get_pid = (("docker inspect --format \"{{.State.Pid}}\" ") +
                    (str(options.id)))
@@ -477,7 +484,7 @@ def find_metadata(options, config, setup):
     return None
 
 
-def attach_port(metadata, sock):
+def attach_port(metadata):
     vm_name = metadata['name']
     nuage_uuid = metadata['uuid']
     port = metadata['veth_host_if']
@@ -493,18 +500,18 @@ def attach_port(metadata, sock):
         vlog.dbg(("""Obtained local mac: %s after creating """
                   """an internal port %s""") % (str(local_mac), port))
     # Trigger Nuage to resolve the port
-    nuage_trigger_send(metadata, nuage_uuid, port, local_mac, sock)
+    nuage_trigger_send(metadata, nuage_uuid, port, local_mac)
     update_ip(nuage_uuid, port, metadata['pid'])
 
 
-def send_undefine(vm_name, nuage_uuid, sock):
+def send_undefine(vm_name, nuage_uuid):
     # stop_msg = _send_vm_event_to_ovs(nuage_uuid, 'STOPPED', vm_name)
     undefine_msg = _send_vm_event_to_ovs(nuage_uuid, 'UNDEFINED', vm_name)
     try:
         # send_msg(stop_msg, sock)
         # vlog.info("Sent container stop event to the VRS for UUID %s"
         #           % nuage_uuid)
-        send_msg(undefine_msg, sock)
+        send_msg(undefine_msg)
         vlog.info("Sent container undefine event to the VRS for UUID %s"
                   % nuage_uuid)
     except:
@@ -512,13 +519,13 @@ def send_undefine(vm_name, nuage_uuid, sock):
         raise NameError('NuageError')
 
 
-def detach_port(metadata, sock):
+def detach_port(metadata):
     try:
         vm_name = metadata['name']
         nuage_uuid = metadata['uuid']
         port = metadata['veth_host_if']
         # Send undefine event
-        send_undefine(vm_name, nuage_uuid, sock)
+        send_undefine(vm_name, nuage_uuid)
         # Delete the port from OVS
         delete_port = "ovs-vsctl --no-wait del-port alubr0 %s" % port
         subprocess.check_output([delete_port], shell=True)
@@ -551,11 +558,9 @@ def _get_nuage_uuid(options):
     return str(uuid.UUID(str(options.id)[0:32]))
 
 
-def nuage_trigger(options, sock, config):
+def nuage_trigger(options, config):
     if options.id is None:
         vlog.err("Container UUID must be provided")
-        if sock:
-            sock.close()
         sys.exit(1)
     actions = {'init': init,
                'setup': setup,
@@ -563,7 +568,7 @@ def nuage_trigger(options, sock, config):
                'status': status}
     hook = actions.get(options.action, invalid)
     vlog.dbg("Invoking %s hook" % options.action)
-    hook(options, sock, config)
+    hook(options, config)
     vlog.dbg("Exiting %s hook" % options.action)
 
 
@@ -576,11 +581,11 @@ def get_veth_host_if(pid):
     return subprocess.check_output([veth_host_if], shell=True).strip()
 
 
-def init(options, sock, config):
+def init(options, config):
     pass
 
 
-def setup(options, sock, config):
+def setup(options, config):
     # nuage_uuid = get_nuage_uuid(options) Do we need nuage_uuid at all?
     # TODO: once we have the node client, check the namespace exists in VSD
     # we will be given a veth pair at this point.
@@ -591,26 +596,22 @@ def setup(options, sock, config):
     # wait to get an IP assigned to the vport and
     # configure that IP on the interface inside the container (update_ip).
     # In the status hook, return the IP from the vport (check_ip)
-    pod_hook(options, sock, config, True)
+    pod_hook(options, config, True)
 
 
-def teardown(options, sock, config):
-    pod_hook(options, sock, config, False)
+def teardown(options, config):
+    pod_hook(options, config, False)
 
 
-def pod_hook(options, sock, config, setup=True):
+def pod_hook(options, config, setup=True):
     if not _is_bridge_network_mode(options.id):
         vlog.info(
             "Network mode is not bridge networking, nothing to do for Nuage")
-        if sock:
-            sock.close()
         sys.exit(0)
     metadata = find_metadata(options, config, setup)
     if metadata is None:
         vlog.err("Cannot get metadata for UUID: %s while calling setup() "
                  "hook for the pid" % str(options.id))
-        if sock:
-            sock.close()
         sys.exit(1)
     if setup:
         del_from_docker_br = (("brctl delif %s ") %
@@ -618,14 +619,14 @@ def pod_hook(options, sock, config, setup=True):
                                          "docker0") +
                               (metadata['veth_host_if']))
         subprocess.call([del_from_docker_br], shell=True)
-        attach_port(metadata, sock)
+        attach_port(metadata)
     else:
-        detach_port(metadata, sock)
+        detach_port(metadata)
 
 
 # Warning: Make sure we don't log anything in the status hook invocation.
 # Exec hooks are notorious - they gobble logs too.
-def status(options, sock, config):
+def status(options, config):
     status_dict = {'apiVersion': "v1beta1", 'kind': "PodNetworkStatus",
                    'ip': check_ip(_get_nuage_uuid(options))}
     if status_dict['ip'] == "0.0.0.0":
@@ -635,7 +636,7 @@ def status(options, sock, config):
     print json.dumps(status_dict).encode('utf-8')
 
 
-def invalid(options, sock):
+def invalid(options, config):
     vlog.err("Invalid action specified %s", options.action)
     sys.exit(1)
 
@@ -673,11 +674,12 @@ def get_pod_metadata(options, config):
     if config is not None:
         response = requests.get('%s/api/v1/namespaces/%s/pods/%s' %
                                 (config.get('masterApiServer',
-                                            "https://localhost:9443"),
+                                            "https://localhost:8443"),
                                  options.namespace, options.name),
                                 cert=(config.get('clientCert', CERT),
                                       config.get('clientKey', KEY)),
-                                verify=config.get('CACert', CA_CERT))
+                                verify=config.get('CACert', CA_CERT),
+                                timeout=5)
         if response.status_code != 200 or response.json()['kind'] != 'Pod' or\
            response.json()['metadata'] is None:
             return None
@@ -712,9 +714,7 @@ def main():
         if action is None:
             vlog.err("action must be provided")
             sys.exit(1)
-        if action in ['setup', 'teardown']:
-            sock = get_connected_socket()
-        nuage_trigger(options, sock, config)
+        nuage_trigger(options, config)
         if sock:
             sock.close()
     except Exception as e:
