@@ -16,7 +16,7 @@ domainName: "K8S-Domain"
 # Location where logs should be saved
 log_dir: '/var/log/nuagekubemon'
 nuageMonServer:
-    # Port on which to serve the REST API.  Default is 8444
+    # Port on which to serve the REST API.  Default is 9443
     URL: 0.0.0.0:9443
     # Directory where certificates reside.
     certificateDirectory: '/usr/share/nuagekubemon'
