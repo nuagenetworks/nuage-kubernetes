@@ -241,7 +241,7 @@ def send_msg(msg, retry_count=0):
     return ret
 
 
-def nuage_trigger_send(metadata, nuage_uuid, port, local_mac, sock):
+def nuage_trigger_send(metadata, nuage_uuid, port, local_mac):
     # Send VM define event to VRS
     xml_data = nuage_xml(metadata, nuage_uuid, local_mac, port)
     # define_msg = _send_vm_event_to_ovs(nuage_uuid, 'DEFINED',
@@ -249,10 +249,10 @@ def nuage_trigger_send(metadata, nuage_uuid, port, local_mac, sock):
     start_msg = _send_vm_event_to_ovs(nuage_uuid, 'STARTED',
                                       metadata['name'], xml_data)
     try:
-        # send_msg(define_msg, sock)
+        # send_msg(define_msg)
         # vlog.info("Sent container define event to the VRS for UUID %s"
         #           % nuage_uuid)
-        send_msg(start_msg, sock)
+        send_msg(start_msg)
         vlog.info("Sent container start event to the VRS for UUID %s"
                   % nuage_uuid)
     except:
