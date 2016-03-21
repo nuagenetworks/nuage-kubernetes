@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
 	"net/http"
@@ -16,7 +17,11 @@ type PodList struct {
 }
 
 type podListJson struct {
-	SubnetName string
+	SubnetName string `json:"subnetName"`
+}
+
+type restErrorJson struct {
+	Error string `json:"error"`
 }
 
 func NewPodList(namespaces map[string]NamespaceData, updateChan chan config.NamespaceUpdateRequest) *PodList {
@@ -53,47 +58,54 @@ func (pods PodList) Post(urlVars map[string]string, values url.Values,
 	http.Header) {
 	namespace, exists := urlVars["namespace"]
 	if !exists {
-		glog.Error("Namespace info missing for the POST request")
-		return http.StatusNotFound, nil, nil
+		errText := "Namespace info missing for the POST request"
+		glog.Error(errText)
+		return http.StatusNotFound, restErrorJson{Error: errText}, nil
 	}
 	podName, exists := bodyJson["podName"]
 	if !exists {
-		glog.Error("Podname missing from the JSON data")
-		return http.StatusBadRequest, nil, nil
+		errText := "Podname missing from the JSON data"
+		glog.Error(errText)
+		return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 	}
 	podNameString, isString := podName.(string)
 	if !isString || podNameString == "" {
-		glog.Error("Invalid pod name")
-		return http.StatusBadRequest, nil, nil
+		errText := "Invalid pod name"
+		glog.Error(errText)
+		return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 	}
 
-	desiredZone, zoneSpecified:= bodyJson["desiredZone"]
+	desiredZone, zoneSpecified := bodyJson["desiredZone"]
 	if zoneSpecified {
 		desiredZoneStr, isString := desiredZone.(string)
 		if !isString || desiredZoneStr == "" {
-			glog.Error("Invalid zone name")
-			return http.StatusBadRequest, nil, nil
+			errText := "Invalid zone name"
+			glog.Error(errText)
+			return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 		}
 		glog.Info("Specified zone: %s", desiredZoneStr)
 
 		desiredSubnet, subnetSpecified := bodyJson["desiredSubnet"]
 		if !subnetSpecified {
-			glog.Error("Invalid request: Subnet absent")
-			return http.StatusBadRequest, nil, nil;
+			errText := "Invalid request: Subnet absent"
+			glog.Error(errText)
+			return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 		}
 
 		desiredSubnetStr, isString := desiredSubnet.(string)
 		if !isString || desiredSubnetStr == "" {
-			glog.Error("Invalid subnet name")
-			return http.StatusBadRequest, nil, nil;
+			errText := "Invalid subnet name"
+			glog.Error(errText)
+			return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 		}
 
 		_, nuageMonManagedZone := pods.namespaces[desiredZoneStr]
 		if !nuageMonManagedZone {
 			return http.StatusOK, podListJson{SubnetName: desiredSubnetStr}, nil
 		} else {
-			glog.Error("Invalid zone parameter: Zone controlled by Nuage Monitor")
-			return http.StatusBadRequest, nil, nil
+			errText := "Invalid zone parameter: Zone controlled by Nuage Monitor"
+			glog.Error(errText)
+			return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 		}
 	}
 
@@ -113,18 +125,20 @@ func (pods PodList) Post(urlVars map[string]string, values url.Values,
 	defer pods.editLock.Unlock()
 	nsData, exists := pods.namespaces[namespace]
 	if !exists {
-		glog.Warningf("Attempted to create a pod in namespace %q, but no"+
-			" namespace was found.", namespace)
+		errText := fmt.Sprintf("Attempted to create a pod in namespace %q, "+
+			"but no namespace was found.", namespace)
+		glog.Warningln(errText)
 		// TODO: handle case where kubernetes creates the namespace and pod
 		// before the namespace's create event is handled by the vsd client
-		return http.StatusNotFound, nil, nil
+		return http.StatusNotFound, restErrorJson{Error: errText}, nil
 	}
 	nsSubnetsHead := nsData.Subnets
 	if nsSubnetsHead == nil {
-		glog.Warningf(
+		errText := fmt.Sprintf(
 			"Namespace %q was found, but didn't contain any subnets",
 			namespace)
-		return http.StatusInternalServerError, nil, nil
+		glog.Warningln(errText)
+		return http.StatusInternalServerError, restErrorJson{Error: errText}, nil
 	}
 	for currentNode := nsSubnetsHead; currentNode != nil; currentNode = currentNode.Next {
 		// total available IPs, minus broadcast (e.g. a.b.c.255/24), the network
@@ -153,8 +167,9 @@ func (pods PodList) Post(urlVars map[string]string, values url.Values,
 	}
 	// All subnets were full. Return an internal error for now?
 	// TODO: force create a new subnet
-	glog.Warningf("All subnets in namespace %q are full", namespace)
-	return http.StatusInternalServerError, nil, nil
+	errText := fmt.Sprintf("All subnets in namespace %q are full", namespace)
+	glog.Warningln(errText)
+	return http.StatusInternalServerError, restErrorJson{Error: errText}, nil
 }
 
 func (pods PodList) Delete(urlVars map[string]string, values url.Values,

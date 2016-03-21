@@ -139,14 +139,7 @@ func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, er
 		glog.Infoln("Created the enterprise: ", result[0].ID)
 		return result[0].ID, nil
 	case http.StatusConflict:
-		glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
-		glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
-		for _, resterr := range e.Errors {
-			glog.Errorf("\t Errors with property %s:", resterr.Property)
-			for _, description := range resterr.Descriptions {
-				glog.Error("\t\t", description.Title, description.Description)
-			}
-		}
+		glog.Infoln("Error from VSD:\n", e)
 		//Enterprise already exists, call Get to retrieve the ID
 		id, err := nvsdc.GetEnterpriseID(enterpriseName)
 		if err != nil {
@@ -184,6 +177,7 @@ func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string
 		glog.Infoln("Created the admin user: ", result[0].ID)
 		adminId = result[0].ID
 	case http.StatusConflict:
+		glog.Infoln("Error from VSD:\n", e)
 		//Enterprise already exists, call Get to retrieve the ID
 		id, erradminID := nvsdc.GetAdminID(enterpriseID, "admin")
 		if erradminID != nil {
@@ -1199,6 +1193,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 	case http.StatusCreated:
 		glog.Infoln("Created the subnet:", result[0].ID)
 	case http.StatusConflict:
+		glog.Infoln("Error from VSD:\n", e)
 		// Subnet already exists, call Get to retrieve the ID
 		if id, err := nvsdc.GetSubnetID(zoneID, name); err != nil {
 			if e.InternalErrorCode == 2504 {
@@ -2167,6 +2162,6 @@ func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
 	glog.Errorln("Bad response status from VSD Server")
 	glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
 	glog.Errorf("\t Status:  %v\n", resp.Status())
-	glog.Errorf("\t Internal error code: %v\n", e.InternalErrorCode)
+	glog.Errorf("\t VSD Error: %v\n", e)
 	return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 }

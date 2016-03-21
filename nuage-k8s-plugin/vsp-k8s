@@ -226,7 +226,7 @@ def send_msg(msg, retry_count=0):
     except socket.error, (errcode, errmsg):
         vlog.err("Got an exception %s while sending vm_event" % str(errmsg))
         if errcode in [errno.EBUSY, errno.EAGAIN]:
-            ''' Retry five times every 0.3s '''
+            # Retry five times every 0.3s
             vlog.err("Socket is busy, close and try again...")
         else:
             vlog.err("Socket is not connected...")
@@ -401,13 +401,18 @@ def find_metadata(options, config, setup):
             )
         if fetched_pod_data.status_code != 200 or \
                 fetched_pod_data.json() is None:
-            vlog.err("Unexpected response from master:\n%d: %s" %
-                     (fetched_pod_data.status_code, fetched_pod_data.text))
+            if fetched_pod_data.json() is not None and \
+                    'error' in fetched_pod_data.json():
+                vlog.err("Error from master: %s" %
+                         fetched_pod_data.json()['error'])
+            else:
+                vlog.err("Unexpected response from master:\n%d: %s" %
+                         (fetched_pod_data.status_code, fetched_pod_data.text))
             if session:
                 session.close()
             return None
         else:
-            network = fetched_pod_data.json().get("SubnetName", network)
+            network = fetched_pod_data.json().get("subnetName", network)
         vlog.info('Using network "%s"' % network)
     else:
         delete_resp = session.delete(
@@ -420,8 +425,13 @@ def find_metadata(options, config, setup):
             # 200 is a successful delete, and 404 means it didn't exist in the
             # first place, which is just as good in this case.  Any other
             # response should be logged as an anomaly.
-            vlog.warn("Unexpected response from master:\n%d: %s" %
-                      (delete_resp.status_code, delete_resp.text))
+            if delete_resp.json() is not None and \
+                    'error' in delete_resp.json():
+                vlog.warn('Error when deleting pod: %s' %
+                          delete_resp.json()['error'])
+            else:
+                vlog.err("Unexpected response from master:\n%d: %s" %
+                         (delete_resp.status_code, delete_resp.text))
     if session:
         session.close()
     try:
