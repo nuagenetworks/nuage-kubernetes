@@ -294,8 +294,8 @@ def update_ip(nuage_uuid, port, pid, limit=200):
     mask = ip_info[1]
     gw = ip_info[2]
     # Remove the docker assigned IP.
-    remove_docker_ip = (("nsenter -n -t %s -- ip addr flush dev %s to %s") %
-                        (pid, 'eth0', '172.17.0.0/16'))
+    remove_docker_ip = (("nsenter -n -t %s -- ip -4 addr flush dev %s") %
+                        (pid, 'eth0'))
     # Assign the IP in the namespace
     assign_ip = (("nsenter -n -t %s -- ip addr add %s/%s dev %s") %
                  (pid, ip, mask, 'eth0'))
@@ -633,6 +633,23 @@ def status(options, config):
         vlog.info("Got an empty IP for pod %s" % options.name)
         vlog.info("This is normal if the pod has host networking")
         sys.exit(1)
+    else:
+        try:
+            get_pid = (("docker inspect --format \"{{.State.Pid}}\" ") +
+                       (str(options.id)))
+            pid = subprocess.check_output([get_pid], shell=True,
+                                          stderr=subprocess.STDOUT).strip()
+            get_ip = (("""nsenter -n -t %s -- ip -4 addr show eth0"""
+                       """| awk '/inet/ {print $2}'""") % pid)
+            ip = subprocess.check_output([get_ip], shell=True,
+                                         stderr=subprocess.STDOUT).strip()
+            if ip.split('/')[0] != status_dict['ip']:
+                vlog.dbg("Updating the IP on the pod with UUID %s to %s"
+                         % (str(options.id), status_dict['ip']))
+                update_ip(_get_nuage_uuid(options), None, pid, 1)
+        except subprocess.CalledProcessError as e:
+            vlog.err("Got an error %s while revalidating IP for UUID %s"
+                     % (e.output.strip(), str(options.id)))
     print json.dumps(status_dict).encode('utf-8')
 
 
