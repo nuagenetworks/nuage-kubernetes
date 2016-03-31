@@ -64,6 +64,19 @@ type RESTError struct {
 	InternalErrorCode int `json:"internalErrorCode"`
 }
 
+func (restErr RESTError) String() string {
+	outString := fmt.Sprintf("InternalErrorCode: %d\n",
+		restErr.InternalErrorCode)
+	for _, vsdErr := range restErr.Errors {
+		outString += "\tProperty: " + vsdErr.Property + "\n"
+		for _, description := range vsdErr.Descriptions {
+			outString += "\t\tTitle: " + description.Title +
+				"\n\t\tDescription: " + description.Description + "\n"
+		}
+	}
+	return outString
+}
+
 type VsdEnterprise struct {
 	Description string `json:"description"`
 	Name        string `json:"name"`
@@ -292,22 +305,26 @@ func (lhs *VsdAclEntry) BuildFilter() string {
 }
 
 func (lhs *VsdAclEntry) String() string {
-	return fmt.Sprintf(`\nACL Entry: ID: %v, Description: %v, \n 
-Priority: %v, Action: %v, \n DSCP: %v, EntityScope: %v, EtherType: %v, 
-Protocol: %v \n LocationID: %v, LocationType: %v \n NetworkID: %v, 
-NetworkType: %v, PolicyState: %v, Reflexive %v`, lhs.ID, lhs.Description,
-		lhs.Priority, lhs.Action, lhs.DSCP, lhs.EntityScope, lhs.EtherType,
-		lhs.Protocol, lhs.LocationID, lhs.LocationType, lhs.NetworkID,
-		lhs.NetworkType, lhs.PolicyState, lhs.Reflexive)
+	return fmt.Sprintf(`\nACL Entry: ID: %v, Description: %v,\n`+
+		`Priority: %v, Action: %v,\n`+
+		`DSCP: %v, EntityScope: %v, EtherType: %v, Protocol: %v\n`+
+		`LocationID: %v, LocationType: %v\n`+
+		`NetworkID: %v, NetworkType: %v, PolicyState: %v, Reflexive %v`,
+		lhs.ID, lhs.Description, lhs.Priority, lhs.Action, lhs.DSCP,
+		lhs.EntityScope, lhs.EtherType, lhs.Protocol, lhs.LocationID,
+		lhs.LocationType, lhs.NetworkID, lhs.NetworkType, lhs.PolicyState,
+		lhs.Reflexive)
 }
 
 func (svc *ServiceEvent) String() string {
-	return fmt.Sprintf(`\nService: Name: %v, Namespace %v, \n 
-ClusterIP: %v, Labels: %v, \n EventType: %v`, svc.Name, svc.Namespace,
-		svc.ClusterIP, svc.NuageLabels, svc.Type)
+	return fmt.Sprintf(`\nService: Name: %v, Namespace %v,\n`+
+		`ClusterIP: %v, Labels: %v,\n`+
+		`EventType: %v`, svc.Name, svc.Namespace, svc.ClusterIP,
+		svc.NuageLabels, svc.Type)
 }
 
 func (lhs *VsdNetworkMacro) String() string {
-	return fmt.Sprintf(`\n Network Macro: Name: %v, ID: %v, \n
-IPType: %v, Address: %v \n, Netmask: %v`, lhs.Name, lhs.ID, lhs.IPType, lhs.Address, lhs.Netmask)
+	return fmt.Sprintf(`\nNetwork Macro: Name: %v, ID: %v,\n`+
+		`IPType: %v, Address: %v,\n`+
+		`Netmask: %v`, lhs.Name, lhs.ID, lhs.IPType, lhs.Address, lhs.Netmask)
 }
