@@ -299,6 +299,9 @@ func (nvsdc *NuageVsdClient) CreateSession() {
 		Header: &http.Header{},
 	}
 	nvsdc.session.Header.Add("Content-Type", "application/json")
+	// Request that the TCP connection is closed when the transaction is
+	// complete
+	nvsdc.session.Header.Add("Connection", "close")
 }
 
 func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string) error {
@@ -1320,6 +1323,10 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
 		glog.Warningf(
 			"Error allocating new subnet for namespace %s: %s",
 			namespace.Name, err.Error())
+		// Even though we failed to allocate a new subnet, remove the
+		// NeedsNewSubnet flag so that a new subnet can be requested again.
+		namespace.NeedsNewSubnet = false
+		nvsdc.namespaces[namespaceID] = namespace
 		return
 	}
 	for {
