@@ -386,6 +386,8 @@ def find_metadata(options, config, setup):
     session = requests.Session()
     session.cert = (client_cert, client_key)
     session.verify = server_ca
+    # Close TCP connection after a completed transaction by default.
+    session.headers['Connection'] = 'close'
 
     if setup:
         # TODO: automatically fall back to http if https is not available
