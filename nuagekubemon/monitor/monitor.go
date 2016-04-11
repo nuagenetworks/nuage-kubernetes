@@ -23,6 +23,7 @@ package monitor
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/client"
@@ -30,7 +31,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"fmt"
 	"path"
 )
 
@@ -64,6 +64,12 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 		config.DefaultEnterprise(), "Enterprise in which the containers will reside")
 	flagSet.StringVar(&nkm.mConfig.DomainName, "domain",
 		config.DefaultDomain(), "Domain in which the containers will reside")
+	flagSet.StringVar(&nkm.mConfig.CSPAdminPassword, "cspadminpasswd",
+		"csproot", "Password for CSP Admin User")
+	flagSet.StringVar(&nkm.mConfig.EnterpriseAdminUserName, "enterpriseadminuser",
+		"admin", "Enterprise Admin User Name")
+	flagSet.StringVar(&nkm.mConfig.EnterpriseAdminPassword, "enterpriseadminpasswd",
+		"admin", "Enterprise Admin Password")
 	// Set the values for log_dir and logtostderr.  Because this happens before
 	// flag.Parse(), cli arguments will override these.  Also set the DefValue
 	// parameter so -help shows the new defaults.

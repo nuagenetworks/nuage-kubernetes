@@ -290,9 +290,6 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 }
 
 func (nvsdc *NuageVsdClient) CreateSession() {
-	nvsdc.username = "csproot"
-	nvsdc.password = "csproot"
-	nvsdc.enterprise = "csp"
 	nvsdc.session = napping.Session{
 		Client: &http.Client{
 			Transport: &http.Transport{
@@ -317,6 +314,9 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
+	nvsdc.username = "csproot"
+	nvsdc.password = nkmConfig.CSPAdminPassword
+	nvsdc.enterprise = "csp"
 	var err error
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
@@ -360,7 +360,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	_, err = nvsdc.CreateAdminUser(nvsdc.enterpriseID, "admin", "admin")
+	_, err = nvsdc.CreateAdminUser(nvsdc.enterpriseID, nkmConfig.EnterpriseAdminUserName, nkmConfig.EnterpriseAdminPassword)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -368,7 +368,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	err = nvsdc.LoginAsAdmin("admin", "admin", nkmConfig.EnterpriseName)
+	err = nvsdc.LoginAsAdmin(nkmConfig.EnterpriseAdminUserName, nkmConfig.EnterpriseAdminPassword, nkmConfig.EnterpriseName)
 	if err != nil {
 		glog.Fatal(err)
 	}

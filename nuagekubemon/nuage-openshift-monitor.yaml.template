@@ -13,6 +13,12 @@ vspVersion: "v3_2"
 enterpriseName: "Openshift-Enterprise"
 # Name of the domain in which pods will reside
 domainName: "Openshift-Domain"
+# CSP admin user's password
+cspAdminPassword: ''
+# Enterprise admin user name
+enterpriseAdminUser: 'admin'
+# Enterprise admin password
+enterpriseAdminPassword: ''
 # Location where logs should be saved
 log_dir: '/var/log/nuage-openshift-monitor'
 nuageMonServer:
