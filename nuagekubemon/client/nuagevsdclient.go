@@ -1308,6 +1308,7 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 }
 
 func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
+	glog.Infof("Got request to create subnet in namespace %q", namespaceID)
 	nvsdc.pods.editLock.Lock()
 	defer nvsdc.pods.editLock.Unlock()
 	namespace, exists := nvsdc.namespaces[namespaceID]
@@ -1330,7 +1331,11 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
 		return
 	}
 	for {
+		// Release the lock while we wait for the VSD response
+		nvsdc.pods.editLock.Unlock()
 		subnetID, err := nvsdc.CreateSubnet(subnetName, namespace.ZoneID, subnet)
+		nvsdc.pods.editLock.Lock()
+		// Reacquire it before we edit the namespace again
 		if err == nil {
 			// Step through the existing list to get to the tail
 			subnetNode := namespace.Subnets
