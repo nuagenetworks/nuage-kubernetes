@@ -182,12 +182,14 @@ func (pods PodList) Delete(urlVars map[string]string, values url.Values,
 	if !exists {
 		return http.StatusNotFound, nil, nil
 	}
+	glog.Infof("Deleting %s/%s", namespace, podName)
 	pods.editLock.Lock()
 	defer pods.editLock.Unlock()
 	if subnetNode, exists := pods.list[namespace+"/"+podName]; exists {
 		subnetNode.ActiveIPs--
 		//TODO: Check if the subnet is no longer necessary. If so, delete it.
+		delete(pods.list, namespace+"/"+podName)
 	}
-	delete(pods.list, namespace+"/"+podName)
+	glog.Infof("Successfully deleted %s/%s", namespace, podName)
 	return http.StatusOK, nil, nil
 }

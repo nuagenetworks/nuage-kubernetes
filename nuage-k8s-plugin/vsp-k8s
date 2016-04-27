@@ -41,6 +41,8 @@ import ovs.unixctl
 import ovs.unixctl.server
 import argparse
 
+from httplib import OK, NOT_FOUND, CONFLICT
+
 
 prog_name = os.path.basename(sys.argv[0])
 assert prog_name[:4] == "vsp-"
@@ -387,56 +389,90 @@ def find_metadata(options, config, setup):
             json_data['desiredSubnet'] = network
 
         vlog.dbg("Sending json %s" % str(json_data))
-        fetched_pod_data = session.post(
-            "%s/namespaces/%s/pods" % (config.get("nuageMonRestServer",
-                                                  "https://localhost:9443"),
-                                       options.namespace),
-            json=json_data,
-            timeout=5
-        )
-        vlog.dbg("Received response for pod %s/%s (%d): %s" %
-                 (options.namespace, options.name,
-                  fetched_pod_data.status_code, fetched_pod_data.text))
-        if fetched_pod_data.status_code == 409:
-            fetched_pod_data = session.get(
-                "%s/namespaces/%s/pods/%s" %
-                (config.get("nuageMonRestServer", "https://localhost:9443"),
-                 options.namespace, options.name),
-                timeout=5
-            )
-        if fetched_pod_data.status_code != 200 or \
-                fetched_pod_data.json() is None:
-            if fetched_pod_data.json() is not None and \
-                    'error' in fetched_pod_data.json():
-                vlog.err("Error from master: %s" %
-                         fetched_pod_data.json()['error'])
-            else:
-                vlog.err("Unexpected response from master:\n%d: %s" %
-                         (fetched_pod_data.status_code, fetched_pod_data.text))
-            if session:
-                session.close()
-            return None
-        else:
-            network = fetched_pod_data.json().get("subnetName", network)
+        timed_out = False
+        for _ in range(5):  # retry up to 5 times on timeout
+            try:
+                fetched_pod_data = session.post(
+                    "%s/namespaces/%s/pods" %
+                    (config.get("nuageMonRestServer",
+                                "https://localhost:9443"),
+                     options.namespace),
+                    json=json_data,
+                    timeout=5
+                )
+                vlog.dbg("Received response for pod %s/%s (%d): %s" %
+                         (options.namespace, options.name,
+                          fetched_pod_data.status_code, fetched_pod_data.text))
+                if fetched_pod_data.status_code == CONFLICT:
+                    fetched_pod_data = session.get(
+                        "%s/namespaces/%s/pods/%s" %
+                        (config.get("nuageMonRestServer",
+                                    "https://localhost:9443"),
+                         options.namespace, options.name),
+                        timeout=5
+                    )
+                if fetched_pod_data.status_code != OK or \
+                        fetched_pod_data.json() is None:
+                    if fetched_pod_data.json() is not None and \
+                            'error' in fetched_pod_data.json():
+                        vlog.err("Error from master: %s" %
+                                 fetched_pod_data.json()['error'])
+                    else:
+                        vlog.err("Unexpected response from master:\n%d: %s" %
+                                 (fetched_pod_data.status_code,
+                                  fetched_pod_data.text))
+                    if session:
+                        session.close()
+                    return None
+                else:
+                    network = fetched_pod_data.json().get("subnetName",
+                                                          network)
+                timed_out = False
+                break
+            except requests.exceptions.Timeout:
+                vlog.warn('Create request for pod %s/%s failed: request timed '
+                          'out. Retrying' %
+                          (options.namespace, options.name))
+                timed_out = True
+        if timed_out:
+            vlog.err('Create request for pod %s/%s failed: request timed out '
+                     'too many times' %
+                     (options.namespace, options.name))
         vlog.info('Using network "%s"' % network)
     else:
-        delete_resp = session.delete(
-            "%s/namespaces/%s/pods/%s" %
-            (config.get("nuageMonRestServer", "https://localhost:9443"),
-             options.namespace, options.name),
-            timeout=5
-        )
-        if delete_resp.status_code not in [200, 404]:
-            # 200 is a successful delete, and 404 means it didn't exist in the
-            # first place, which is just as good in this case.  Any other
-            # response should be logged as an anomaly.
-            if delete_resp.json() is not None and \
-                    'error' in delete_resp.json():
-                vlog.warn('Error when deleting pod: %s' %
-                          delete_resp.json()['error'])
-            else:
-                vlog.err("Unexpected response from master:\n%d: %s" %
-                         (delete_resp.status_code, delete_resp.text))
+        vlog.dbg('Deleting pod %s/%s' % (options.namespace, options.name))
+        timed_out = False
+        for _ in range(5):  # retry up to 5 times on timeout
+            try:
+                delete_resp = session.delete(
+                    "%s/namespaces/%s/pods/%s" %
+                    (config.get("nuageMonRestServer",
+                                "https://localhost:9443"),
+                     options.namespace, options.name),
+                    timeout=5
+                )
+                if delete_resp.status_code not in [OK, NOT_FOUND]:
+                    # 200 is a successful delete, and 404 means it didn't exist
+                    # in the first place, which is just as good in this case.
+                    # Any other response should be logged as an anomaly.
+                    if delete_resp.json() is not None and \
+                            'error' in delete_resp.json():
+                        vlog.warn('Error when deleting pod: %s' %
+                                  delete_resp.json()['error'])
+                    else:
+                        vlog.err("Unexpected response from master:\n%d: %s" %
+                                 (delete_resp.status_code, delete_resp.text))
+                timed_out = False
+                break  # break from retry loop
+            except requests.exceptions.Timeout:
+                vlog.warn('Delete request for pod %s/%s failed: request timed '
+                          'out. Retrying' %
+                          (options.namespace, options.name))
+                timed_out = True
+        if timed_out:
+            vlog.err('Delete request for pod %s/%s failed: request timed out '
+                     'too many times' %
+                     (options.namespace, options.name))
     if session:
         session.close()
     try:
@@ -582,9 +618,9 @@ def nuage_trigger(options, config):
                'teardown': teardown,
                'status': status}
     hook = actions.get(options.action, invalid)
-    vlog.dbg("Invoking %s hook" % options.action)
+    vlog.dbg("Invoking %s hook on pod %s" % (options.action, options.name))
     hook(options, config)
-    vlog.dbg("Exiting %s hook" % options.action)
+    vlog.dbg("Exiting %s hook on pod %s" % (options.action, options.name))
 
 
 def get_veth_host_if(pid):
@@ -691,7 +727,7 @@ def nuage_parser():
                        default="")
     ovs.nuage.vlog.add_args(parser)
     args = parser.parse_args()
-    #hack because there is no default argument specified for logging
+    # hack because there is no default argument specified for logging
     if args.log_file is None:
         args.log_file = "default"
     ovs.nuage.vlog.handle_args(args)
@@ -712,7 +748,7 @@ def get_pod_metadata(options, config):
                                       config.get('clientKey', KEY)),
                                 verify=config.get('CACert', CA_CERT),
                                 timeout=5)
-        if response.status_code != 200 or response.json()['kind'] != 'Pod' or\
+        if response.status_code != OK or response.json()['kind'] != 'Pod' or\
            response.json()['metadata'] is None:
             return None
         return response.json()['metadata']
