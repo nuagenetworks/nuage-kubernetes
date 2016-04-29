@@ -17,7 +17,6 @@
 
 import subprocess
 import re
-import uuid
 import time
 import socket
 import errno
@@ -29,7 +28,7 @@ import requests
 import os
 import os.path
 import md5
-
+import traceback
 import yaml
 
 
@@ -57,6 +56,10 @@ KEY = "/usr/share/%s/nuage.key" % prog_name
 REST_CERT = "/usr/share/%s/nuageMonClient.crt" % prog_name
 REST_KEY = "/usr/share/%s/nuageMonClient.key" % prog_name
 REST_CA = "/usr/share/%s/nuageMonCA.crt" % prog_name
+
+TYPE = 4  # Container
+PLATFORM = 4  # Docker
+UUID_LEN = 256
 
 
 def create_internal_port(port, vm_name, nuage_uuid, pid, mtu):
@@ -163,7 +166,13 @@ def _send_vm_event_to_ovs(nuage_uuid, eventStr, vm_name, nuagexml=None):
     part2 = int(uuidstr[8:16], 16)
     part3 = int(uuidstr[16:24], 16)
     part4 = int(uuidstr[24:32], 16)
+    part5 = int(uuidstr[32:40], 16)
+    part6 = int(uuidstr[40:48], 16)
+    part7 = int(uuidstr[48:56], 16)
+    part8 = int(uuidstr[56:64], 16)
+
     padchar = 0
+
     send_xml = False
     if eventStr == 'DEFINED' or eventStr == 'STARTED' or eventStr == 'RESUMED':
         send_xml = True
@@ -187,21 +196,22 @@ def _send_vm_event_to_ovs(nuage_uuid, eventStr, vm_name, nuagexml=None):
     vm_name = vm_name.encode('utf-8')
     if send_xml:
         xml_len = len(str(nuagexml)) + 1
-        message = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB%ds' % xml_len,
+        message = struct.pack('!BBHBBBBIIIIIIII64sHHHHHBBBBBB%ds' %
+                              xml_len,
+                              TYPE, PLATFORM, UUID_LEN,
+                              padchar, padchar, padchar, padchar,
                               part1, part2, part3, part4,
-                              padchar, padchar, padchar,
-                              padchar, padchar, padchar,
-                              padchar, padchar, vm_name,
+                              part5, part6, part7, part8, vm_name,
                               event, eventtype, state, reason,
                               xml_len, padchar, padchar, padchar,
                               padchar, padchar, padchar, str(nuagexml))
     else:
         xml_len = 0
-        message = struct.pack('!IIIIBBBBBBBB64sHHHHHBBBBBB',
+        message = struct.pack('!BBHBBBBIIIIIIII64sHHHHHBBBBBB',
+                              TYPE, PLATFORM, UUID_LEN,
+                              padchar, padchar, padchar, padchar,
                               part1, part2, part3, part4,
-                              padchar, padchar, padchar,
-                              padchar, padchar, padchar,
-                              padchar, padchar, vm_name,
+                              part5, part6, part7, part8, vm_name,
                               event, eventtype, state, reason,
                               xml_len, padchar, padchar, padchar,
                               padchar, padchar, padchar)
@@ -261,8 +271,8 @@ def nuage_trigger_send(metadata, nuage_uuid, port, local_mac):
 
 
 def check_ip(nuage_uuid):
-    get_ip = ("ovs-appctl vm/port-show %s | awk '/subnet/ {print $2,$4,$6}'"
-              % nuage_uuid)
+    get_ip = (("ovs-appctl container/port-show %s | " +
+              "awk '/subnet/ {print $2,$4,$6}'") % nuage_uuid)
     ip_info_str = subprocess.check_output([get_ip], shell=True)
     ip_info = ip_info_str.split()
     vlog.dbg("Checking for uuid: %s resulted in ip_info_str: %s" %
@@ -274,8 +284,8 @@ def check_ip(nuage_uuid):
 
 def update_ip(nuage_uuid, port, pid, limit=200):
     # Get the IP address from ovs-appctl
-    get_ip = ("ovs-appctl vm/port-show %s | awk '/subnet/ {print $2,$4,$6}'" %
-              nuage_uuid)
+    get_ip = (("ovs-appctl container/port-show %s | " +
+              "awk '/subnet/ {print $2,$4,$6}'") % nuage_uuid)
 
     # Unfortunately no notification. We need to poll VRS for resolution
     i = 0
@@ -565,7 +575,7 @@ def get_connected_socket():
 
 
 def _get_nuage_uuid(options):
-    return str(uuid.UUID(str(options.id)[0:32]))
+    return str(options.id)
 
 
 def nuage_trigger(options, config):
@@ -686,7 +696,7 @@ def nuage_parser():
                        default="")
     ovs.nuage.vlog.add_args(parser)
     args = parser.parse_args()
-    #hack because there is no default argument specified for logging
+    """hack because there is no default argument specified for logging"""
     if args.log_file is None:
         args.log_file = "default"
     ovs.nuage.vlog.handle_args(args)
@@ -746,6 +756,7 @@ def main():
             sock.close()
     except Exception as e:
         vlog.err(e)
+        vlog.err(traceback.format_exc())
         vlog.err("Nuage VSP exec plugin cannot be executed")
         raise e
     except:
