@@ -109,6 +109,7 @@ func (nkm *NuageKubeMonitor) LoadConfig() error {
 func (nkm *NuageKubeMonitor) Run() {
 	programName := path.Base(os.Args[0])
 	glog.Infof("Starting %s...", programName)
+	defer glog.Flush() //Flush logs when the monitor exits
 	// Read the config file if it was specified.  If there was an error reading
 	// it, don't continue.
 	if err := nkm.LoadConfig(); err != nil {
