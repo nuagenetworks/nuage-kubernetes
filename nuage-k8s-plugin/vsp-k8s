@@ -33,9 +33,11 @@ import yaml
 
 
 sys.path.append('/usr/share/openvswitch/python')
+sys.path.append('/usr/share/openvswitch/python/ovs')
 
-import ovs.nuage.vlog
-import ovs.nuage.utils
+
+import nuage.vlog
+import nuage.utils
 import ovs.unixctl
 import ovs.unixctl.server
 import argparse
@@ -45,7 +47,7 @@ prog_name = os.path.basename(sys.argv[0])
 assert prog_name[:4] == "vsp-"
 platform = prog_name[4:].upper()
 
-vlog = ovs.nuage.vlog.Vlog(prog_name)
+vlog = nuage.vlog.Vlog(prog_name)
 
 VERSION = "0.0.1-%s" % prog_name
 
@@ -694,12 +696,12 @@ def nuage_parser():
     group.add_argument("id", nargs='?',
                        help="Docker ID of the pod",
                        default="")
-    ovs.nuage.vlog.add_args(parser)
+    nuage.vlog.add_args(parser)
     args = parser.parse_args()
     """hack because there is no default argument specified for logging"""
     if args.log_file is None:
         args.log_file = "default"
-    ovs.nuage.vlog.handle_args(args)
+    nuage.vlog.handle_args(args)
     return args
 
 
@@ -744,8 +746,8 @@ def main():
         signal.signal(signal.SIGTERM, signal_handle)
         options = nuage_parser()
         config = read_configfile()
-        ovs.nuage.vlog.Vlog.set_level("any", "console", "off")
-        ovs.nuage.vlog.Vlog.set_level("any", "file",
+        nuage.vlog.Vlog.set_level("any", "console", "off")
+        nuage.vlog.Vlog.set_level("any", "file",
                                       config.get('logLevel', "err"))
         action = options.action
         if action is None:
