@@ -392,6 +392,9 @@ def find_metadata(options, config, setup):
             json=json_data,
             timeout=5
         )
+        vlog.dbg("Received response for pod %s/%s (%d): %s" %
+                 (options.namespace, options.name,
+                  fetched_pod_data.status_code, fetched_pod_data.text))
         if fetched_pod_data.status_code == 409:
             fetched_pod_data = session.get(
                 "%s/namespaces/%s/pods/%s" %
