@@ -12,7 +12,7 @@ import (
 type PodList struct {
 	list           map[string]*SubnetNode   // namespace/podName -> specific subnet
 	namespaces     map[string]NamespaceData // namespace name -> data
-	editLock       sync.RWMutex
+	editLock       *sync.RWMutex
 	newSubnetQueue chan config.NamespaceUpdateRequest // send a subnet on this channel to request that another subnet be created after it in the list
 }
 
@@ -29,10 +29,11 @@ func NewPodList(namespaces map[string]NamespaceData, updateChan chan config.Name
 	pods.list = make(map[string]*SubnetNode)
 	pods.namespaces = namespaces
 	pods.newSubnetQueue = updateChan
+	pods.editLock = &sync.RWMutex{}
 	return &pods
 }
 
-func (pods PodList) Get(urlVars map[string]string, values url.Values,
+func (pods *PodList) Get(urlVars map[string]string, values url.Values,
 	header http.Header) (int, interface{}, http.Header) {
 	namespace, exists := urlVars["namespace"]
 	if !exists {
@@ -53,7 +54,7 @@ func (pods PodList) Get(urlVars map[string]string, values url.Values,
 	return http.StatusNotFound, nil, nil
 }
 
-func (pods PodList) Post(urlVars map[string]string, values url.Values,
+func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 	header http.Header, bodyJson map[string]interface{}) (int, interface{},
 	http.Header) {
 	namespace, exists := urlVars["namespace"]
@@ -172,7 +173,7 @@ func (pods PodList) Post(urlVars map[string]string, values url.Values,
 	return http.StatusInternalServerError, restErrorJson{Error: errText}, nil
 }
 
-func (pods PodList) Delete(urlVars map[string]string, values url.Values,
+func (pods *PodList) Delete(urlVars map[string]string, values url.Values,
 	header http.Header) (int, interface{}, http.Header) {
 	namespace, exists := urlVars["namespace"]
 	if !exists {
@@ -182,12 +183,14 @@ func (pods PodList) Delete(urlVars map[string]string, values url.Values,
 	if !exists {
 		return http.StatusNotFound, nil, nil
 	}
+	glog.Infof("Deleting %s/%s", namespace, podName)
 	pods.editLock.Lock()
 	defer pods.editLock.Unlock()
 	if subnetNode, exists := pods.list[namespace+"/"+podName]; exists {
 		subnetNode.ActiveIPs--
 		//TODO: Check if the subnet is no longer necessary. If so, delete it.
+		delete(pods.list, namespace+"/"+podName)
 	}
-	delete(pods.list, namespace+"/"+podName)
+	glog.Infof("Successfully deleted %s/%s", namespace, podName)
 	return http.StatusOK, nil, nil
 }

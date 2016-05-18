@@ -179,6 +179,22 @@ type VsdNetworkMacro struct {
 	Netmask string `json:"netmask"`
 }
 
+func (lhs *VsdNetworkMacro) IsEqual(rhs *VsdNetworkMacro) bool {
+	if lhs.Name != rhs.Name {
+		return false
+	}
+	if lhs.IPType != rhs.IPType {
+		return false
+	}
+	if lhs.Address != rhs.Address {
+		return false
+	}
+	if lhs.Netmask != rhs.Netmask {
+		return false
+	}
+	return true
+}
+
 func (acl *VsdAclEntry) TryNextAclPriority() {
 	if acl.Priority == MAX_VSD_ACL_PRIORITY {
 		acl.Priority = acl.Priority - 1
