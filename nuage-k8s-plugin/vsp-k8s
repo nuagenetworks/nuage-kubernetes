@@ -752,18 +752,34 @@ def signal_handle(sig_num, frame):
 
 def get_pod_metadata(options, config):
     if config is not None:
-        response = requests.get('%s/api/v1/namespaces/%s/pods/%s' %
-                                (config.get('masterApiServer',
-                                            "https://localhost:8443"),
-                                 options.namespace, options.name),
-                                cert=(config.get('clientCert', CERT),
-                                      config.get('clientKey', KEY)),
-                                verify=config.get('CACert', CA_CERT),
-                                timeout=5)
-        if response.status_code != OK or response.json()['kind'] != 'Pod' or\
-           response.json()['metadata'] is None:
-            return None
-        return response.json()['metadata']
+        for _ in range(5):  # retry up to 5 times on timeout
+            try:
+                response = requests.get(
+                    '%s/api/v1/namespaces/%s/pods/%s' % (
+                        config.get('masterApiServer',
+                                   'https://localhost:8443'),
+                        options.namespace,
+                        options.name
+                    ),
+                    cert=(config.get('clientCert', CERT),
+                          config.get('clientKey', KEY)),
+                    verify=config.get('CACert', CA_CERT),
+                    timeout=5
+                )
+                if response.status_code != OK or \
+                   response.json()['kind'] != 'Pod' or \
+                   response.json()['metadata'] is None:
+                    return None
+                return response.json()['metadata']
+            except requests.exceptions.Timeout:
+                vlog.warn("Failed to get metadata from API server for pod %s: "
+                          "request timed out.  Retrying..." % options.name)
+        # The only way to exit the for loop without returning is if the request
+        # timed out 5 times
+        vlog.err("Could not get metadata from API server %s for pod %s: "
+                 "request timed out too many times" % (
+                     config.get('masterApiServer', 'https://localhost:8443'),
+                     options.name))
     return None
 
 
