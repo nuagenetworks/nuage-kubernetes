@@ -299,6 +299,9 @@ func (nvsdc *NuageVsdClient) CreateSession() {
 		Header: &http.Header{},
 	}
 	nvsdc.session.Header.Add("Content-Type", "application/json")
+	// Request that the TCP connection is closed when the transaction is
+	// complete
+	nvsdc.session.Header.Add("Connection", "close")
 }
 
 func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string) error {
@@ -1251,8 +1254,8 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 }
 
 func (nvsdc *NuageVsdClient) GetSubnetID(zoneID, subnetName string) (string, error) {
-	if vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName); err == nil {
-		return vsdSubnet.ID, nil
+	if vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName); vsdSubnet != nil {
+		return vsdSubnet.ID, err
 	} else {
 		return "", err
 	}
@@ -1305,6 +1308,7 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 }
 
 func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
+	glog.Infof("Got request to create subnet in namespace %q", namespaceID)
 	nvsdc.pods.editLock.Lock()
 	defer nvsdc.pods.editLock.Unlock()
 	namespace, exists := nvsdc.namespaces[namespaceID]
@@ -1320,10 +1324,18 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
 		glog.Warningf(
 			"Error allocating new subnet for namespace %s: %s",
 			namespace.Name, err.Error())
+		// Even though we failed to allocate a new subnet, remove the
+		// NeedsNewSubnet flag so that a new subnet can be requested again.
+		namespace.NeedsNewSubnet = false
+		nvsdc.namespaces[namespaceID] = namespace
 		return
 	}
 	for {
+		// Release the lock while we wait for the VSD response
+		nvsdc.pods.editLock.Unlock()
 		subnetID, err := nvsdc.CreateSubnet(subnetName, namespace.ZoneID, subnet)
+		nvsdc.pods.editLock.Lock()
+		// Reacquire it before we edit the namespace again
 		if err == nil {
 			// Step through the existing list to get to the tail
 			subnetNode := namespace.Subnets
@@ -1964,45 +1976,79 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacr
 		return result[0].ID, nil
 	case http.StatusConflict:
 		//Network Macro already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetNetworkMacroID(enterpriseID, networkMacro)
+		fetchedNetworkMacro, err := nvsdc.GetNetworkMacro(enterpriseID, networkMacro.Name)
 		if err != nil {
 			glog.Errorf("Error when getting network macro ID: %v - %v", networkMacro, err)
 			return "", err
 		}
-		return id, nil
+		// If we got back a network macro with the same name but different info,
+		// inherit the ID of the existing macro, but overwrite the contents.
+		if !networkMacro.IsEqual(fetchedNetworkMacro) {
+			networkMacro.ID = fetchedNetworkMacro.ID
+			err := nvsdc.UpdateNetworkMacro(networkMacro)
+			if err != nil {
+				glog.Error("Error when updating existing network macro: ", err)
+				return "", err
+			}
+			return networkMacro.ID, err
+		}
+		return fetchedNetworkMacro.ID, nil
 	default:
 		return "", VsdErrorResponse(resp, &e)
 	}
 }
 
-func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacro *api.VsdNetworkMacro) (string, error) {
+func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroName string) (*api.VsdNetworkMacro, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `name == "`+networkMacro.Name+`" and IPType =="`+networkMacro.IPType+`" and address == "`+networkMacro.Address+
-		`" and netmask == "`+networkMacro.Netmask+`"`)
+	h.Add("X-Nuage-Filter", `name == "`+networkMacroName+`"`)
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks", nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
-		glog.Errorf("Error when getting network macro ID for network macro: %v - %v", networkMacro, err)
-		return "", err
+		glog.Errorf("Error when getting network macro ID for network macro: %v - %v", networkMacroName, err)
+		return nil, err
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting network macro ID")
 	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
-		if result[0].Name == networkMacro.Name {
-			return result[0].ID, nil
+		if result[0].Name == networkMacroName {
+			glog.Infof("Found network macro %s when looking for %q",
+				result[0].ID, networkMacroName)
+			return &result[0], nil
 		} else if result[0].Name == "" {
-			return "", errors.New("Network Macro not found")
+			return nil, errors.New("Network Macro not found")
 		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, networkMacro.Name))
+			return nil, errors.New(fmt.Sprintf(
+				"Found %q instead of %q", result[0].Name, networkMacroName))
 		}
 	} else {
-		return "", VsdErrorResponse(resp, &e)
+		return nil, VsdErrorResponse(resp, &e)
 	}
+}
+
+func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacroName string) (string, error) {
+	if networkMacro, err := nvsdc.GetNetworkMacro(enterpriseID, networkMacroName); networkMacro != nil {
+		return networkMacro.ID, err
+	} else {
+		return "", err
+	}
+}
+
+func (nvsdc *NuageVsdClient) UpdateNetworkMacro(networkMacro *api.VsdNetworkMacro) error {
+	if networkMacro == nil {
+		return errors.New("No network macro specified")
+	}
+	url := nvsdc.url + "enterprisenetworks/" + networkMacro.ID
+	e := api.RESTError{}
+	resp, err := nvsdc.session.Put(url, networkMacro, nil, &e)
+	if err != nil || resp.Status() != http.StatusNoContent {
+		VsdErrorResponse(resp, &e)
+		return err
+	}
+	return nil
 }
 
 func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
