@@ -21,6 +21,9 @@ enterpriseAdminUser: 'admin'
 enterpriseAdminPassword: ''
 # Location where logs should be saved
 log_dir: '/var/log/nuagekubemon'
+# The name of the namespace that should be accessible to all namespaces.  The
+# default is "kube-system"
+privilegedNamespace: "kube-system"
 nuageMonServer:
     # Port on which to serve the REST API.  Default is 9443
     URL: 0.0.0.0:9443
