@@ -1,5 +1,5 @@
 %define vsp_k8s_plugin vsp-k8s
-%define vsp_k8s_plugin_dir /usr/libexec/kubernetes/kubelet-plugins/net/exec/nuage~%{vsp_k8s_plugin}
+%define vsp_k8s_plugin_dir /usr/libexec/kubernetes/kubelet-plugins/net/exec/%{vsp_k8s_plugin}
 %define vsp_k8s_datadir /usr/share/%{vsp_k8s_plugin} 
 %define vsp_k8s_yaml %{vsp_k8s_plugin}.yaml
 %define vsp_k8s_yaml_path %{vsp_k8s_datadir}/%{vsp_k8s_yaml}
