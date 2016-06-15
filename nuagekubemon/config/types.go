@@ -37,6 +37,8 @@ type NuageKubeMonConfig struct {
 	CSPAdminPassword        string           `yaml:"cspAdminPassword"`
 	EnterpriseAdminUserName string           `yaml:"enterpriseAdminUser"`
 	EnterpriseAdminPassword string           `yaml:"enterpriseAdminPassword"`
+	PrivilegedProject       string           `yaml:"privilegedProject"`
+	PrivilegedNamespace     string           `yaml:"privilegedNamespace"`
 	ConfigFile              string           `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
 	MasterConfig            MasterConfig     `yaml:"-"`
 }
@@ -120,6 +122,21 @@ func (conf *NuageKubeMonConfig) Parse(data []byte) error {
 
 	if conf.EnterpriseAdminPassword == "" {
 		conf.EnterpriseAdminPassword = "admin"
+	}
+
+	if conf.PrivilegedNamespace == "" {
+		conf.PrivilegedNamespace = "kube-system"
+	}
+
+	// To simplify execution, we'll use PrivilegedProject everywhere after
+	// configuration is done.  If the system is nuagekubemon, we'll overwrite
+	// the PrivilegedProject variable with the PrivilegedNamespace one.
+	if programName := path.Base(os.Args[0]); strings.ToLower(programName) == "nuagekubemon" {
+		conf.PrivilegedProject = conf.PrivilegedNamespace
+	} else {
+		if conf.PrivilegedProject == "" {
+			conf.PrivilegedProject = "default"
+		}
 	}
 
 	return nil

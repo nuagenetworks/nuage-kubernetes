@@ -58,6 +58,7 @@ type NuageVsdClient struct {
 	restAPI               *sleepy.API //TODO: split the rest server into its own package
 	restServer            *http.Server
 	newSubnetQueue        chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
+	privilegedProjectName string
 }
 
 type NamespaceData struct {
@@ -320,6 +321,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.username = "csproot"
 	nvsdc.password = nkmConfig.CSPAdminPassword
 	nvsdc.enterprise = "csp"
+	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
 	var err error
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
@@ -1539,8 +1541,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			}
 			namespace.numSubnets++
 			nvsdc.namespaces[nsEvent.Name] = namespace
-			if nsEvent.Name == "default" {
-				err = nvsdc.CreateDefaultZoneAcls(zoneID)
+			if nsEvent.Name == nvsdc.privilegedProjectName {
+				err = nvsdc.CreatePrivilegedZoneAcls(zoneID)
 				if err != nil {
 					glog.Error("Got an error when creating default zone's ACL entries")
 					return err
@@ -1564,8 +1566,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			glog.Errorf("Invalid ID for zone %s", nsEvent.Name)
 			return err
 		case id != "" && err == nil:
-			if nsEvent.Name == "default" {
-				err = nvsdc.CreateDefaultZoneAcls(id)
+			if nsEvent.Name == nvsdc.privilegedProjectName {
+				err = nvsdc.CreatePrivilegedZoneAcls(id)
 				if err != nil {
 					glog.Error("Got an error when creating default zone's ACL entries")
 					return err
@@ -1586,8 +1588,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	case api.Deleted:
 		if zone, exists := nvsdc.namespaces[nsEvent.Name]; exists {
 			// Delete subnets that we've created, and free them back into the pool
-			if nsEvent.Name == "default" {
-				err := nvsdc.DeleteDefaultZoneAcls(zone.ZoneID)
+			if nsEvent.Name == nvsdc.privilegedProjectName {
+				err := nvsdc.DeletePrivilegedZoneAcls(zone.ZoneID)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting default zone's ACL entries")
@@ -1633,8 +1635,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			return err
 		case id != "" && err == nil:
 			glog.Infof("Deleting zone %s which was not found locally", nsEvent.Name)
-			if nsEvent.Name == "default" {
-				err = nvsdc.DeleteDefaultZoneAcls(id)
+			if nsEvent.Name == nvsdc.privilegedProjectName {
+				err = nvsdc.DeletePrivilegedZoneAcls(id)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting default zone's ACL entries")
@@ -1652,19 +1654,19 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreateDefaultZoneAcls(zoneID string) error {
-	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, "default")
+func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
+	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, nvsdc.privilegedProjectName)
 	if err != nil {
-		glog.Error("Error when creating the network macro group for zone", "default")
+		glog.Error("Error when creating the network macro group for zone", nvsdc.privilegedProjectName)
 		return err
 	} else {
-		if nsd, exists := nvsdc.namespaces["default"]; exists {
+		if nsd, exists := nvsdc.namespaces[nvsdc.privilegedProjectName]; exists {
 			nsd.NetworkMacroGroupID = nmgid
-			nvsdc.namespaces["default"] = nsd
+			nvsdc.namespaces[nvsdc.privilegedProjectName] = nsd
 		} else {
-			nvsdc.namespaces["default"] = NamespaceData{
+			nvsdc.namespaces[nvsdc.privilegedProjectName] = NamespaceData{
 				ZoneID:              zoneID,
-				Name:                "default",
+				Name:                nvsdc.privilegedProjectName,
 				NetworkMacroGroupID: nmgid,
 				NetworkMacros:       make(map[string]string),
 			}
@@ -1912,7 +1914,7 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
+func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 	// aclEntry := api.VsdAclEntry{
 	// 	Action:       "FORWARD",
 	// 	DSCP:         "*",
@@ -1921,7 +1923,7 @@ func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
 	// 	EtherType:    "0x0800",
 	// 	LocationID:   "",
 	// 	LocationType: "ANY",
-	// 	NetworkID:    nvsdc.namespaces["default"].NetworkMacroGroupID,
+	// 	NetworkID:    nvsdc.namespaces[nvsdc.privilegedProjectName].NetworkMacroGroupID,
 	// 	NetworkType:  "NETWORK_MACRO_GROUP",
 	// 	PolicyState:  "LIVE",
 	// 	Protocol:     "ANY",
@@ -1947,15 +1949,15 @@ func (nvsdc *NuageVsdClient) DeleteDefaultZoneAcls(zoneID string) error {
 	// 	glog.Error("Failed to get egress acl entry to delete", aclEntry)
 	// 	return err
 	// }
-	if nvsdc.namespaces["default"].NetworkMacroGroupID != "" {
-		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.namespaces["default"].NetworkMacroGroupID)
+	if nvsdc.namespaces[nvsdc.privilegedProjectName].NetworkMacroGroupID != "" {
+		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.namespaces[nvsdc.privilegedProjectName].NetworkMacroGroupID)
 		if err != nil {
 			glog.Error("Failed to delete network macro group for default zone")
 			return err
 		} else {
-			if nsd, exists := nvsdc.namespaces["default"]; exists {
+			if nsd, exists := nvsdc.namespaces[nvsdc.privilegedProjectName]; exists {
 				nsd.NetworkMacroGroupID = ""
-				nvsdc.namespaces["default"] = nsd
+				nvsdc.namespaces[nvsdc.privilegedProjectName] = nsd
 			}
 		}
 	}

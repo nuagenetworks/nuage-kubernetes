@@ -21,6 +21,9 @@ enterpriseAdminUser: 'admin'
 enterpriseAdminPassword: ''
 # Location where logs should be saved
 log_dir: '/var/log/nuage-openshift-monitor'
+# The name of the project that should be accessible to all projects.  The
+# default is "default"
+privilegedProject: "default"
 nuageMonServer:
     # Port on which to serve the REST API.  Default is 9443
     URL: 0.0.0.0:9443
