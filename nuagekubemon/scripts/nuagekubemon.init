@@ -1,6 +1,6 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          <NAME>
+# Provides:          nuagekubemon
 # Required-Start:    $local_fs $network $named $time $syslog kubernetes-master
 # Required-Stop:     $local_fs $network $named $time $syslog
 # Default-Start:     2 3 4 5
@@ -19,7 +19,7 @@ start() {
     return 1
   fi
   echo 'Starting service nuagekubemon…' >&2
-  local CMD="$BIN --config=/usr/share/nuagekubemon/nuagekubemon.yaml & echo \$!"
+  local CMD="$BIN --config=/usr/share/nuagekubemon/nuagekubemon.yaml &>/dev/null & echo \$!"
   su -c "$CMD" $RUNAS > "$PIDFILE"
   echo 'service nuagekubemon started' >&2
 }
