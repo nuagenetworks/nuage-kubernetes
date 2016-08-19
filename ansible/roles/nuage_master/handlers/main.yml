@@ -1,0 +1,4 @@
+---
+- name: restart nuagekubemon
+  become: yes
+  service: name=nuagekubemon state=restarted

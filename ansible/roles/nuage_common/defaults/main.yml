@@ -1,0 +1,10 @@
+nuage_ca_master: "{{ groups['masters'][0] }}"
+nuage_ca_master_crt_dir: /usr/share/nuage-k8s-certificates
+
+nuage_ca_dir: /usr/share/nuage-k8s-ca
+nuage_ca_key: "{{ nuage_ca_dir }}/nuageMonCA.key"
+nuage_ca_crt: "{{ nuage_ca_dir }}/nuageMonCA.crt"
+nuage_ca_serial: "{{ nuage_ca_dir }}/nuageMonCA.serial.txt"
+
+nuage_master_mon_dir: /usr/share/nuage-k8s-monitor
+nuage_node_plugin_dir: /usr/share/vsp-k8s
