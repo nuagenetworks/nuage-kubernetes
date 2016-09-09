@@ -1,4 +1,4 @@
 networkConfig:
-  clusterNetworkCIDR: 70.70.0.0/16 
+  clusterNetworkCIDR: {{ nuage_cluster_nw_cidr }} 
   serviceNetworkCIDR: {{ kube_service_addresses }} 
-  hostSubnetLength: 8 
+  hostSubnetLength: {{ nuage_host_subnet_len }}
