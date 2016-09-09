@@ -50,3 +50,13 @@
     - "{{ kube_cert_dir }}/server.key"
     - "{{ kube_cert_dir }}/kubecfg.crt"
     - "{{ kube_cert_dir }}/kubecfg.key"
+
+- name: Verify certificate permissions for Nuage
+  file:
+    path={{ item }}
+    group=root
+    owner=root
+    mode=0660
+  with_items:
+    - "{{ kube_cert_dir }}/nuage.crt"
+    - "{{ kube_cert_dir }}/nuage.key"     
