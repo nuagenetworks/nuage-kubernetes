@@ -51,24 +51,6 @@
   roles:
     - { role: contiv, contiv_role: netmaster, when: networking == 'contiv' }
 
-# Install Nuage
-- hosts:
-    - masters
-  sudo: yes
-  roles:
-    - { role: nuage_master, when: networking == 'nuage' }
-  tags: 
-    - network-service-install
-
-# Install Nuage
-- hosts:
-    - nodes 
-  sudo: yes
-  roles:
-    - { role: nuage_node, when: networking == 'nuage' }
-  tags: 
-    - network-service-install
-
 
 # install kube master services
 - hosts: masters
@@ -87,13 +69,31 @@
     - addons
     - dns
 
-# install kubernetes on the nodes
+# Install kubernetes on the nodes
 - hosts: nodes
   sudo: yes
   roles:
     - node
   tags:
     - nodes
+
+# Install Nuage Master
+- hosts:
+    - masters
+  sudo: yes
+  roles:
+    - { role: nuage_master, when: networking == 'nuage' }
+  tags: 
+    - network-service-install
+
+# Install Nuage Nodes
+- hosts:
+    - nodes 
+  sudo: yes
+  roles:
+    - { role: nuage_node, when: networking == 'nuage' }
+  tags: 
+    - network-service-install
 
 # provision opencontrail once the services are operational
 - hosts:
