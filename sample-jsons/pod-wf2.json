@@ -1,0 +1,52 @@
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pod-wf2",
+    "creationTimestamp": null,
+    "labels": {
+      "name": "pod-wf2",
+      "nuage.io/subnet": "wf2_subnet",
+      "nuage.io/zone": "wf2_zone",
+      "nuage.io/user": "admin"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "pod-wf2",
+        "image": "openshift/hello-openshift",
+        "ports": [
+          {
+            "containerPort": 8080,
+            "protocol": "TCP"
+          }
+        ],
+        "resources": {},
+        "volumeMounts": [
+          {
+            "name":"tmp",
+            "mountPath":"/tmp"
+          }
+        ],
+        "terminationMessagePath": "/dev/termination-log",
+        "imagePullPolicy": "IfNotPresent",
+        "capabilities": {},
+        "securityContext": {
+          "capabilities": {},
+          "privileged": false
+        }
+      }
+    ],
+    "volumes": [
+      {
+        "name":"tmp",
+        "emptyDir": {}
+      }
+    ],
+    "restartPolicy": "Always",
+    "dnsPolicy": "ClusterFirst",
+    "serviceAccount": ""
+  },
+  "status": {}
+}

@@ -1,0 +1,124 @@
+{
+  "kind": "List",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "hello-service-complete-example"
+  },
+  "items": [
+    {
+      "kind": "Service",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sn",
+        "labels": {
+          "name": "sn"
+        }
+      },
+      "spec": {
+        "selector": {
+          "name": "sn"
+        },
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 27019,
+            "targetPort": 8081
+          }
+        ],
+        "portalIP": "",
+        "type": "ClusterIP",
+        "sessionAffinity": "None"
+      }
+    },
+    {
+      "kind": "Route",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sn-route",
+        "labels": {
+          "name": "sn"
+        }
+      },
+      "spec": {
+        "host": "hello-openshift.example.com",
+        "to": {
+          "name": "sn"
+        },
+        "tls": {
+          "termination": "edge"
+        }
+      }
+    },
+    {
+      "kind": "DeploymentConfig",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sn",
+        "labels": {
+          "name": "sn"
+        }
+      },
+      "spec": {
+        "strategy": {
+          "type": "Recreate",
+          "resources": {}
+        },
+        "triggers": [
+          {
+            "type": "ConfigChange"
+          }
+        ],
+        "replicas": 3,
+        "selector": {
+          "name": "sn"
+        },
+        "template": {
+          "metadata": {
+            "creationTimestamp": null,
+            "labels": {
+              "name": "sn"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "sn",
+                "image": "openshift/hello-openshift:v1.0.6",
+                "ports": [
+                  {
+                    "name": "http",
+                    "containerPort": 8081,
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "10m",
+                    "memory": "16Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "imagePullPolicy": "IfNotPresent",
+                "capabilities": {},
+                "securityContext": {
+                  "capabilities": {},
+                  "privileged": false
+                },
+                "livenessProbe": {
+                  "tcpSocket": {
+                    "port": 8080
+                  },
+                  "timeoutSeconds": 1,
+                  "initialDelaySeconds": 10
+                }
+              }
+            ],
+            "restartPolicy": "Always",
+            "dnsPolicy": "ClusterFirst",
+            "serviceAccount": ""
+          }
+        }
+      }
+    }
+  ]
+}
