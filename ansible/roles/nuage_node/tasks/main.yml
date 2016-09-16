@@ -26,6 +26,8 @@
   become: yes
   template: src=vsp-k8s.j2 dest={{ vsp_k8s_yaml }} owner=root mode=0644
 
+- include: iptables.yaml
+
 - name: Restart vrs
   become: yes
   service: name=openvswitch state=restarted
