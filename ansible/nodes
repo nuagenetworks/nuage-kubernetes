@@ -11,24 +11,23 @@ enterprise=nuage
 domain=openshift
 
 vsc_active_ip=192.168.103.201
-uplink_interface=eth1
+uplink_interface=eth0
 
-vrs_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuage-openvswitch-4.0.2-11.el7.x86_64.rpm
-#plugin_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuage-k8s-plugin-4.0-2.9.el7.centos.x86_64.rpm
-plugin_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuage-k8s-plugin-0.0-PR93.el7.centos.x86_64.rpm
-nuage_monitor_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuagekubemon-4.0-2.9.el7.centos.x86_64.rpm
+vrs_rpm=http://135.227.146.142/vpati011/k8s/nuage-openvswitch-0.0.5-2e66b8.el7.x86_64.rpm
+plugin_rpm=http://135.227.146.142/vpati011/k8s/nuage-k8s-plugin-0.0-5.2028.el7.centos.x86_64.rpm
+nuage_monitor_rpm=http://135.227.146.142/vpati011/k8s/nuagekubemon-0.0-5.2028.el7.centos.x86_64.rpm
 
 [masters]
-master.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.101 
+master.nuageopenshift.com ansible_ssh_user=root 
 
 [etcd]
-master.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.101 
+master.nuageopenshift.com ansible_ssh_user=root 
 
 [nodes:vars]
 http_proxy="http://global.proxy.alcatel-lucent.com:8000/"
 https_proxy="https://global.proxy.alcatel-lucent.com:8000/"
-no_proxy="localhost,192.168.103.200,127.0.0.1,localaddress,.localdomain.com"
+no_proxy="localhost,192.168.103.94,192.168.103.95,127.0.0.1,localaddress,.localdomain.com"
 
 [nodes]
-node1.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.102 
-node2.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.103
+node1.nuageopenshift.com ansible_ssh_user=root 
+node2.nuageopenshift.com ansible_ssh_user=root
