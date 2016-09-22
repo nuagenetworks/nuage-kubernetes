@@ -1,0 +1,53 @@
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pod-wronglabel",
+    "creationTimestamp": null,
+    "labels": {
+      "name": "pod-wronglabel",
+      "nuage.io/subnet": "test-1-8-0",
+      "nuage.io/zone": "test-1-8",
+      "nuage.io/user": "admin",
+      "nuage.io/policy-group": "Test"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "pod-wronglabel",
+        "image": "openshift/hello-openshift",
+        "ports": [
+          {
+            "containerPort": 8080,
+            "protocol": "TCP"
+          }
+        ],
+        "resources": {},
+        "volumeMounts": [
+          {
+            "name":"tmp",
+            "mountPath":"/tmp"
+          }
+        ],
+        "terminationMessagePath": "/dev/termination-log",
+        "imagePullPolicy": "IfNotPresent",
+        "capabilities": {},
+        "securityContext": {
+          "capabilities": {},
+          "privileged": false
+        }
+      }
+    ],
+    "volumes": [
+      {
+        "name":"tmp",
+        "emptyDir": {}
+      }
+    ],
+    "restartPolicy": "Always",
+    "dnsPolicy": "ClusterFirst",
+    "serviceAccount": ""
+  },
+  "status": {}
+}

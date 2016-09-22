@@ -1,0 +1,54 @@
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pod-ex",
+    "creationTimestamp": null,
+    "labels": {
+      "name": "pod-ex"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "pod-ex",
+        "image": "openshift/hello-openshift",
+        "ports": [
+          {
+            "containerPort": 8080,
+            "protocol": "TCP"
+          }
+        ],
+        "resources": {},
+        "volumeMounts": [
+          {
+            "name":"tmp",
+            "mountPath":"/tmp"
+          }
+        ],
+        "terminationMessagePath": "/dev/termination-log",
+        "imagePullPolicy": "IfNotPresent",
+        "capabilities": {},
+        "securityContext": {
+          "capabilities": {},
+          "privileged": false
+        }
+      }
+    ],
+    "volumes": [
+      {
+        "name":"tmp",
+        "emptyDir": {}
+      }
+    ],
+    "restartPolicy": "Always",
+    "dnsPolicy": "ClusterFirst",
+    "serviceAccount": ""
+  },
+  "status": {},
+  "labels": {
+    "nuage.io/subnet": "test-1-8-0",
+    "nuage.io/zone": "test-1-8",
+    "nuage.io/user": "admin"
+  }
+}

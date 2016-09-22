@@ -1,0 +1,53 @@
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pod-pg",
+    "creationTimestamp": null,
+    "labels": {
+      "name": "pod-pg",
+      "nuage.io/subnet": "wf2_subnet",
+      "nuage.io/zone": "wf2_zone",
+      "nuage.io/user": "admin",
+      "nuage.io/policy-group": "test"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "pod-pg",
+        "image": "openshift/hello-openshift",
+        "ports": [
+          {
+            "containerPort": 8080,
+            "protocol": "TCP"
+          }
+        ],
+        "resources": {},
+        "volumeMounts": [
+          {
+            "name":"tmp",
+            "mountPath":"/tmp"
+          }
+        ],
+        "terminationMessagePath": "/dev/termination-log",
+        "imagePullPolicy": "IfNotPresent",
+        "capabilities": {},
+        "securityContext": {
+          "capabilities": {},
+          "privileged": false
+        }
+      }
+    ],
+    "volumes": [
+      {
+        "name":"tmp",
+        "emptyDir": {}
+      }
+    ],
+    "restartPolicy": "Always",
+    "dnsPolicy": "ClusterFirst",
+    "serviceAccount": ""
+  },
+  "status": {}
+}
