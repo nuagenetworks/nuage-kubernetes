@@ -1,3 +1,3 @@
 ---
 - name: Save iptables rules
-  command: service iptables save
+  command: iptables-save
