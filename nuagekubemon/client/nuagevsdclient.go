@@ -18,7 +18,6 @@
 package client
 
 import (
-	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -154,8 +153,7 @@ func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, er
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, password string) (string, error) {
-	passwd := fmt.Sprintf("%x", sha1.Sum([]byte(password)))
+func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, passwd string) (string, error) {
 	payload := api.VsdUser{
 		UserName:  user,
 		Password:  passwd,
