@@ -9,4 +9,5 @@ galaxy_info:
   - cloud
   - system
 dependencies:
-- { role: nuage_ca }
+  - { role: nuage_common }
+  - { role: nuage_ca }

@@ -8,3 +8,5 @@ nuage_ca_serial: "{{ nuage_ca_dir }}/nuageMonCA.serial.txt"
 
 nuage_master_mon_dir: /usr/share/nuage-k8s-monitor
 nuage_node_plugin_dir: /usr/share/vsp-k8s
+    
+nuage_cluster_nw_cidr: "{{ nuage_cluster_network_CIDR | default('70.70.0.0/16') }}"
