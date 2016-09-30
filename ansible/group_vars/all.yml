@@ -86,10 +86,10 @@ cluster_logging: true
 cluster_monitoring: true
 
 # Turn to false to disable the kube-ui addon for this cluster
-kube-ui: false
+kube-ui: true
 
 # Turn to false to disable the kube-dash addon for this cluster
-kube-dash: false
+kube-dash: true 
 
 # Turn this varable to 'false' to disable whole DNS configuration.
 dns_setup: true
