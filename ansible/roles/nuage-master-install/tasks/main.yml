@@ -17,10 +17,6 @@
   become: yes
   template: src=nuagekubemon.yaml.j2 dest={{ nuage_mon_yaml_path }} owner=root mode=0644
 
-- include: iptables.yaml
-
 - name: Create net-config.yaml
   become: yes
   template: src=net-config.yaml.j2 dest={{ nuage_net_config_yaml_path }} owner=root mode=0644
-  notify:
-    - restart nuagekubemon

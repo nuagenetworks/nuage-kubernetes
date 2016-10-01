@@ -1,3 +1,0 @@
----
-- name: Save iptables rules
-  command: iptables-save
