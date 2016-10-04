@@ -1,0 +1,3 @@
+---
+- name: save iptables 
+  command: service iptables save 

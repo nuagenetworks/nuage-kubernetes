@@ -2,6 +2,3 @@
 - name: restart nuagekubemon
   become: yes
   service: name=nuagekubemon state=restarted
-
-- name: Save iptables rules
-  command: iptables-save
