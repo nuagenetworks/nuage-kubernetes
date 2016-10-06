@@ -15,3 +15,7 @@
 - name: Allow traffic from underlay to overlay
   command: /sbin/iptables -I FORWARD 1 -d {{ nuage_cluster_nw_cidr }} -j ACCEPT -m comment --comment "nuage-underlay-overlay"   
   when: "'nuage-underlay-overlay' not in iptablesrules.stdout"
+
+- name: Allow traffic to kube API server 
+  command: /sbin/iptables -I INPUT 1 -d {{ kube_service_addresses|ipaddr('net')|ipaddr(1)|ipaddr('address') }} -j ACCEPT -m comment --comment "service-ip-allow"
+  when: "'service-ip-allow' not in iptablesrules.stdout" 
