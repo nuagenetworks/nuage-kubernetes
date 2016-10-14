@@ -74,6 +74,7 @@
   sudo: yes
   roles:
     - { role: nuage-node-install, when: networking == 'nuage' }
+  serial: 1
   tags: 
     - network-service-install
 
