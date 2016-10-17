@@ -92,8 +92,8 @@ def create_internal_port(port, vm_name, nuage_uuid, pid, mtu):
         out = subprocess.check_output([cmd], shell=True).strip()
         vlog.dbg("Assigned mtu for port %s is %s with output %s"
                  % (port, mtu, out))
-    except:
-        vlog.err("Container linking failed at %s" % cmd)
+    except Exception as e:
+        vlog.err("Container linking failed at %s because %s" % (cmd, str(e)))
         raise NameError('NameSpaceLinkFail')
     return local_mac
 
@@ -307,7 +307,6 @@ def update_ip(nuage_uuid, port, pid, limit=200):
     ip = ip_info[0]
     mask = ip_info[1]
     gw = ip_info[2]
-    # Remove the docker assigned IP.
     remove_docker_ip = (("nsenter -n -t %s -- ip -4 addr flush dev %s") %
                         (pid, 'eth0'))
     # Assign the IP in the namespace
@@ -371,13 +370,13 @@ def find_metadata(options, config, setup):
         ent = config.get("enterpriseName", "%s-Enterprise" % platform)
         mtu = config.get("interfaceMTU", mtu)
     podmeta = get_pod_metadata(options, config)
-
     if podmeta is not None and 'labels' in podmeta:
         network = podmeta['labels'].get('nuage.io/subnet',
                                         options.namespace + '-0')
         zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
         user = podmeta['labels'].get('nuage.io/user', 'admin')
         pg = podmeta['labels'].get('nuage.io/policy-group', None)
+        domain = podmeta['labels'].get('nuage.io/domain', domain)
 
     client_cert = config.get("nuageMonClientCert", REST_CERT)
     client_key = config.get("nuageMonClientKey", REST_KEY)

@@ -1,11 +1,14 @@
 {
 	"ImportPath": "github.com/nuagenetworks/openshift-integration/nuagekubemon",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.6",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/ww/goautoneg",
 			"Comment": "null-5",
-			"Rev": "75cd24fc2f2c2a2088577d12123ddee5f54e0675"
+			"Rev": "'75cd24fc2f2c2a2088577d12123ddee5f54e0675'"
 		},
 		{
 			"ImportPath": "github.com/beorn7/perks/quantile",
@@ -26,19 +29,24 @@
 			"Rev": "2b27fe17a1b3fb8472fde96d768fa70996adf201"
 		},
 		{
+			"ImportPath": "github.com/docker/docker/pkg/units",
+			"Comment": "v1.4.1-4045-g2b27fe1",
+			"Rev": "2b27fe17a1b3fb8472fde96d768fa70996adf201"
+		},
+		{
 			"ImportPath": "github.com/docker/libcontainer/cgroups",
-			"Comment": "v1.4.0-446-gae812bd",
-			"Rev": "ae812bdca78084dc322037225d170e1883521d87"
+			"Comment": "v2.2.1",
+			"Rev": "5dc7ba0f24332273461e45bc49edcb4d5aa6c44c"
 		},
 		{
 			"ImportPath": "github.com/docker/libcontainer/configs",
-			"Comment": "v1.4.0-446-gae812bd",
-			"Rev": "ae812bdca78084dc322037225d170e1883521d87"
+			"Comment": "v2.2.1",
+			"Rev": "5dc7ba0f24332273461e45bc49edcb4d5aa6c44c"
 		},
 		{
 			"ImportPath": "github.com/docker/libcontainer/system",
-			"Comment": "v1.4.0-446-gae812bd",
-			"Rev": "ae812bdca78084dc322037225d170e1883521d87"
+			"Comment": "v2.2.1",
+			"Rev": "5dc7ba0f24332273461e45bc49edcb4d5aa6c44c"
 		},
 		{
 			"ImportPath": "github.com/emicklei/go-restful",
@@ -47,7 +55,7 @@
 		},
 		{
 			"ImportPath": "github.com/ghodss/yaml",
-			"Rev": "588cb435e59ee8b6c2795482887755841ad67207"
+			"Rev": "73d445a93680fa1a78ae23a5839bad48f32ba1ee"
 		},
 		{
 			"ImportPath": "github.com/golang/glog",
@@ -59,8 +67,8 @@
 		},
 		{
 			"ImportPath": "github.com/google/cadvisor/info/v1",
-			"Comment": "0.15.1",
-			"Rev": "ec588def40e1bb59f28f5a293b279f6762d13d44"
+			"Comment": "v0.19.2",
+			"Rev": "aa6f80814bc6fdb43a0ed12719658225420ffb7d"
 		},
 		{
 			"ImportPath": "github.com/google/gofuzz",
@@ -68,11 +76,11 @@
 		},
 		{
 			"ImportPath": "github.com/gorilla/context",
-			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
+			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
 		},
 		{
 			"ImportPath": "github.com/gorilla/mux",
-			"Rev": "2aad27d3101b8183f8fa1bebdbc2cdb74fcef090"
+			"Rev": "8096f47503459bcc74d1f4c487b7e6e42e5746b5"
 		},
 		{
 			"ImportPath": "github.com/imdario/mergo",
@@ -141,7 +149,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",
-			"Rev": "cbcac7bb8415db9b6cb4d1ebab1dc9afbd688b97"
+			"Rev": "c2528b2dd8352441850638a8bb678c2ad056fd3e"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
