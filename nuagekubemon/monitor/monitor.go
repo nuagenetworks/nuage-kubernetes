@@ -123,15 +123,19 @@ func (nkm *NuageKubeMonitor) Run() {
 		return
 	}
 	nkm.mOsClient = client.NewNuageOsClient(&(nkm.mConfig))
-	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig))
+	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig), nkm.mOsClient.GetClusterClientCallBacks())
 	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)
 	stop := make(chan bool)
 	nsEventChannel := make(chan *api.NamespaceEvent)
 	serviceEventChannel := make(chan *api.ServiceEvent)
-	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, stop)
-	nkm.mOsClient.GetExistingEvents(nsEventChannel, serviceEventChannel)
+	podEventChannel := make(chan *api.PodEvent)
+	policyEventChannel := make(chan *api.NetworkPolicyEvent)
+	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, podEventChannel, policyEventChannel, stop)
+	nkm.mOsClient.GetExistingEvents(nsEventChannel, serviceEventChannel, podEventChannel, policyEventChannel)
 	go nkm.mOsClient.RunNamespaceWatcher(nsEventChannel, stop)
 	go nkm.mOsClient.RunServiceWatcher(serviceEventChannel, stop)
+	//go nkm.mOsClient.RunPodWatcher(podEventChannel, stop)
+	go nkm.mOsClient.RunNetworkPolicyWatcher(policyEventChannel, stop)
 	//go nkm.mOsNodeClient.Run()
 	select {}
 }
