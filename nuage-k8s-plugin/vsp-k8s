@@ -31,7 +31,6 @@ import md5
 import traceback
 import yaml
 
-
 sys.path.append('/usr/share/openvswitch/python')
 sys.path.append('/usr/share/openvswitch/python/ovs')
 
@@ -43,7 +42,6 @@ import ovs.unixctl.server
 import argparse
 
 from httplib import OK, NOT_FOUND, CONFLICT
-
 
 prog_name = os.path.basename(sys.argv[0])
 assert prog_name[:4] == "vsp-"
@@ -113,8 +111,9 @@ def nuage_xml(metadata, nuage_uuid, local_mac, port):
     domainTag = ""
     zoneTag = ""
     if 'pg' in metadata and metadata['pg'] is not None:
-        pgElement = ("""<policy-group name="%s">"""
-                     """</policy-group>""" % str(metadata['pg']))
+        for pg in metadata['pg']:
+            pgElement = ("""<policy-group name="%s">"""
+                         """</policy-group>""" % str(pg))
     if 'delete_timer' not in metadata or metadata['delete_timer'] is None:
         metadata['delete_timer'] = 0
     if ('staticip' in metadata and metadata['staticip']):
@@ -375,7 +374,9 @@ def find_metadata(options, config, setup):
                                         options.namespace + '-0')
         zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
         user = podmeta['labels'].get('nuage.io/user', 'admin')
-        pg = podmeta['labels'].get('nuage.io/policy-group', None)
+        pglabels = podmeta['labels'].get('nuage.io/policy-group', None)
+        if pglabels:
+            pg = [pglabels]
         domain = podmeta['labels'].get('nuage.io/domain', domain)
 
     client_cert = config.get("nuageMonClientCert", REST_CERT)
@@ -438,6 +439,12 @@ def find_metadata(options, config, setup):
                 else:
                     network = fetched_pod_data.json().get("subnetName",
                                                           network)
+                    policygroups = fetched_pod_data.json().get("policyGroups",
+                                                               None)
+                    if policygroups:
+                        if pg:
+                            policygroups.extend(pg)
+                        pg = policygroups
                 timed_out = False
                 break
             except requests.exceptions.Timeout:
@@ -749,36 +756,79 @@ def signal_handle(sig_num, frame):
     raise SystemExit
 
 
+def get_pod_metadata_using_certs(options, config):
+    for _ in range(5):  # retry up to 5 times on timeout
+        try:
+            response = requests.get(
+                '%s/api/v1/namespaces/%s/pods/%s' % (
+                    config.get('masterApiServer',
+                               'https://localhost:8443'),
+                    options.namespace,
+                    options.name
+                ),
+                cert=(config.get('clientCert', CERT),
+                      config.get('clientKey', KEY)),
+                verify=config.get('CACert', CA_CERT),
+                timeout=5
+            )
+            if response.status_code != OK or \
+               response.json()['kind'] != 'Pod' or \
+               response.json()['metadata'] is None:
+                return None
+            return response.json()['metadata']
+        except requests.exceptions.Timeout:
+            vlog.warn("Failed to get metadata from API server for pod %s: "
+                      "request timed out.  Retrying..." % options.name)
+
+    # The only way to exit the for loop without returning is if the request
+    # timed out 5 times
+    vlog.err("Could not get metadata from API server %s for pod %s: "
+             "request timed out too many times" % (
+                 config.get('masterApiServer', 'https://localhost:8443'),
+                 options.name))
+    return None
+
+
+def get_pod_metadata_using_kubeconfig(options, config):
+    try:
+        import pykube
+    except ImportError:
+        vlog.err("Unable to import pykube required to parse kubeconfig")
+        return None
+
+    kubeConfig = config.get('kubeConfig')
+    api = pykube.HTTPClient(pykube.KubeConfig.from_file(kubeConfig))
+    for _ in range(5):
+        try:
+            ns_pods = pykube.Pod.objects(api).filter(namespace=options.namespace)
+            pods = filter(lambda pod: pod.name == options.name, ns_pods)
+            if pods is not None and len(pods) == 1:
+                return pods[0].obj["metadata"]
+        except Exception as e:
+            vlog.warn("Failed to get metadata from API server for pod %s: "
+                      "request timed out.  Retrying...%s" % (options.name,
+                                                             str(e)))
+
+    vlog.err("Could not get metadata from API server %s for pod %s: "
+             "request timed out too many times" % (
+                 config.get('masterApiServer', 'https://localhost:8443'),
+                 options.name))
+
+    return None
+
+
 def get_pod_metadata(options, config):
-    if config is not None:
-        for _ in range(5):  # retry up to 5 times on timeout
-            try:
-                response = requests.get(
-                    '%s/api/v1/namespaces/%s/pods/%s' % (
-                        config.get('masterApiServer',
-                                   'https://localhost:8443'),
-                        options.namespace,
-                        options.name
-                    ),
-                    cert=(config.get('clientCert', CERT),
-                          config.get('clientKey', KEY)),
-                    verify=config.get('CACert', CA_CERT),
-                    timeout=5
-                )
-                if response.status_code != OK or \
-                   response.json()['kind'] != 'Pod' or \
-                   response.json()['metadata'] is None:
-                    return None
-                return response.json()['metadata']
-            except requests.exceptions.Timeout:
-                vlog.warn("Failed to get metadata from API server for pod %s: "
-                          "request timed out.  Retrying..." % options.name)
-        # The only way to exit the for loop without returning is if the request
-        # timed out 5 times
-        vlog.err("Could not get metadata from API server %s for pod %s: "
-                 "request timed out too many times" % (
-                     config.get('masterApiServer', 'https://localhost:8443'),
-                     options.name))
+    if (config is not None and
+        config.get('clientCert') is not None and
+        config.get('clientKey') is not None and
+            config.get('CACert') is not None):
+            return get_pod_metadata_using_certs(options, config)
+
+    if config is not None and config.get('kubeConfig') is not None:
+        return get_pod_metadata_using_kubeconfig(options, config)
+
+    vlog.err("Unable to get pod metadata")
+
     return None
 
 
