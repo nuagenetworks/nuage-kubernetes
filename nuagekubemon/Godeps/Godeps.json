@@ -503,6 +503,14 @@
 			"Rev": "9d9e0a211749c681fa775a4fe119239cc90b459d"
 		},
 		{
+			"ImportPath": "github.com/nuagenetworks/nuagepolicyapi/implementer",
+			"Rev": "d5e5dfaebec9e04b0aa48adcc8113aa9660255b2"
+		},
+		{
+			"ImportPath": "github.com/nuagenetworks/nuagepolicyapi/policies",
+			"Rev": "d5e5dfaebec9e04b0aa48adcc8113aa9660255b2"
+		},
+		{
 			"ImportPath": "github.com/nuagenetworks/vspk-go/vspk",
 			"Comment": "r4.0.5-2-g7a7a11c",
 			"Rev": "7a7a11cbe01875852d1eba669971a24f27c2b072"
@@ -889,14 +897,6 @@
 			"ImportPath": "google.golang.org/appengine/internal/remote_api",
 			"Comment": "v1.0.0-16-gc7b8227",
 			"Rev": "c7b8227c83007befd67b324a64c969ebc1d7475d"
-		},
-		{
-			"ImportPath": "google.golang.org/cloud/compute/metadata",
-			"Rev": "e4d16e4a0d626800b40739a532ed577104da235b"
-		},
-		{
-			"ImportPath": "google.golang.org/cloud/internal",
-			"Rev": "e4d16e4a0d626800b40739a532ed577104da235b"
 		},
 		{
 			"ImportPath": "google.golang.org/grpc",
@@ -1524,11 +1524,6 @@
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/pkg/apis/storage/install",
-			"Comment": "v1.4.0-57-g776c994",
-			"Rev": "776c994514145ec6bea3ea2b8805b3c705703dff"
-		},
-		{
-			"ImportPath": "k8s.io/kubernetes/pkg/apis/storage/util",
 			"Comment": "v1.4.0-57-g776c994",
 			"Rev": "776c994514145ec6bea3ea2b8805b3c705703dff"
 		},

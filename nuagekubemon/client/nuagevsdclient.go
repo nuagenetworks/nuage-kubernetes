@@ -1712,8 +1712,8 @@ func (nvsdc *NuageVsdClient) HandleNetworkPolicyEvent(policyEvent *api.NetworkPo
 	case api.Added:
 		fallthrough
 	case api.Deleted:
-		glog.Infof("Policy: %s was %s", policyEvent.Name, policyEvent.Type)
 		err := nvsdc.resourceManager.HandlePolicyEvent(policyEvent)
+		glog.Infof("Policy: %s was %s %+v", policyEvent.Name, policyEvent.Type, err)
 		return err
 	}
 	return nil
@@ -1806,6 +1806,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
+		fallthrough
 	case api.Modified:
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {

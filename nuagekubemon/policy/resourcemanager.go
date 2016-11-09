@@ -19,10 +19,11 @@ package policy
 
 import (
 	"errors"
+	"fmt"
 	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuagepolicyapi/implementer"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/network-policy-engine/implementer"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/network-policy-engine/translator"
+	"github.com/nuagenetworks/openshift-integration/nuagekubemon/policy/translator"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/fields"
@@ -78,30 +79,42 @@ func (rm *ResourceManager) Init(callBacks *CallBacks, clusterCbs *api.ClusterCli
 	rm.clusterClientCallBacks = *clusterCbs
 	rm.vsdMeta = *vsdMeta
 
+	return nil
+}
+
+func (rm *ResourceManager) InitPolicyImplementer() error {
 	user, ok := rm.vsdMeta["username"]
 	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies")
+		glog.Error("Couldn't initialize a implementer for vspk policies : Username absent")
+		return fmt.Errorf("Username absent")
 	}
+
 	password, ok := rm.vsdMeta["password"]
 	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies")
+		glog.Error("Couldn't initialize a implementer for vspk policies: Password absent")
+		return fmt.Errorf("Password absent")
 	}
+
 	org, ok := rm.vsdMeta["organization"]
 	if !ok {
-		glog.Error("Cannot get the master organization for vspk policies")
+		glog.Error("Cannot get the master organization for vspk policies: Organization absent")
+		return fmt.Errorf("Organization absent")
 	}
+
 	url, ok := rm.vsdMeta["vsdUrl"]
 	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies")
+		glog.Error("Couldn't initialize a implementer for vspk policies: vsdURL absent")
+		return fmt.Errorf("VSD URL absent")
 	}
+
 	vsdCredentials := implementer.VSDCredentials{
 		Username:     user,
 		Password:     password,
 		Organization: org,
 		URL:          url,
 	}
-	rm.implementer.Init(&vsdCredentials)
-	return nil
+
+	return rm.implementer.Init(&vsdCredentials)
 }
 
 func (rm *ResourceManager) GetPolicyGroupsForPod(podName string, podNs string) (*[]string, error) {
@@ -151,6 +164,14 @@ func (rm *ResourceManager) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	rm.lock.Lock()
 	defer rm.lock.Unlock()
+
+	// Since vspk session times out after X amount of time, re-init the policy
+	// implementer each time a new policy needs to be implemented
+	err := rm.InitPolicyImplementer()
+	if err != nil {
+		return fmt.Errorf("Unable to initialize policy implementer %+v", err)
+	}
+
 	switch pe.Type {
 	case api.Added:
 		if _, ok := rm.policyPgMap[pe.Name]; !ok {
@@ -228,6 +249,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 			return errors.New("Got an error when creating nuage policy")
 		}
 	case api.Deleted:
+		glog.Infof("Starting deletion of policy %+v", pe.Name)
 		if _, ok := rm.policyPgMap[pe.Name]; !ok {
 			glog.Info("No policy group map entry found for this policy")
 			return errors.New("No policy group map entry found")
@@ -284,6 +306,8 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 				glog.Error("Failed to get domain when deleting policy")
 				return errors.New("Failed to get domain when deleting policy")
 			}
+
+			glog.Infof("Trying to delete policy %+v", pe.Name)
 			if err := rm.implementer.DeletePolicy(pe.Name, enterprise, domain); err != nil {
 				return errors.New("Got an error when deleting nuage policy")
 			}

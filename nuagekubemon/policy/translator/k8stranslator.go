@@ -3,8 +3,8 @@ package translator
 import (
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuagepolicyapi/policies"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/network-policy-engine/policies"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -42,7 +42,7 @@ func CreateNuagePGPolicy(k8sNetworkPolicySpec *extensions.NetworkPolicySpec,
 	}
 	nuagePolicy := policies.NuagePolicy{
 		Version:    policies.V1Alpha,
-		Type:       policies.DEFAULT,
+		Type:       policies.Default,
 		Enterprise: enterprise,
 		Domain:     domain,
 		Name:       policyName,
@@ -65,11 +65,11 @@ func CreateNuagePGPolicy(k8sNetworkPolicySpec *extensions.NetworkPolicySpec,
 			if len(ingressRule.Ports) == 0 {
 				defaultPolicyElement = policies.DefaultPolicyElement{
 					Name: fmt.Sprintf("%s-%d", policyName, 0),
-					From: policies.EndPoint{Type: policies.POLICY_GROUP,
+					From: policies.EndPoint{Type: policies.PolicyGroup,
 						Name: fromPG.PgName},
-					To: policies.EndPoint{Type: policies.POLICY_GROUP,
+					To: policies.EndPoint{Type: policies.PolicyGroup,
 						Name: targetPG.PgName},
-					Action: policies.ALLOW,
+					Action: policies.Allow,
 					NetworkParameters: policies.NetworkParameters{
 						Protocol: policies.ANY,
 						DestinationPortRange: policies.PortRange{StartPort: 0,
@@ -89,11 +89,11 @@ func CreateNuagePGPolicy(k8sNetworkPolicySpec *extensions.NetworkPolicySpec,
 
 					defaultPolicyElement = policies.DefaultPolicyElement{
 						Name: fmt.Sprintf("%s-%d", policyName, idx),
-						From: policies.EndPoint{Type: policies.POLICY_GROUP,
+						From: policies.EndPoint{Type: policies.PolicyGroup,
 							Name: fromPG.PgName},
-						To: policies.EndPoint{Type: policies.POLICY_GROUP,
+						To: policies.EndPoint{Type: policies.PolicyGroup,
 							Name: targetPG.PgName},
-						Action: policies.ALLOW,
+						Action: policies.Allow,
 						NetworkParameters: policies.NetworkParameters{
 							Protocol: targetProtocol,
 							DestinationPortRange: policies.PortRange{StartPort: port,
