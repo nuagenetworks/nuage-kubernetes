@@ -5,6 +5,7 @@
 %define nuage_openshift_monitor_yaml_path	%{nuage_openshift_monitor_datadir}/%{nuage_openshift_monitor_yaml}
 %define nuage_openshift_monitor_logdir     /var/log/%{nuage_openshift_monitor_binary}
 %define nuage_openshift_monitor_init_script scripts/nuage-openshift-monitor.init
+%undefine _missing_build_ids_terminate_build
 
 Name: nuage-openshift-monitor 
 Version: 0.0

@@ -7,6 +7,7 @@
 %define nuagekubemon_netconfig_yaml_path	%{nuagekubemon_datadir}/%{nuagekubemon_netconfig_yaml}
 %define nuagekubemon_logdir     /var/log/%{nuagekubemon_binary}
 %define nuagekubemon_init_script scripts/nuagekubemon.init
+%undefine _missing_build_ids_terminate_build
 
 Name: nuagekubemon 
 Version: 0.0
