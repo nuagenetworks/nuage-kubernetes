@@ -18,7 +18,6 @@ License: ALU EULA and ASL 2.0
 Source0: nuagekubemon-%{version}.tar.gz
 
 BuildRequires:  %{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang}
-Requires: kubernetes-master
 
 %description
 %{summary}
