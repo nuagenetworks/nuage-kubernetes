@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,15 +16,5 @@ limitations under the License.
 
 package unversioned
 
-const (
-	// If you add a new topology domain here, also consider adding it to the set of default values
-	// for the scheduler's --failure-domain command-line argument.
-	LabelHostname          = "kubernetes.io/hostname"
-	LabelZoneFailureDomain = "failure-domain.beta.kubernetes.io/zone"
-	LabelZoneRegion        = "failure-domain.beta.kubernetes.io/region"
-
-	LabelInstanceType = "beta.kubernetes.io/instance-type"
-
-	LabelOS   = "beta.kubernetes.io/os"
-	LabelArch = "beta.kubernetes.io/arch"
-)
+const LabelZoneFailureDomain = "failure-domain.alpha.kubernetes.io/zone"
+const LabelZoneRegion = "failure-domain.alpha.kubernetes.io/region"

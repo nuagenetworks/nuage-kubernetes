@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -29,9 +30,9 @@ type ServiceAccountsInterface interface {
 	Create(serviceAccount *api.ServiceAccount) (*api.ServiceAccount, error)
 	Update(serviceAccount *api.ServiceAccount) (*api.ServiceAccount, error)
 	Delete(name string) error
-	List(opts api.ListOptions) (*api.ServiceAccountList, error)
+	List(opts unversioned.ListOptions) (*api.ServiceAccountList, error)
 	Get(name string) (*api.ServiceAccount, error)
-	Watch(opts api.ListOptions) (watch.Interface, error)
+	Watch(opts unversioned.ListOptions) (watch.Interface, error)
 }
 
 // serviceAccounts implements ServiceAccounts interface
@@ -61,13 +62,13 @@ func (s *serviceAccounts) Create(serviceAccount *api.ServiceAccount) (*api.Servi
 }
 
 // List returns a list of serviceAccounts matching the selectors.
-func (s *serviceAccounts) List(opts api.ListOptions) (*api.ServiceAccountList, error) {
+func (s *serviceAccounts) List(opts unversioned.ListOptions) (*api.ServiceAccountList, error) {
 	result := &api.ServiceAccountList{}
 
 	err := s.client.Get().
 		Namespace(s.namespace).
 		Resource("serviceAccounts").
-		VersionedParams(&opts, api.ParameterCodec).
+		VersionedParams(&opts, api.Scheme).
 		Do().
 		Into(result)
 
@@ -88,12 +89,12 @@ func (s *serviceAccounts) Get(name string) (*api.ServiceAccount, error) {
 }
 
 // Watch starts watching for serviceAccounts matching the given selectors.
-func (s *serviceAccounts) Watch(opts api.ListOptions) (watch.Interface, error) {
+func (s *serviceAccounts) Watch(opts unversioned.ListOptions) (watch.Interface, error) {
 	return s.client.Get().
 		Prefix("watch").
 		Namespace(s.namespace).
 		Resource("serviceAccounts").
-		VersionedParams(&opts, api.ParameterCodec).
+		VersionedParams(&opts, api.Scheme).
 		Watch()
 }
 

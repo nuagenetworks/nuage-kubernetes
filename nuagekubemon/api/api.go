@@ -18,25 +18,13 @@
 
 package api
 
-import (
-	"fmt"
-	kapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-)
-
-type PgInfo struct {
-	PgName   string
-	PgId     string
-	Selector unversioned.LabelSelector
-}
+import "fmt"
 
 type EventType string
 
 const (
-	Added    EventType = "ADDED"
-	Deleted  EventType = "DELETED"
-	Modified EventType = "MODIFIED"
+	Added   EventType = "ADDED"
+	Deleted EventType = "DELETED"
 )
 
 const (
@@ -53,9 +41,8 @@ const (
 type Namespace string
 
 type NamespaceEvent struct {
-	Type        EventType
-	Name        string
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Type EventType
+	Name string
 }
 
 type ServiceEvent struct {
@@ -63,32 +50,7 @@ type ServiceEvent struct {
 	Name        string
 	ClusterIP   string
 	Namespace   string
-	NuageLabels map[string]string `json:"labels,omitempty"`
-}
-
-type NetworkPolicyEvent struct {
-	Type      EventType
-	Name      string
-	Namespace string
-	Policy    extensions.NetworkPolicySpec
-}
-
-type PodEvent struct {
-	Type      EventType
-	Name      string
-	Namespace string
-	Labels    map[string]string `json:"labels,omitempty"`
-}
-
-type GetPod func(string, string) (*PodEvent, error)
-type FilterPods func(*kapi.ListOptions, string) (*[]*PodEvent, error)
-type FilterNamespaces func(*kapi.ListOptions) (*[]*NamespaceEvent, error)
-type FilterServices func(*kapi.ListOptions) (*[]*ServiceEvent, error)
-type FilterNetworkPolicies func(*kapi.ListOptions) (*[]*NetworkPolicyEvent, error)
-
-type ClusterClientCallBacks struct {
-	FilterPods FilterPods
-	GetPod     GetPod
+	NuageLabels map[string]string
 }
 
 type RESTError struct {

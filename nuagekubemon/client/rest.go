@@ -14,27 +14,22 @@ type PodList struct {
 	namespaces     map[string]NamespaceData // namespace name -> data
 	editLock       *sync.RWMutex
 	newSubnetQueue chan config.NamespaceUpdateRequest // send a subnet on this channel to request that another subnet be created after it in the list
-	getPgsFunc     GetPgsFunc
 }
 
 type podListJson struct {
-	SubnetName   string   `json:"subnetName"`
-	PolicyGroups []string `json:"policyGroups"`
+	SubnetName string `json:"subnetName"`
 }
 
 type restErrorJson struct {
 	Error string `json:"error"`
 }
 
-type GetPgsFunc func(string, string) (*[]string, error)
-
-func NewPodList(namespaces map[string]NamespaceData, updateChan chan config.NamespaceUpdateRequest, getPgsFunc GetPgsFunc) *PodList {
+func NewPodList(namespaces map[string]NamespaceData, updateChan chan config.NamespaceUpdateRequest) *PodList {
 	pods := PodList{}
 	pods.list = make(map[string]*SubnetNode)
 	pods.namespaces = namespaces
 	pods.newSubnetQueue = updateChan
 	pods.editLock = &sync.RWMutex{}
-	pods.getPgsFunc = getPgsFunc
 	return &pods
 }
 
@@ -81,11 +76,6 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 		return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 	}
 
-	pgList, err := pods.getPgsFunc(podNameString, namespace)
-	if err != nil {
-		glog.Error("Couldn't get the policy groups matching this pod")
-	}
-
 	desiredZone, zoneSpecified := bodyJson["desiredZone"]
 	if zoneSpecified {
 		desiredZoneStr, isString := desiredZone.(string)
@@ -112,7 +102,7 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 
 		_, nuageMonManagedZone := pods.namespaces[desiredZoneStr]
 		if !nuageMonManagedZone {
-			return http.StatusOK, podListJson{SubnetName: desiredSubnetStr, PolicyGroups: *pgList}, nil
+			return http.StatusOK, podListJson{SubnetName: desiredSubnetStr}, nil
 		} else {
 			errText := "Invalid zone parameter: Zone controlled by Nuage Monitor"
 			glog.Error(errText)
@@ -127,7 +117,7 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 	pods.editLock.RLock()
 	if podData, exists := pods.list[namespace+"/"+podNameString]; exists {
 		pods.editLock.RUnlock()
-		return http.StatusConflict, podListJson{SubnetName: podData.SubnetName, PolicyGroups: *pgList}, nil
+		return http.StatusConflict, podListJson{SubnetName: podData.SubnetName}, nil
 	}
 	pods.editLock.RUnlock()
 	// After this point, objects received from pods.namespaces may be edited, so
@@ -173,7 +163,7 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 					}
 				}
 			}
-			return http.StatusOK, podListJson{SubnetName: currentNode.SubnetName, PolicyGroups: *pgList}, nil
+			return http.StatusOK, podListJson{SubnetName: currentNode.SubnetName}, nil
 		}
 	}
 	// All subnets were full. Return an internal error for now?

@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,20 +25,8 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/types"
-	hashutil "k8s.io/kubernetes/pkg/util/hash"
+	"k8s.io/kubernetes/pkg/util"
 )
-
-const (
-	// TODO: to be deleted after v1.3 is released
-	// Its value is the json representation of map[string(IP)][HostRecord]
-	// example: '{"10.245.1.6":{"HostName":"my-webserver"}}'
-	PodHostnamesAnnotation = "endpoints.beta.kubernetes.io/hostnames-map"
-)
-
-// TODO: to be deleted after v1.3 is released
-type HostRecord struct {
-	HostName string
-}
 
 // RepackSubsets takes a slice of EndpointSubset objects, expands it to the full
 // representation, and then repacks that into the canonical layout.  This
@@ -150,7 +138,7 @@ func hashAddresses(addrs addressSet) string {
 	}
 	sort.Sort(addrsReady(slice))
 	hasher := md5.New()
-	hashutil.DeepHashObject(hasher, slice)
+	util.DeepHashObject(hasher, slice)
 	return hex.EncodeToString(hasher.Sum(nil)[0:])
 }
 
@@ -203,7 +191,7 @@ func SortSubsets(subsets []api.EndpointSubset) []api.EndpointSubset {
 }
 
 func hashObject(hasher hash.Hash, obj interface{}) []byte {
-	hashutil.DeepHashObject(hasher, obj)
+	util.DeepHashObject(hasher, obj)
 	return hasher.Sum(nil)
 }
 

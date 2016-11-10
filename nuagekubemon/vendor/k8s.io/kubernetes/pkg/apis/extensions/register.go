@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,44 +19,33 @@ package extensions
 import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/autoscaling"
-	"k8s.io/kubernetes/pkg/apis/batch"
-	"k8s.io/kubernetes/pkg/runtime"
 )
 
-// GroupName is the group name use in this package
-const GroupName = "extensions"
-
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
+var SchemeGroupVersion = unversioned.GroupVersion{Group: "extensions", Version: ""}
 
-// Kind takes an unqualified kind and returns a Group qualified GroupKind
+// Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) unversioned.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
 
-// Resource takes an unqualified resource and returns a Group qualified GroupResource
-func Resource(resource string) unversioned.GroupResource {
-	return SchemeGroupVersion.WithResource(resource).GroupResource()
+func init() {
+	// Register the API.
+	addKnownTypes()
 }
 
-var (
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
-)
-
 // Adds the list of known types to api.Scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
+func addKnownTypes() {
 	// TODO this gets cleaned up when the types are fixed
-	scheme.AddKnownTypes(SchemeGroupVersion,
+	api.Scheme.AddKnownTypes(SchemeGroupVersion,
+		&ClusterAutoscaler{},
+		&ClusterAutoscalerList{},
 		&Deployment{},
 		&DeploymentList{},
-		&DeploymentRollback{},
-		&autoscaling.HorizontalPodAutoscaler{},
-		&autoscaling.HorizontalPodAutoscalerList{},
-		&batch.Job{},
-		&batch.JobList{},
-		&batch.JobTemplate{},
+		&HorizontalPodAutoscaler{},
+		&HorizontalPodAutoscalerList{},
+		&Job{},
+		&JobList{},
 		&ReplicationControllerDummy{},
 		&Scale{},
 		&ThirdPartyResource{},
@@ -67,15 +56,28 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ThirdPartyResourceDataList{},
 		&Ingress{},
 		&IngressList{},
-		&api.ListOptions{},
-		&api.DeleteOptions{},
-		&ReplicaSet{},
-		&ReplicaSetList{},
-		&api.ExportOptions{},
-		&PodSecurityPolicy{},
-		&PodSecurityPolicyList{},
-		&NetworkPolicy{},
-		&NetworkPolicyList{},
 	)
-	return nil
+
+	// Register Unversioned types
+	// TODO this should not be done here
+	api.Scheme.AddKnownTypes(SchemeGroupVersion, &unversioned.ListOptions{})
 }
+
+func (*ClusterAutoscaler) IsAnAPIObject()           {}
+func (*ClusterAutoscalerList) IsAnAPIObject()       {}
+func (*Deployment) IsAnAPIObject()                  {}
+func (*DeploymentList) IsAnAPIObject()              {}
+func (*HorizontalPodAutoscaler) IsAnAPIObject()     {}
+func (*HorizontalPodAutoscalerList) IsAnAPIObject() {}
+func (*Job) IsAnAPIObject()                         {}
+func (*JobList) IsAnAPIObject()                     {}
+func (*ReplicationControllerDummy) IsAnAPIObject()  {}
+func (*Scale) IsAnAPIObject()                       {}
+func (*ThirdPartyResource) IsAnAPIObject()          {}
+func (*ThirdPartyResourceList) IsAnAPIObject()      {}
+func (*DaemonSet) IsAnAPIObject()                   {}
+func (*DaemonSetList) IsAnAPIObject()               {}
+func (*ThirdPartyResourceData) IsAnAPIObject()      {}
+func (*ThirdPartyResourceDataList) IsAnAPIObject()  {}
+func (*Ingress) IsAnAPIObject()                     {}
+func (*IngressList) IsAnAPIObject()                 {}

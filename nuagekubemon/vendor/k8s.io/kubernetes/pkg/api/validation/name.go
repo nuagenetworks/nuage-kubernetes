@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,36 +28,36 @@ var NameMayNotBe = []string{".", ".."}
 var NameMayNotContain = []string{"/", "%"}
 
 // IsValidPathSegmentName validates the name can be safely encoded as a path segment
-func IsValidPathSegmentName(name string) []string {
+func IsValidPathSegmentName(name string) (bool, string) {
 	for _, illegalName := range NameMayNotBe {
 		if name == illegalName {
-			return []string{fmt.Sprintf(`may not be '%s'`, illegalName)}
+			return false, fmt.Sprintf(`name may not be %q`, illegalName)
 		}
 	}
 
 	for _, illegalContent := range NameMayNotContain {
 		if strings.Contains(name, illegalContent) {
-			return []string{fmt.Sprintf(`may not contain '%s'`, illegalContent)}
+			return false, fmt.Sprintf(`name may not contain %q`, illegalContent)
 		}
 	}
 
-	return nil
+	return true, ""
 }
 
 // IsValidPathSegmentPrefix validates the name can be used as a prefix for a name which will be encoded as a path segment
 // It does not check for exact matches with disallowed names, since an arbitrary suffix might make the name valid
-func IsValidPathSegmentPrefix(name string) []string {
+func IsValidPathSegmentPrefix(name string) (bool, string) {
 	for _, illegalContent := range NameMayNotContain {
 		if strings.Contains(name, illegalContent) {
-			return []string{fmt.Sprintf(`may not contain '%s'`, illegalContent)}
+			return false, fmt.Sprintf(`name may not contain %q`, illegalContent)
 		}
 	}
 
-	return nil
+	return true, ""
 }
 
 // ValidatePathSegmentName validates the name can be safely encoded as a path segment
-func ValidatePathSegmentName(name string, prefix bool) []string {
+func ValidatePathSegmentName(name string, prefix bool) (bool, string) {
 	if prefix {
 		return IsValidPathSegmentPrefix(name)
 	} else {

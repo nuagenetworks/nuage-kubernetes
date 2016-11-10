@@ -57,9 +57,6 @@ type Request struct {
 	Userinfo *url.Userinfo
 	Header   *http.Header
 
-	// Custom Transport if needed.
-	Transport *http.Transport
-
 	// The following fields are populated by Send().
 	timestamp time.Time      // Time when HTTP request was sent
 	status    int            // HTTP status for executed request

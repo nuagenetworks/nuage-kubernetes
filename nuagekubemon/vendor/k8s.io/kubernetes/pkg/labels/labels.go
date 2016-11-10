@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,15 +59,6 @@ func (ls Set) Get(label string) string {
 // AsSelector converts labels into a selectors.
 func (ls Set) AsSelector() Selector {
 	return SelectorFromSet(ls)
-}
-
-// AsSelectorPreValidated converts labels into a selector, but
-// assumes that labels are already validated and thus don't
-// preform any validation.
-// According to our measurements this is significantly faster
-// in codepaths that matter at high sccale.
-func (ls Set) AsSelectorPreValidated() Selector {
-	return SelectorFromValidatedSet(ls)
 }
 
 // FormatLables convert label map into plain string

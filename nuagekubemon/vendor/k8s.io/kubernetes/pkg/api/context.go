@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/auth/user"
-	"k8s.io/kubernetes/pkg/types"
 )
 
 // Context carries values across API boundaries.
@@ -50,19 +49,11 @@ type Context interface {
 // The key type is unexported to prevent collisions
 type key int
 
-const (
-	// namespaceKey is the context key for the request namespace.
-	namespaceKey key = iota
+// namespaceKey is the context key for the request namespace.
+const namespaceKey key = 0
 
-	// userKey is the context key for the request user.
-	userKey
-
-	// uidKey is the context key for the uid to assign to an object on create.
-	uidKey
-
-	// userAgentKey is the context key for the request user agent.
-	userAgentKey
-)
+// userKey is the context key for the request user.
+const userKey key = 1
 
 // NewContext instantiates a base context object for request flows.
 func NewContext() Context {
@@ -127,26 +118,4 @@ func WithUser(parent Context, user user.Info) Context {
 func UserFrom(ctx Context) (user.Info, bool) {
 	user, ok := ctx.Value(userKey).(user.Info)
 	return user, ok
-}
-
-// WithUID returns a copy of parent in which the uid value is set
-func WithUID(parent Context, uid types.UID) Context {
-	return WithValue(parent, uidKey, uid)
-}
-
-// UIDFrom returns the value of the uid key on the ctx
-func UIDFrom(ctx Context) (types.UID, bool) {
-	uid, ok := ctx.Value(uidKey).(types.UID)
-	return uid, ok
-}
-
-// WithUserAgent returns a copy of parent in which the user value is set
-func WithUserAgent(parent Context, userAgent string) Context {
-	return WithValue(parent, userAgentKey, userAgent)
-}
-
-// UserAgentFrom returns the value of the userAgent key on the ctx
-func UserAgentFrom(ctx Context) (string, bool) {
-	userAgent, ok := ctx.Value(userAgentKey).(string)
-	return userAgent, ok
 }

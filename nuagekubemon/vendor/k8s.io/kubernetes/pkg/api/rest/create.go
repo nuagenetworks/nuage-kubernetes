@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ package rest
 import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/validation"
 	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/util/validation/field"
+	utilvalidation "k8s.io/kubernetes/pkg/util/validation"
 )
 
 // RESTCreateStrategy defines the minimum validation, accepted input, and
@@ -40,21 +39,13 @@ type RESTCreateStrategy interface {
 	// the object.  For example: remove fields that are not to be persisted,
 	// sort order-insensitive list fields, etc.  This should not remove fields
 	// whose presence would be considered a validation error.
-	PrepareForCreate(ctx api.Context, obj runtime.Object)
+	PrepareForCreate(obj runtime.Object)
 	// Validate is invoked after default fields in the object have been filled in before
 	// the object is persisted.  This method should not mutate the object.
-	Validate(ctx api.Context, obj runtime.Object) field.ErrorList
+	Validate(ctx api.Context, obj runtime.Object) utilvalidation.ErrorList
 	// Canonicalize is invoked after validation has succeeded but before the
 	// object has been persisted.  This method may mutate the object.
 	Canonicalize(obj runtime.Object)
-}
-
-// RESTBeforeCreateStrategy is an optional strategy interface that may be implemented
-// to get notified of changes before validation
-type RESTBeforeCreateStrategy interface {
-	// BeforeCreate is invoked after PrepareForCreate on the strategy and before Validate.
-	// All field defaulting is provided, but fields may not be valid.
-	BeforeCreate(ctx api.Context, obj runtime.Object) error
 }
 
 // BeforeCreate ensures that common operations for all resources are performed on creation. It only returns
@@ -75,28 +66,19 @@ func BeforeCreate(strategy RESTCreateStrategy, ctx api.Context, obj runtime.Obje
 	}
 	objectMeta.DeletionTimestamp = nil
 	objectMeta.DeletionGracePeriodSeconds = nil
-	strategy.PrepareForCreate(ctx, obj)
+	strategy.PrepareForCreate(obj)
 	api.FillObjectMetaSystemFields(ctx, objectMeta)
 	api.GenerateName(strategy, objectMeta)
 
-	// ClusterName is ignored and should not be saved
-	objectMeta.ClusterName = ""
-
-	if before, ok := strategy.(RESTBeforeCreateStrategy); ok {
-		if err := before.BeforeCreate(ctx, obj); err != nil {
-			return err
-		}
-	}
-
 	if errs := strategy.Validate(ctx, obj); len(errs) > 0 {
-		return errors.NewInvalid(kind.GroupKind(), objectMeta.Name, errs)
+		return errors.NewInvalid(kind, objectMeta.Name, errs)
 	}
 
 	// Custom validation (including name validation) passed
 	// Now run common validation on object meta
 	// Do this *after* custom validation so that specific error messages are shown whenever possible
-	if errs := validation.ValidateObjectMeta(objectMeta, strategy.NamespaceScoped(), validation.ValidatePathSegmentName, field.NewPath("metadata")); len(errs) > 0 {
-		return errors.NewInvalid(kind.GroupKind(), objectMeta.Name, errs)
+	if errs := validation.ValidateObjectMeta(objectMeta, strategy.NamespaceScoped(), validation.ValidatePathSegmentName); len(errs) > 0 {
+		return errors.NewInvalid(kind, objectMeta.Name, errs)
 	}
 
 	strategy.Canonicalize(obj)
@@ -120,24 +102,18 @@ func CheckGeneratedNameError(strategy RESTCreateStrategy, err error, obj runtime
 		return err
 	}
 
-	return errors.NewServerTimeoutForKind(kind.GroupKind(), "POST", 0)
+	return errors.NewServerTimeout(kind, "POST", 0)
 }
 
 // objectMetaAndKind retrieves kind and ObjectMeta from a runtime object, or returns an error.
-func objectMetaAndKind(typer runtime.ObjectTyper, obj runtime.Object) (*api.ObjectMeta, unversioned.GroupVersionKind, error) {
+func objectMetaAndKind(typer runtime.ObjectTyper, obj runtime.Object) (*api.ObjectMeta, string, error) {
 	objectMeta, err := api.ObjectMetaFor(obj)
 	if err != nil {
-		return nil, unversioned.GroupVersionKind{}, errors.NewInternalError(err)
+		return nil, "", errors.NewInternalError(err)
 	}
-	kinds, _, err := typer.ObjectKinds(obj)
+	_, kind, err := typer.ObjectVersionAndKind(obj)
 	if err != nil {
-		return nil, unversioned.GroupVersionKind{}, errors.NewInternalError(err)
+		return nil, "", errors.NewInternalError(err)
 	}
-	return objectMeta, kinds[0], nil
-}
-
-// NamespaceScopedStrategy has a method to tell if the object must be in a namespace.
-type NamespaceScopedStrategy interface {
-	// NamespaceScoped returns if the object must be in a namespace.
-	NamespaceScoped() bool
+	return objectMeta, kind, nil
 }

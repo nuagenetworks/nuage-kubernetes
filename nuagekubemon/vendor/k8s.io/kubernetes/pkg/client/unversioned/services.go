@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ package unversioned
 
 import (
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/util/net"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/util"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -30,14 +30,13 @@ type ServicesNamespacer interface {
 
 // ServiceInterface has methods to work with Service resources.
 type ServiceInterface interface {
-	List(opts api.ListOptions) (*api.ServiceList, error)
+	List(opts unversioned.ListOptions) (*api.ServiceList, error)
 	Get(name string) (*api.Service, error)
 	Create(srv *api.Service) (*api.Service, error)
 	Update(srv *api.Service) (*api.Service, error)
-	UpdateStatus(srv *api.Service) (*api.Service, error)
 	Delete(name string) error
-	Watch(opts api.ListOptions) (watch.Interface, error)
-	ProxyGet(scheme, name, port, path string, params map[string]string) restclient.ResponseWrapper
+	Watch(opts unversioned.ListOptions) (watch.Interface, error)
+	ProxyGet(scheme, name, port, path string, params map[string]string) ResponseWrapper
 }
 
 // services implements ServicesNamespacer interface
@@ -52,12 +51,12 @@ func newServices(c *Client, namespace string) *services {
 }
 
 // List takes a selector, and returns the list of services that match that selector
-func (c *services) List(opts api.ListOptions) (result *api.ServiceList, err error) {
+func (c *services) List(opts unversioned.ListOptions) (result *api.ServiceList, err error) {
 	result = &api.ServiceList{}
 	err = c.r.Get().
 		Namespace(c.ns).
 		Resource("services").
-		VersionedParams(&opts, api.ParameterCodec).
+		VersionedParams(&opts, api.Scheme).
 		Do().
 		Into(result)
 	return
@@ -84,35 +83,28 @@ func (c *services) Update(svc *api.Service) (result *api.Service, err error) {
 	return
 }
 
-// UpdateStatus takes a Service object with the new status and applies it as an update to the existing Service.
-func (c *services) UpdateStatus(service *api.Service) (result *api.Service, err error) {
-	result = &api.Service{}
-	err = c.r.Put().Namespace(c.ns).Resource("services").Name(service.Name).SubResource("status").Body(service).Do().Into(result)
-	return
-}
-
 // Delete deletes an existing service.
 func (c *services) Delete(name string) error {
 	return c.r.Delete().Namespace(c.ns).Resource("services").Name(name).Do().Error()
 }
 
 // Watch returns a watch.Interface that watches the requested services.
-func (c *services) Watch(opts api.ListOptions) (watch.Interface, error) {
+func (c *services) Watch(opts unversioned.ListOptions) (watch.Interface, error) {
 	return c.r.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("services").
-		VersionedParams(&opts, api.ParameterCodec).
+		VersionedParams(&opts, api.Scheme).
 		Watch()
 }
 
 // ProxyGet returns a response of the service by calling it through the proxy.
-func (c *services) ProxyGet(scheme, name, port, path string, params map[string]string) restclient.ResponseWrapper {
+func (c *services) ProxyGet(scheme, name, port, path string, params map[string]string) ResponseWrapper {
 	request := c.r.Get().
+		Prefix("proxy").
 		Namespace(c.ns).
 		Resource("services").
-		SubResource("proxy").
-		Name(net.JoinSchemeNamePort(scheme, name, port)).
+		Name(util.JoinSchemeNamePort(scheme, name, port)).
 		Suffix(path)
 	for k, v := range params {
 		request = request.Param(k, v)

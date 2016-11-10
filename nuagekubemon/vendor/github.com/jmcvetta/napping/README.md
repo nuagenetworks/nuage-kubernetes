@@ -47,24 +47,33 @@ Check out [github_auth_token][auth-token] for a working example
 showing how to retrieve an auth token from the Github API.
 
 
-## Support
+## Production Note
 
-Support and consulting services are available from [Silicon Beach Heavy
-Industries](http://siliconheavy.com).
-
+If you decide to use Napping in a production system please let me know.  All
+API changes will be made via Pull Request, so it's highly recommended you Watch
+the repo Issues.  The API is fairly stable but there may be additions and small 
+changes from time to time.
 
 
 ## Contributing
 
-Contributions in the form of Pull Requests are gladly accepted.  Before
-submitting a PR, please ensure your code passes all tests, and that your
-changes do not decrease test coverage.  I.e. if you add new features also add
-corresponding new tests.
+Contributions in the form of Pull Requests or Issues are gladly accepted.
+Before submitting a Pull Request, please ensure your code passes all tests, and
+that your changes do not decrease test coverage.  I.e. if you add new features,
+also add corresponding new tests.
+
+When submitting an Issue, if possible please include a failing test case that 
+demonstrates the problem.
 
 
 ## License
 
 This is Free Software, released under the terms of the [GPL v3][].
+
+Please feel free to make a donation to the author, to support the development
+of this and other Free Software packages.
+
+[![Donate with PayPal](https://img.shields.io/badge/donate-paypal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YEXKK27UL48F2)
 
 
 [Go]:           http://golang.org

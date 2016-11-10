@@ -27,8 +27,6 @@ import (
 	"github.com/jmcvetta/napping"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/policy"
-	"github.com/nuagenetworks/vspk-go/vspk"
 	"github.com/rfredette/sleepy"
 	"io/ioutil"
 	"net/http"
@@ -60,7 +58,6 @@ type NuageVsdClient struct {
 	restServer            *http.Server
 	newSubnetQueue        chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
 	privilegedProjectName string
-	resourceManager       *policy.ResourceManager
 }
 
 type NamespaceData struct {
@@ -81,9 +78,9 @@ type SubnetNode struct {
 	Next       *SubnetNode
 }
 
-func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) *NuageVsdClient {
+func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
-	nvsdc.Init(nkmConfig, clusterCallBacks)
+	nvsdc.Init(nkmConfig)
 	return nvsdc
 }
 
@@ -316,20 +313,14 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 	return nvsdc.GetAuthorizationToken()
 }
 
-func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) {
-	cb := &policy.CallBacks{
-		AddPg:             nvsdc.CreatePolicyGroup,
-		DeletePg:          nvsdc.DeletePolicyGroup,
-		AddPortsToPg:      nvsdc.AddPodsToPolicyGroup,
-		DeletePortsFromPg: nvsdc.RemovePortsFromPolicyGroup,
-	}
-	var err error
+func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.username = "csproot"
 	nvsdc.password = nkmConfig.CSPAdminPassword
 	nvsdc.enterprise = "csp"
 	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
+	var err error
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
@@ -360,23 +351,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.pool.Free(nvsdc.clusterNetwork)
 	nvsdc.namespaces = make(map[string]NamespaceData)
 	nvsdc.newSubnetQueue = make(chan config.NamespaceUpdateRequest)
-
-	//initialize the resource manager
-	vsdMeta := make(policy.VsdMetaData)
-	vsdMeta["domainName"] = nkmConfig.DomainName
-	vsdMeta["enterpriseName"] = nkmConfig.EnterpriseName
-	vsdMeta["organization"] = nvsdc.enterprise
-	vsdMeta["username"] = nvsdc.username
-	vsdMeta["password"] = nvsdc.password
-	vsdMeta["vsdUrl"] = nkmConfig.NuageVsdApiUrl
-	rm, err := policy.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
-	if err != nil {
-		glog.Error("Failed to initialize the resource manager properly")
-	} else {
-		nvsdc.resourceManager = rm
-	}
-
-	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue, nvsdc.resourceManager.GetPolicyGroupsForPod)
+	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue)
 	nvsdc.CreateSession()
 	nvsdc.nextAvailablePriority = 0
 
@@ -788,7 +763,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
-		Priority:          api.MAX_VSD_ACL_PRIORITY,
+		Priority:          0,
 	}
 	e := api.RESTError{}
 	for {
@@ -840,7 +815,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
-		Priority:          api.MAX_VSD_ACL_PRIORITY,
+		Priority:          0,
 	}
 	e := api.RESTError{}
 	for {
@@ -1315,297 +1290,7 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 	}
 }
 
-//get interface list for a container.
-func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.ContainerInterface, error) {
-	//iterates over a list of containers with name matching the podName and then gets its interface elements.
-	result := make([]vspk.Container, 0, 100)
-	var interfaces []vspk.ContainerInterface
-	e := api.RESTError{}
-	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
-
-	page := 0
-	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
-	// guarantee that the headers are cleared so that we don't change the
-	// behavior of other functions
-	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
-	defer nvsdc.session.Header.Del("X-Nuage-Page")
-	for {
-		nvsdc.session.Header.Add("X-Nuage-Filter", `name == "`+podName+`"`)
-		resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+nvsdc.domainID+"/containers",
-			nil, &result, &e)
-		nvsdc.session.Header.Del("X-Nuage-Filter")
-		if err != nil {
-			glog.Errorf("Error when getting containers matching %s: %s", podName, err)
-			return nil, err
-		}
-		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
-			if page == 0 {
-				break
-			} else {
-				return &interfaces, nil
-			}
-		} else if resp.Status() == http.StatusOK {
-			// Add all the items on this page to the list
-			for _, container := range result {
-				if interfaceList, err := nvsdc.GetInterfaces(container.ID); err != nil {
-					glog.Errorf("Unable to get container interfaces for container %s", container.ID)
-					continue
-				} else {
-					for _, intf := range *interfaceList {
-						interfaces = append(interfaces, intf)
-					}
-				}
-			}
-			// If there's less than 100 items in the page, we must've reached
-			// the last page.  Break here instead of getting the next
-			// (guaranteed empty) page.
-			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
-				if count < 100 {
-					return &interfaces, nil
-				}
-			} else {
-				// Something went wrong with parsing the x-nuage-count header
-				return nil, errors.New("Invalid X-Nuage-Count: " + err.Error())
-			}
-			// Update headers to get the next page
-			page++
-			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
-		} else {
-			// Something went wrong
-			return nil, VsdErrorResponse(resp, &e)
-		}
-	}
-	return nil, errors.New("Unable to fetch pods in the domain and their interfaces")
-}
-
-func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.ContainerInterface, error) {
-	var interfaces []vspk.ContainerInterface
-	result := make([]vspk.ContainerInterface, 0, 100)
-	e := api.RESTError{}
-	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
-	page := 0
-	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
-	// guarantee that the headers are cleared so that we don't change the
-	// behavior of other functions
-	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
-	defer nvsdc.session.Header.Del("X-Nuage-Page")
-	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"containers/"+containerId+"/containerinterfaces",
-			nil, &result, &e)
-		if err != nil {
-			glog.Errorf("Error when getting container interfaces matching %s: %s", containerId, err)
-			return nil, err
-		}
-		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
-			if page == 0 {
-				glog.Errorf("Got an error when getting interfaces matching %s: %s", containerId, err)
-				return nil, VsdErrorResponse(resp, &e)
-			} else {
-				return &interfaces, nil
-			}
-		} else if resp.Status() == http.StatusOK {
-			// Add all the items on this page to the list
-			for _, intf := range result {
-				interfaces = append(interfaces, intf)
-			}
-			// If there's less than 100 items in the page, we must've reached
-			// the last page.  Break here instead of getting the next
-			// (guaranteed empty) page.
-			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
-				if count < 100 {
-					return &interfaces, nil
-				}
-			} else {
-				// Something went wrong with parsing the x-nuage-count header
-				return nil, errors.New("Invalid X-Nuage-Count: " + err.Error())
-			}
-			// Update headers to get the next page
-			page++
-			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
-		} else {
-			// Something went wrong
-			return nil, VsdErrorResponse(resp, &e)
-		}
-	}
-	return nil, errors.New("Unknown error when trying to fetch container interfaces")
-
-}
-
-//podsList is a list of pod names that need to be added to policy group with Id pgId
-func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgId string, podsList []string) error {
-	//call GetPodInterfaces() and iterate over them to get vports and add them to policy group for each pod.
-	var vportsList []string
-	for _, pod := range podsList {
-		if interfaceList, err := nvsdc.GetPodInterfaces(pod); err == nil {
-			for _, intf := range *interfaceList {
-				vportsList = append(vportsList, intf.VPortID)
-			}
-		} else {
-			glog.Errorf("Cannot get interfaces for pod %s", pod)
-			continue
-		}
-	}
-	result := make([]vspk.VPort, 0, 100)
-	e := api.RESTError{}
-	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
-	page := 0
-	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
-	// guarantee that the headers are cleared so that we don't change the
-	// behavior of other functions
-	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
-	defer nvsdc.session.Header.Del("X-Nuage-Page")
-	glog.Infof("Got the following vports %s to add to the policy group", vportsList)
-	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"policygroups/"+pgId+"/vports",
-			nil, &result, &e)
-		if err != nil {
-			glog.Errorf("Error when fetching vports for pg id %s : %s", pgId, err)
-			return err
-		}
-		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
-			glog.Infof("No existing vports found under policy group with id: %s", pgId)
-			break
-		} else if resp.Status() == http.StatusOK {
-			// Add all the items on this page to the list
-			for _, vport := range result {
-				vportsList = append(vportsList, vport.ID)
-			}
-			// If there's less than 100 items in the page, we must've reached
-			// the last page.  Break here instead of getting the next
-			// (guaranteed empty) page.
-			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
-				if count < 100 {
-					break
-				}
-			} else {
-				// Something went wrong with parsing the x-nuage-count header
-				return errors.New("Invalid X-Nuage-Count: " + err.Error())
-			}
-			// Update headers to get the next page
-			page++
-			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
-		} else {
-			// Something went wrong
-			return VsdErrorResponse(resp, &e)
-		}
-	}
-	// Delete headers.  Calling Header.Del(...) on a non-existent header is a
-	// no-op, so the `defer ...Header.Del(...)` calls above are still valid.
-	nvsdc.session.Header.Del("X-Nuage-PageSize")
-	nvsdc.session.Header.Del("X-Nuage-Page")
-	if len(vportsList) != 0 {
-		glog.Infof("Adding the following %d vports %s to the policygroup with id: %s", len(vportsList), vportsList, pgId)
-		resp, err := nvsdc.session.Put(nvsdc.url+"policygroups/"+
-			pgId+"/vports", &vportsList, nil, &e)
-		if err != nil {
-			glog.Errorf("Error when adding vports to policy group %s: %s", pgId, err)
-			return err
-		} else {
-			glog.Infoln("Got a reponse status", resp.Status(),
-				"when adding vports to policy group")
-			switch resp.Status() {
-			case http.StatusNoContent:
-				glog.Infof("Added vports %s to policy group %s", vportsList, pgId)
-			default:
-				return VsdErrorResponse(resp, &e)
-			}
-		}
-	}
-	return nil
-}
-
-func (nvsdc *NuageVsdClient) RemovePortsFromPolicyGroup(pgId string) error {
-	vportsList := make([]string, 0)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Put(nvsdc.url+"policygroups/"+
-		pgId+"/vports", &vportsList, nil, &e)
-	if err != nil {
-		glog.Errorf("Error when deleting vports from policy group %s: %s", pgId, err)
-		return err
-	} else {
-		glog.Infoln("Got a reponse status", resp.Status(),
-			"when deleting vports from policy group")
-		switch resp.Status() {
-		case http.StatusNoContent:
-			glog.Infof("Deleted vports from policy group %s", pgId)
-		default:
-			return VsdErrorResponse(resp, &e)
-		}
-	}
-	return nil
-}
-
-func (nvsdc *NuageVsdClient) GetPolicyGroup(name string) (string, error) {
-	result := make([]vspk.PolicyGroup, 1)
-	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups", nil, &result, &e)
-	h.Del("X-Nuage-Filter")
-	if err != nil {
-		glog.Errorf("Error when getting policy group ID %s", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting policy group ID")
-	if resp.Status() == http.StatusOK {
-		if result[0].Name == name {
-			return result[0].ID, nil
-		} else {
-			return "", errors.New("Policy group not found")
-		}
-	} else {
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) CreatePolicyGroup(name string, description string) (string, string, error) {
-	result := make([]vspk.PolicyGroup, 1)
-	payload := vspk.PolicyGroup{
-		Name:        name,
-		Description: description,
-		Type:        "SOFTWARE",
-	}
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when creating policy group", err)
-		return "", "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when creating policy group")
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Created the policy group:", result[0].ID)
-	case http.StatusConflict:
-		glog.Infoln("Error from VSD:\n", e)
-		// Subnet already exists, call Get to retrieve the ID
-		if id, err := nvsdc.GetPolicyGroup(name); err != nil {
-			glog.Errorf("Error when getting policy group ID: %s", err)
-			return "", "", err
-		} else {
-			return name, id, nil
-		}
-	default:
-		return "", "", VsdErrorResponse(resp, &e)
-	}
-	return result[0].Name, result[0].ID, nil
-}
-
-func (nvsdc *NuageVsdClient) DeletePolicyGroup(id string) error {
-	result := make([]struct{}, 1)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Delete(nvsdc.url+"policygroups/"+id+"?responseChoice=1", nil, &result, &e)
-	if err != nil {
-		glog.Errorf("Error when deleting policy group with ID %s: %s", id, err)
-		return err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when deleting policy group")
-	if resp.Status() != http.StatusNoContent {
-		return VsdErrorResponse(resp, &e)
-	}
-	return nil
-}
-
-func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, podChannel chan *api.PodEvent, policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
+func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, stop chan bool) {
 	//we will use the kube client APIs than interfacing with the REST API
 	for {
 		select {
@@ -1613,10 +1298,6 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 			nvsdc.HandleNsEvent(nsEvent)
 		case serviceEvent := <-serviceChannel:
 			nvsdc.HandleServiceEvent(serviceEvent)
-		case podEvent := <-podChannel:
-			nvsdc.HandlePodEvent(podEvent)
-		case policyEvent := <-policyChannel:
-			nvsdc.HandleNetworkPolicyEvent(policyEvent)
 		case nsUpdateReq := <-nvsdc.newSubnetQueue:
 			switch nsUpdateReq.Event {
 			case config.AddSubnet:
@@ -1692,31 +1373,6 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
 			return
 		}
 	}
-}
-
-func (nvsdc *NuageVsdClient) HandlePodEvent(podEvent *api.PodEvent) error {
-	glog.Infoln("Received a pod event: Pod: ", podEvent)
-	switch podEvent.Type {
-	case api.Added:
-		glog.Infof("Pod: %s was added", podEvent.Name)
-	case api.Deleted:
-		glog.Infof("Pod: %s was deleted", podEvent.Name)
-
-	}
-	return nil
-}
-
-func (nvsdc *NuageVsdClient) HandleNetworkPolicyEvent(policyEvent *api.NetworkPolicyEvent) error {
-	glog.Infoln("Received a policy event: Policy: ", policyEvent)
-	switch policyEvent.Type {
-	case api.Added:
-		fallthrough
-	case api.Deleted:
-		glog.Infof("Policy: %s was %s", policyEvent.Name, policyEvent.Type)
-		err := nvsdc.resourceManager.HandlePolicyEvent(policyEvent)
-		return err
-	}
-	return nil
 }
 
 func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) error {
@@ -1801,12 +1457,8 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
-	//handle annotations
-	nvsdc.resourceManager.HandleNsEvent(nsEvent)
-	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
-	case api.Modified:
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)

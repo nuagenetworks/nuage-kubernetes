@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -72,18 +72,12 @@ func ExtractList(obj runtime.Object) ([]runtime.Object, error) {
 	for i := range list {
 		raw := items.Index(i)
 		switch item := raw.Interface().(type) {
-		case runtime.RawExtension:
-			switch {
-			case item.Object != nil:
-				list[i] = item.Object
-			case item.Raw != nil:
-				// TODO: Set ContentEncoding and ContentType correctly.
-				list[i] = &runtime.Unknown{Raw: item.Raw}
-			default:
-				list[i] = nil
-			}
 		case runtime.Object:
 			list[i] = item
+		case runtime.RawExtension:
+			list[i] = &runtime.Unknown{
+				RawJSON: item.RawJSON,
+			}
 		default:
 			var found bool
 			if list[i], found = raw.Addr().Interface().(runtime.Object); !found {
@@ -126,7 +120,7 @@ func SetList(list runtime.Object, objects []runtime.Object) error {
 		} else if src.Type().ConvertibleTo(dest.Type()) {
 			dest.Set(src.Convert(dest.Type()))
 		} else {
-			return fmt.Errorf("item[%d]: can't assign or convert %v into %v", i, src.Type(), dest.Type())
+			return fmt.Errorf("item[%d]: Type mismatch: Expected %v, got %v", i, dest.Type(), src.Type())
 		}
 	}
 	items.Set(slice)

@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ func Parse(gitversion string) (semver.Version, error) {
 func MustParse(gitversion string) semver.Version {
 	v, err := Parse(gitversion)
 	if err != nil {
-		glog.Fatalf("failed to parse semver from gitversion %q: %v", gitversion, err)
+		glog.Fatalf("failed to parse semver from giversion %q: %v", gitversion, err)
 	}
 	return v
 }

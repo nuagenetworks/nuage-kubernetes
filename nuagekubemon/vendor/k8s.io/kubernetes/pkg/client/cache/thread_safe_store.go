@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,12 +45,6 @@ type ThreadSafeStore interface {
 	Index(indexName string, obj interface{}) ([]interface{}, error)
 	ListIndexFuncValues(name string) []string
 	ByIndex(indexName, indexKey string) ([]interface{}, error)
-	GetIndexers() Indexers
-
-	// AddIndexers adds more indexers to this store.  If you call this after you already have data
-	// in the store, the results are undefined.
-	AddIndexers(newIndexers Indexers) error
-	Resync() error
 }
 
 // threadSafeMap implements ThreadSafeStore
@@ -151,7 +145,7 @@ func (c *threadSafeMap) Index(indexName string, obj interface{}) ([]interface{},
 	returnKeySet := sets.String{}
 	for _, indexKey := range indexKeys {
 		set := index[indexKey]
-		for _, key := range set.UnsortedList() {
+		for _, key := range set.List() {
 			returnKeySet.Insert(key)
 		}
 	}
@@ -185,40 +179,12 @@ func (c *threadSafeMap) ByIndex(indexName, indexKey string) ([]interface{}, erro
 }
 
 func (c *threadSafeMap) ListIndexFuncValues(indexName string) []string {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
 	index := c.indices[indexName]
 	names := make([]string, 0, len(index))
 	for key := range index {
 		names = append(names, key)
 	}
 	return names
-}
-
-func (c *threadSafeMap) GetIndexers() Indexers {
-	return c.indexers
-}
-
-func (c *threadSafeMap) AddIndexers(newIndexers Indexers) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if len(c.items) > 0 {
-		return fmt.Errorf("cannot add indexers to running index")
-	}
-
-	oldKeys := sets.StringKeySet(c.indexers)
-	newKeys := sets.StringKeySet(newIndexers)
-
-	if oldKeys.HasAny(newKeys.List()...) {
-		return fmt.Errorf("indexer conflict: %v", oldKeys.Intersection(newKeys))
-	}
-
-	for k, v := range newIndexers {
-		c.indexers[k] = v
-	}
-	return nil
 }
 
 // updateIndices modifies the objects location in the managed indexes, if this is an update, you must provide an oldObj
@@ -261,21 +227,15 @@ func (c *threadSafeMap) deleteFromIndices(obj interface{}, key string) error {
 		}
 
 		index := c.indices[name]
-		if index == nil {
-			continue
-		}
 		for _, indexValue := range indexValues {
-			set := index[indexValue]
-			if set != nil {
-				set.Delete(key)
+			if index != nil {
+				set := index[indexValue]
+				if set != nil {
+					set.Delete(key)
+				}
 			}
 		}
 	}
-	return nil
-}
-
-func (c *threadSafeMap) Resync() error {
-	// Nothing to do
 	return nil
 }
 
@@ -283,6 +243,6 @@ func NewThreadSafeStore(indexers Indexers, indices Indices) ThreadSafeStore {
 	return &threadSafeMap{
 		items:    map[string]interface{}{},
 		indexers: indexers,
-		indices:  indices,
+		indices:  Indices{},
 	}
 }

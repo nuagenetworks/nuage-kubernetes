@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ func (t *TextNode) String() string {
 	return fmt.Sprintf("%s: %s", t.Type(), t.Text)
 }
 
-// FieldNode holds field of struct
+// FieldNode holds filed of struct
 type FieldNode struct {
 	NodeType
 	Value string

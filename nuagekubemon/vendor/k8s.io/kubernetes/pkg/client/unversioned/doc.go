@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ Most consumers should use the Config object to create a Client:
     import (
       client "k8s.io/kubernetes/pkg/client/unversioned"
       "k8s.io/kubernetes/pkg/api"
+      "k8s.io/kubernetes/pkg/fields"
+      "k8s.io/kubernetes/pkg/labels"
     )
 
     [...]
@@ -37,7 +39,7 @@ Most consumers should use the Config object to create a Client:
     if err != nil {
       // handle error
     }
-    pods, err := client.Pods(api.NamespaceDefault).List(api.ListOptions{})
+    pods, err := client.Pods(api.NamespaceDefault).List(labels.Everything(), fields.Everything())
     if err != nil {
       // handle error
     }
