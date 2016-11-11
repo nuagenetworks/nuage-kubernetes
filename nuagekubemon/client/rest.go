@@ -151,7 +151,7 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 		glog.Warningln(errText)
 		return http.StatusInternalServerError, restErrorJson{Error: errText}, nil
 	}
-	for currentNode := nsSubnetsHead; currentNode != nil; currentNode = currentNode.Next {
+	/*for currentNode := nsSubnetsHead; currentNode != nil; currentNode = currentNode.Next {
 		// total available IPs, minus broadcast (e.g. a.b.c.255/24), the network
 		// ID (e.g. a.b.c.0/24), and a space for a gateway (e.g. a.b.c.1 or
 		// equivalent, usually)
@@ -175,7 +175,8 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 			}
 			return http.StatusOK, podListJson{SubnetName: currentNode.SubnetName, PolicyGroups: *pgList}, nil
 		}
-	}
+	}*/
+	return http.StatusOK, podListJson{SubnetName: namespace + "-0", PolicyGroups: *pgList}, nil
 	// All subnets were full. Return an internal error for now?
 	// TODO: force create a new subnet
 	errText := fmt.Sprintf("All subnets in namespace %q are full", namespace)
