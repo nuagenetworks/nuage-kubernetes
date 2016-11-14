@@ -22,6 +22,9 @@ package client
 import (
 	"fmt"
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
+	kapi "k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/labels"
 	"math/rand"
 	"os/exec"
 	"sort"
@@ -44,7 +47,8 @@ func TestGetNamespaces(t *testing.T) {
 	output = []byte(strings.Trim(string(output), "\n \t"))
 	cliProjectNames := strings.Split(string(output), "\n")
 	// Get the names from GetNamespaces()
-	goProjectEvents, err := osClient.GetNamespaces()
+	listOpts := kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}
+	goProjectEvents, err := osClient.GetNamespaces(&listOpts)
 	if err != nil {
 		t.Fatalf("output: %v\nerror: %v\n", string(output), err)
 	}

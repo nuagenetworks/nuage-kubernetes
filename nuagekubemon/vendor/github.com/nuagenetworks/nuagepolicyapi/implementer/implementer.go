@@ -3,14 +3,13 @@ package implementer
 import (
 	"bytes"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/nuagenetworks/go-bambou/bambou"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/network-policy-engine/policies"
+	"github.com/nuagenetworks/nuagepolicyapi/policies"
 	"github.com/nuagenetworks/vspk-go/vspk"
-	"gopkg.in/yaml.v2"
 	"time"
 )
 
+// VSDCredentials stores information required to establish session with VSD
 type VSDCredentials struct {
 	Username     string
 	Password     string
@@ -18,23 +17,27 @@ type VSDCredentials struct {
 	URL          string
 }
 
+// PolicyImplementer is used to implement a Nuage Policy
 type PolicyImplementer struct {
 	vsdSession *bambou.Session
 	vsdRoot    *vspk.Me
 }
 
-type PolicyTransaction struct {
+type policyTransaction struct {
 	err *bambou.Error
 }
 
+// Init initializes the policy implementer and establishes session with VSD
 func (implementer *PolicyImplementer) Init(vsdCredentials *VSDCredentials) error {
-
-	glog.Infof("VSD credentials %+v", vsdCredentials)
 
 	if vsdCredentials == nil || vsdCredentials.Username == "" ||
 		vsdCredentials.Password == "" || vsdCredentials.Organization == "" ||
 		vsdCredentials.URL == "" {
 		return fmt.Errorf("Invalid VSD credentials %+v", vsdCredentials)
+	}
+
+	if implementer.vsdSession != nil {
+		implementer.vsdSession.Reset()
 	}
 
 	implementer.vsdSession, implementer.vsdRoot =
@@ -47,22 +50,18 @@ func (implementer *PolicyImplementer) Init(vsdCredentials *VSDCredentials) error
 		return fmt.Errorf("Unable to establish session to VSD")
 	}
 
-	implementer.vsdSession.SetInsecureSkipVerify(true)
-	implementer.vsdSession.Start()
-	glog.Infof("Connected to vsd with credentials: Username: %s, Password: %s, Organization: %s, URL: %s", vsdCredentials.Username, vsdCredentials.Password, vsdCredentials.Organization, vsdCredentials.URL)
+	if err := implementer.vsdSession.SetInsecureSkipVerify(true); err != nil {
+		return fmt.Errorf("Error establishing connection to vsd %+v", err)
+	}
+
+	if err := implementer.vsdSession.Start(); err != nil {
+		return fmt.Errorf("Error starting vsd session %+v", err)
+	}
+
 	return nil
 }
 
 func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.NuagePolicy) error {
-
-	glog.Infof("Implementing default policy %+v", policy)
-
-	d, merr := yaml.Marshal(policy)
-	if merr != nil {
-		glog.Errorf("Error marshaling the policy %+v", policy)
-	}
-
-	glog.Infof("Implementing default policy %s", string(d))
 
 	policyElements, ok := policy.PolicyElements.([]policies.DefaultPolicyElement)
 	if !ok {
@@ -106,39 +105,71 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 
 		var toID, fromID string
 
-		switch defaultPolicyElement.To.Type {
-		case policies.POLICY_GROUP:
+		toType, terr := policies.ConvertPolicyEndPointStringToEndPointType(string(defaultPolicyElement.To.Type))
+		if terr != nil {
+			return terr
+		}
+
+		fromType, ferr := policies.ConvertPolicyEndPointStringToEndPointType(string(defaultPolicyElement.From.Type))
+		if ferr != nil {
+			return ferr
+		}
+
+		switch toType {
+		case policies.Zone:
+			toZone, err := implementer.getZone(domain, defaultPolicyElement.To.Name)
+			if err != nil || toZone == nil {
+				return fmt.Errorf("Unable to get the destination zone %+v", err)
+			}
+			toID = toZone.ID
+		case policies.Subnet:
+			toSubnet, err := implementer.getSubnet(domain, defaultPolicyElement.To.Name)
+			if err != nil || toSubnet == nil {
+				return fmt.Errorf("Unable to get the destination subnet %+v", err)
+			}
+			toID = toSubnet.ID
+		case policies.PolicyGroup:
 			toPG, err := implementer.getPolicyGroup(domain, defaultPolicyElement.To.Name)
 			if err != nil || toPG == nil {
 				return fmt.Errorf("Unable to get the destination PG %+v", err)
 			}
 			toID = toPG.ID
 		default:
-			panic("Not implemented")
+			panic(fmt.Sprintf("Not implemented %+v", defaultPolicyElement.To))
 		}
 
-		switch defaultPolicyElement.From.Type {
-		case policies.POLICY_GROUP:
+		switch fromType {
+		case policies.Zone:
+			fromZone, err := implementer.getZone(domain, defaultPolicyElement.From.Name)
+			if err != nil || fromZone == nil {
+				return fmt.Errorf("Unabe to get the source Zone %+v", err)
+			}
+			fromID = fromZone.ID
+		case policies.Subnet:
+			fromSubnet, err := implementer.getSubnet(domain, defaultPolicyElement.From.Name)
+			if err != nil || fromSubnet == nil {
+				return fmt.Errorf("Unabe to get the source Subnet %+v", err)
+			}
+			fromID = fromSubnet.ID
+		case policies.PolicyGroup:
 			fromPG, err := implementer.getPolicyGroup(domain, defaultPolicyElement.From.Name)
 			if err != nil || fromPG == nil {
-				return fmt.Errorf("Unabe to get the source PG")
+				return fmt.Errorf("Unabe to get the source PG %+v", err)
 			}
 			fromID = fromPG.ID
+
 		default:
-			panic("Not implemented")
+			panic(fmt.Sprintf("Not implemented %+v", defaultPolicyElement.From))
 		}
 
 		ingressACLEntry := vspk.NewIngressACLEntryTemplate()
 
-		ingressACLEntry.Action = string(defaultPolicyElement.Action)
+		ingressACLEntry.Action = policies.ConvertPolicyActionToNuageAction(defaultPolicyElement.Action)
 		ingressACLEntry.Description = "ingress rule"
-
-		ingressACLEntry.LocationType = string(defaultPolicyElement.From.Type)
+		ingressACLEntry.LocationType = string(fromType)
 		ingressACLEntry.LocationID = fromID
-
-		ingressACLEntry.NetworkType = string(defaultPolicyElement.To.Type)
+		ingressACLEntry.NetworkType = string(toType)
 		ingressACLEntry.NetworkID = toID
-
 		ingressACLEntry.Protocol = defaultPolicyElement.NetworkParameters.Protocol.String()
 		ingressACLEntry.PolicyState = "LIVE"
 		ingressACLEntry.Stateful = true
@@ -149,72 +180,66 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 		}
 
 		egressACLEntry := vspk.NewEgressACLEntryTemplate()
-
-		egressACLEntry.Action = string(defaultPolicyElement.Action)
+		egressACLEntry.Action = policies.ConvertPolicyActionToNuageAction(defaultPolicyElement.Action)
 		egressACLEntry.Description = "egress rule"
-		egressACLEntry.LocationType = string(defaultPolicyElement.To.Type)
+		egressACLEntry.LocationType = string(toType)
 		egressACLEntry.LocationID = toID
-
-		egressACLEntry.NetworkType = string(defaultPolicyElement.From.Type)
+		egressACLEntry.NetworkType = string(fromType)
 		egressACLEntry.NetworkID = fromID
-
 		egressACLEntry.Protocol = defaultPolicyElement.NetworkParameters.Protocol.String()
 		egressACLEntry.PolicyState = "LIVE"
 		egressACLEntry.Stateful = true
 		egressACLEntry.Reflexive = true
-
 		if egressACLEntry.Protocol != policies.ANY.String() {
-
 			egressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.DestinationPortRange.String()
 			egressACLEntry.DestinationPort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
 		}
+
 		ingressACLEnteries = append(ingressACLEnteries, ingressACLEntry)
 		egressACLEnteries = append(egressACLEnteries, egressACLEntry)
-
 	}
 
-	var policyTransaction PolicyTransaction
-	policyTransaction.err = startPolicyTransaction(domain)
+	var policyTransac policyTransaction
+	policyTransac.err = startpolicyTransaction(domain)
 
-	if policyTransaction.err != nil {
-		return fmt.Errorf("Unable to start policy transaction %+v", policyTransaction.err)
+	if policyTransac.err != nil {
+		return fmt.Errorf("Unable to start policy transaction %+v", policyTransac.err)
 	}
 
-	defer endPolicyTransaction(domain, &policyTransaction)
+	defer endpolicyTransaction(domain, &policyTransac)
 
-	policyTransaction.err = domain.CreateIngressACLTemplate(ingressACL)
-	if policyTransaction.err != nil {
-		return fmt.Errorf("Unable to create Ingress ACL %+v", policyTransaction.err)
+	policyTransac.err = domain.CreateIngressACLTemplate(ingressACL)
+	if policyTransac.err != nil {
+		return fmt.Errorf("Unable to create Ingress ACL %+v", policyTransac.err)
 	}
 
-	policyTransaction.err = domain.CreateEgressACLTemplate(egressACL)
-	if policyTransaction.err != nil {
-		return fmt.Errorf("Unable to create Egress ACL %+v", policyTransaction.err)
+	policyTransac.err = domain.CreateEgressACLTemplate(egressACL)
+	if policyTransac.err != nil {
+		return fmt.Errorf("Unable to create Egress ACL %+v", policyTransac.err)
 	}
 
 	for _, ingressACLEntry := range ingressACLEnteries {
-		policyTransaction.err = ingressACL.CreateIngressACLEntryTemplate(ingressACLEntry)
-		if policyTransaction.err != nil {
-			glog.Errorf("Unable to create ingress ACL entry %+v %+v", policyTransaction.err, ingressACLEntry)
-			return fmt.Errorf("Unable to create ingress ACL entry %+v %+v", policyTransaction.err, ingressACLEntry)
+		policyTransac.err = ingressACL.CreateIngressACLEntryTemplate(ingressACLEntry)
+		if policyTransac.err != nil {
+			return fmt.Errorf("Unable to create ingress ACL entry %+v %+v", policyTransac.err, ingressACLEntry)
 		}
 	}
 
 	for _, egressACLEntry := range egressACLEnteries {
-		policyTransaction.err = egressACL.CreateEgressACLEntryTemplate(egressACLEntry)
-		if policyTransaction.err != nil {
-			glog.Errorf("Unable to create egress ACL entry %+v %+v", policyTransaction.err, egressACLEntry)
-			return fmt.Errorf("Unable to create egress ACL entry %+v", policyTransaction.err)
+		policyTransac.err = egressACL.CreateEgressACLEntryTemplate(egressACLEntry)
+		if policyTransac.err != nil {
+			return fmt.Errorf("Unable to create egress ACL entry %+v", policyTransac.err)
 		}
 	}
 
-	policyTransaction.err = nil
+	policyTransac.err = nil
 	return nil
 }
 
+// ImplementPolicy implements a Nuage policy
 func (implementer *PolicyImplementer) ImplementPolicy(policy *policies.NuagePolicy) error {
 
-	if policy.Type != policies.DEFAULT {
+	if policy.Type != policies.Default {
 		return fmt.Errorf("Invalid policy")
 	}
 
@@ -224,9 +249,9 @@ func (implementer *PolicyImplementer) ImplementPolicy(policy *policies.NuagePoli
 	default:
 		return fmt.Errorf("Invalid policy elements")
 	}
-	return nil
 }
 
+// DeletePolicy deletes a Nuage policy using the policy ID
 func (implementer *PolicyImplementer) DeletePolicy(policyID string, enterpriseName string,
 	domainName string) error {
 
@@ -246,10 +271,11 @@ func (implementer *PolicyImplementer) DeletePolicy(policyID string, enterpriseNa
 	ingressACLList, err := implementer.getIngressACLList(domain, policyID)
 	if err == nil && ingressACLList != nil {
 		for _, ingressACLTemplate := range *ingressACLList {
-			if err := ingressACLTemplate.Delete(); err != nil {
+			if err = ingressACLTemplate.Delete(); err != nil {
 				deleteErr = true
-				deleteErrBuf.WriteString(fmt.Sprintf("Error deleting ingress template %s\n",
-					ingressACLTemplate.ID))
+				if _, berr := deleteErrBuf.WriteString(fmt.Sprintf("Error deleting ingress template %s\n",
+					ingressACLTemplate.ID)); berr != nil {
+				}
 			}
 		}
 	}
@@ -257,10 +283,11 @@ func (implementer *PolicyImplementer) DeletePolicy(policyID string, enterpriseNa
 	egressACLList, err := implementer.getEgressACLList(domain, policyID)
 	if err == nil && egressACLList != nil {
 		for _, egressACLTemplate := range *egressACLList {
-			if err := egressACLTemplate.Delete(); err != nil {
+			if err = egressACLTemplate.Delete(); err != nil {
 				deleteErr = true
-				deleteErrBuf.WriteString(fmt.Sprintf("Error deleting egress template %s\n",
-					egressACLTemplate.ID))
+				if _, berr := deleteErrBuf.WriteString(fmt.Sprintf("Error deleting egress template %s\n",
+					egressACLTemplate.ID)); berr != nil {
+				}
 			}
 		}
 	}
@@ -298,6 +325,28 @@ func (implementer *PolicyImplementer) getDomain(enterprise *vspk.Enterprise, dom
 	return domain, err
 }
 
+func (implementer *PolicyImplementer) getZone(domain *vspk.Domain, zoneName string) (*vspk.Zone, *bambou.Error) {
+	var zone *vspk.Zone
+	zoneFetchingInfo := &bambou.FetchingInfo{Filter: "name == \"" + zoneName + "\""}
+	zones, err := domain.Zones(zoneFetchingInfo)
+	if err != nil || len(zones) == 0 {
+		return nil, err
+	}
+	zone = zones[0]
+	return zone, err
+}
+
+func (implementer *PolicyImplementer) getSubnet(domain *vspk.Domain, subnetName string) (*vspk.Subnet, *bambou.Error) {
+	var subnet *vspk.Subnet
+	subnetFetchingInfo := &bambou.FetchingInfo{Filter: "name == \"" + subnetName + "\""}
+	subnets, err := domain.Subnets(subnetFetchingInfo)
+	if err != nil || len(subnets) == 0 {
+		return nil, err
+	}
+	subnet = subnets[0]
+	return subnet, err
+}
+
 func (implementer *PolicyImplementer) getPolicyGroup(domain *vspk.Domain, pgName string) (*vspk.PolicyGroup, *bambou.Error) {
 	var pg *vspk.PolicyGroup
 	pgFetchingInfo := &bambou.FetchingInfo{Filter: "name == \"" + pgName + "\""}
@@ -329,7 +378,7 @@ func (implementer *PolicyImplementer) getEgressACLList(domain *vspk.Domain, poli
 	return &egressACLList, nil
 }
 
-func startPolicyTransaction(domain *vspk.Domain) *bambou.Error {
+func startpolicyTransaction(domain *vspk.Domain) *bambou.Error {
 	job := vspk.NewJob()
 	job.Command = "BEGIN_POLICY_CHANGES"
 	jerr := domain.CreateJob(job)
@@ -338,15 +387,10 @@ func startPolicyTransaction(domain *vspk.Domain) *bambou.Error {
 		return jerr
 	}
 
-	jerr = waitForJob(job)
-	if jerr != nil {
-		return jerr
-	}
-
-	return nil
+	return waitForJob(job)
 }
 
-func endPolicyTransaction(domain *vspk.Domain, transaction *PolicyTransaction) *bambou.Error {
+func endpolicyTransaction(domain *vspk.Domain, transaction *policyTransaction) {
 	var command string
 	if transaction.err != nil {
 		command = "DISCARD_POLICY_CHANGES"
@@ -354,21 +398,10 @@ func endPolicyTransaction(domain *vspk.Domain, transaction *PolicyTransaction) *
 		command = "APPLY_POLICY_CHANGES"
 	}
 
-	fmt.Printf("Applying transaction %s\n", command)
 	job := vspk.NewJob()
 	job.Command = command
-	jerr := domain.CreateJob(job)
-
-	if jerr != nil {
-		return jerr
-	}
-
-	jerr = waitForJob(job)
-	if jerr != nil {
-		return jerr
-	}
-
-	return nil
+	domain.CreateJob(job)
+	waitForJob(job)
 }
 
 func waitForJob(job *vspk.Job) *bambou.Error {
