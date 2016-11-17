@@ -618,8 +618,24 @@ def get_veth_host_if(pid):
     return subprocess.check_output([veth_host_if], shell=True).strip()
 
 
+def add_service_cidr_route(config):
+    svc_pat_tap_intf = 'svc-pat-tap'
+    svc_pat_tap_ip = '169.254.3.3'
+    default_service_CIDR = '0.0.0.0'
+    serviceCIDR = config.get('serviceCIDR', default_service_CIDR)
+    if serviceCIDR != default_service_CIDR:
+        cmd = "ip route add %(serviceCIDR)s via %(svc-pat-tap-ip)s dev %(svc-pat-tap)s" % \
+            {'serviceCIDR': serviceCIDR, 'svc-pat-tap': svc_pat_tap_intf,
+             'svc-pat-tap-ip': svc_pat_tap_ip}
+        vlog.info("Adding route for service CIDR %(serviceCIDR)s %(cmd)s" %
+                  {'serviceCIDR': serviceCIDR, 'cmd': cmd})
+        subprocess.call([cmd], shell=True)
+    else:
+        vlog.err('Invalid serviceCIDR, unable to add route for services')
+
+
 def init(options, config):
-    pass
+    add_service_cidr_route(config)
 
 
 def setup(options, config):
