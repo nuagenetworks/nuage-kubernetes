@@ -364,11 +364,13 @@ def find_metadata(options, config, setup):
     network = options.namespace + '-0'
     user = 'admin'
     mtu = 1460
+    podmeta = None
     if config is not None:
         domain = config.get("domainName", "%s-Domain" % platform)
         ent = config.get("enterpriseName", "%s-Enterprise" % platform)
         mtu = config.get("interfaceMTU", mtu)
-    podmeta = get_pod_metadata(options, config)
+    if setup:
+        podmeta = get_pod_metadata(options, config)
     if podmeta is not None and 'labels' in podmeta:
         network = podmeta['labels'].get('nuage.io/subnet',
                                         options.namespace + '-0')
@@ -457,40 +459,6 @@ def find_metadata(options, config, setup):
                      'too many times' %
                      (options.namespace, options.name))
         vlog.info('Using network "%s"' % network)
-    else:
-        vlog.dbg('Deleting pod %s/%s' % (options.namespace, options.name))
-        timed_out = False
-        for _ in range(5):  # retry up to 5 times on timeout
-            try:
-                delete_resp = session.delete(
-                    "%s/namespaces/%s/pods/%s" %
-                    (config.get("nuageMonRestServer",
-                                "https://localhost:9443"),
-                     options.namespace, options.name),
-                    timeout=5
-                )
-                if delete_resp.status_code not in [OK, NOT_FOUND]:
-                    # 200 is a successful delete, and 404 means it didn't exist
-                    # in the first place, which is just as good in this case.
-                    # Any other response should be logged as an anomaly.
-                    if delete_resp.json() is not None and \
-                            'error' in delete_resp.json():
-                        vlog.warn('Error when deleting pod: %s' %
-                                  delete_resp.json()['error'])
-                    else:
-                        vlog.err("Unexpected response from master:\n%d: %s" %
-                                 (delete_resp.status_code, delete_resp.text))
-                timed_out = False
-                break  # break from retry loop
-            except requests.exceptions.Timeout:
-                vlog.warn('Delete request for pod %s/%s failed: request timed '
-                          'out. Retrying' %
-                          (options.namespace, options.name))
-                timed_out = True
-        if timed_out:
-            vlog.err('Delete request for pod %s/%s failed: request timed out '
-                     'too many times' %
-                     (options.namespace, options.name))
     if session:
         session.close()
     try:
@@ -804,16 +772,14 @@ def get_pod_metadata_using_kubeconfig(options, config):
             pods = filter(lambda pod: pod.name == options.name, ns_pods)
             if pods is not None and len(pods) == 1:
                 return pods[0].obj["metadata"]
-        except Exception as e:
+        except pykube.exceptions.HTTPError as e:
             vlog.warn("Failed to get metadata from API server for pod %s: "
-                      "request timed out.  Retrying...%s" % (options.name,
-                                                             str(e)))
-
-    vlog.err("Could not get metadata from API server %s for pod %s: "
-             "request timed out too many times" % (
-                 config.get('masterApiServer', 'https://localhost:8443'),
-                 options.name))
-
+                      "Hit HTTP error" % (options.name, str(e)))
+        except Exception as e:
+            vlog.err("Failed to get metadata from API server for pod %s: "
+                     "Hit exception %s" % (options.name, str(e)))
+            break
+    vlog.err("Failed to get metadata from API server for pod %s: " % options.name)
     return None
 
 
