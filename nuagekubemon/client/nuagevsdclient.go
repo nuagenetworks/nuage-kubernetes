@@ -1727,6 +1727,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		nmgID := ""
 		err := errors.New("")
 		exists := false
+		userSpecifiedZone := false
 		if nmgID, exists = serviceEvent.NuageLabels[`network-macro-group.id`]; !exists {
 			if nmgName, exists := serviceEvent.NuageLabels[`network-macro-group.name`]; exists {
 				//use the label provided name to get network macro group ID and use that to create the network macro association
@@ -1746,8 +1747,8 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 				}
 			} else if nmgID == "" {
 				// zone label is specified, but nuagekubemon doesn't manage this zone; and network macro group ID or Name are missing
-				glog.Error("Label provided for a zone, but no network macro group identified", serviceEvent)
-				return errors.New("Insufficient label information for creating service network macro")
+				glog.Infoln("Label provided for a zone, but no network macro group identified", serviceEvent)
+				userSpecifiedZone = true
 			}
 		}
 		//default to using the validated zone's network macro group; if no specific labels are present.
@@ -1773,9 +1774,11 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		} else {
 			//add the network macro to the cached datastructure and also to the network macro group obtained via labels/default group
 			nvsdc.namespaces[serviceEvent.Namespace].NetworkMacros[serviceEvent.Name] = networkMacroID
-			err = nvsdc.AddNetworkMacroToNMG(networkMacroID, nmgID)
-			if err != nil {
-				glog.Error("Error when adding network macro to network macro group:", err)
+			if !userSpecifiedZone {
+				err = nvsdc.AddNetworkMacroToNMG(networkMacroID, nmgID)
+				if err != nil {
+					glog.Error("Error when adding network macro to network macro group:", err)
+				}
 			}
 		}
 	case api.Deleted:
