@@ -7,19 +7,28 @@ import (
 	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	"strconv"
 )
 
-func CreateNuagePGPolicy(k8sNetworkPolicySpec *extensions.NetworkPolicySpec,
-	policyName string,
+const priorityLabel = "nuage.io/priority"
+
+func CreateNuagePGPolicy(
+	pe *api.NetworkPolicyEvent,
 	policyGroupMap map[string]api.PgInfo,
 	nuageMetadata map[string]string) (*policies.NuagePolicy, error) {
+
+	k8sNetworkPolicySpec := &pe.Policy
+	policyName := pe.Name
+	policyLabels := pe.Labels
 
 	if k8sNetworkPolicySpec == nil || policyGroupMap == nil || nuageMetadata == nil {
 		return nil, fmt.Errorf("Invalid arguments")
 	}
 
-	glog.Infof("Translating network policy spec %+v", k8sNetworkPolicySpec)
+	glog.Infof("Policy Name %+v ", policyName)
+	glog.Infof("Translating network policy spec %+v with labels %+v",
+		k8sNetworkPolicySpec, policyLabels)
+	glog.Infof("Policy Group Map %+v ", policyGroupMap)
 
 	var ok bool
 	var enterprise string
@@ -35,11 +44,23 @@ func CreateNuagePGPolicy(k8sNetworkPolicySpec *extensions.NetworkPolicySpec,
 	var targetPG api.PgInfo
 	if targetSelector, err := unversioned.LabelSelectorAsSelector(&k8sNetworkPolicySpec.PodSelector); err == nil {
 		if targetPG, ok = policyGroupMap[targetSelector.String()]; !ok {
-			return nil, fmt.Errorf("Target Pod policy group information missing%+v", targetSelector.String())
+			return nil, fmt.Errorf("Target Pod policy group information missing %+v", targetSelector.String())
 		}
 	} else {
 		return nil, fmt.Errorf("Cannot get label selector as selector")
 	}
+
+	var priorityStr string
+	if priorityStr, ok = pe.Labels[priorityLabel]; !ok {
+		return nil, fmt.Errorf("Priority missing for the network policy labels")
+	}
+
+	var priority int
+	var err error
+	if priority, err = strconv.Atoi(priorityStr); err != nil {
+		return nil, fmt.Errorf("Invalid priority value %s in the network policy labels", priorityStr)
+	}
+
 	nuagePolicy := policies.NuagePolicy{
 		Version:    policies.V1Alpha,
 		Type:       policies.Default,
@@ -47,6 +68,7 @@ func CreateNuagePGPolicy(k8sNetworkPolicySpec *extensions.NetworkPolicySpec,
 		Domain:     domain,
 		Name:       policyName,
 		ID:         policyName,
+		Priority:   priority,
 	}
 
 	var defaultPolicyElements []policies.DefaultPolicyElement
