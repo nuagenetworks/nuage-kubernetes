@@ -127,7 +127,7 @@ func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, error) {
 	payload := api.VsdEnterprise{
 		Name:        enterpriseName,
-		Description: "Auto-generated enterprise for Openshift Cluster",
+		Description: "Auto-generated enterprise",
 	}
 	result := make([]api.VsdEnterprise, 1)
 	e := api.RESTError{}
@@ -1104,7 +1104,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
 		Name:            name,
-		Description:     "Auto-generated for OpenShift containers",
+		Description:     "Auto-generated domain",
 		TemplateID:      domainTemplateID,
 		PATEnabled:      api.PATEnabled,
 		UnderlayEnabled: api.PATEnabled,
@@ -1155,7 +1155,7 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
 		Name:        name,
-		Description: "Auto-generated for OpenShift project \"" + name + "\"",
+		Description: "Auto-generated zone for project \"" + name + "\"",
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"domains/"+domainID+"/zones", &payload, &result, &e)
