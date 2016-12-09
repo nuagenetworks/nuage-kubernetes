@@ -276,7 +276,7 @@ func (nosc *NuageClusterClient) GetNetworkPolicies(listOpts *kapi.ListOptions) (
 	}
 	policiesList := make([]*api.NetworkPolicyEvent, 0)
 	for _, policy := range policies.Items {
-		policiesList = append(policiesList, &api.NetworkPolicyEvent{Type: api.Added, Name: policy.Name, Namespace: policy.Namespace, Policy: policy.Spec})
+		policiesList = append(policiesList, &api.NetworkPolicyEvent{Type: api.Added, Name: policy.Name, Namespace: policy.Namespace, Policy: policy.Spec, Labels: policy.Labels})
 
 	}
 	return &policiesList, nil
@@ -304,7 +304,7 @@ func (nosc *NuageClusterClient) WatchNetworkPolicies(receiver chan *api.NetworkP
 			fallthrough
 		case watch.Deleted:
 			policy := obj.(*kextensions.NetworkPolicy)
-			receiver <- &api.NetworkPolicyEvent{Type: api.EventType(eventType), Name: policy.Name, Namespace: policy.Namespace, Policy: policy.Spec}
+			receiver <- &api.NetworkPolicyEvent{Type: api.EventType(eventType), Name: policy.Name, Namespace: policy.Namespace, Policy: policy.Spec, Labels: policy.Labels}
 		}
 	}
 }

@@ -71,6 +71,7 @@ type NetworkPolicyEvent struct {
 	Name      string
 	Namespace string
 	Policy    extensions.NetworkPolicySpec
+	Labels    map[string]string `json:"labels,omitempty"`
 }
 
 type PodEvent struct {
