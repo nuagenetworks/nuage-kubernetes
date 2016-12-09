@@ -7,10 +7,11 @@ type EndPointType string
 
 // Types of network endpoints
 const (
-	Zone        EndPointType = "ZONE"
-	Subnet      EndPointType = "SUBNET"
-	PolicyGroup EndPointType = "POLICYGROUP"
-	Invalid     EndPointType = "INVALID"
+	Zone         EndPointType = "ZONE"
+	Subnet       EndPointType = "SUBNET"
+	PolicyGroup  EndPointType = "POLICYGROUP"
+	EndPointZone EndPointType = "ENDPOINT_ZONE"
+	Invalid      EndPointType = "INVALID"
 )
 
 // EndPoint identifies a network endpoint
@@ -50,15 +51,12 @@ type Protocol int
 
 // Types of network protocols
 const (
-	ANY Protocol = 0
 	TCP Protocol = 6
 	UDP Protocol = 17
 )
 
 func (protocol Protocol) String() string {
 	switch protocol {
-	case ANY:
-		return "ANY"
 	case TCP:
 		return "6"
 	case UDP:

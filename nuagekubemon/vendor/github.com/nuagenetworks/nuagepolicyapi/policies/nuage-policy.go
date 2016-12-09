@@ -92,7 +92,9 @@ func ConvertPolicyEndPointStringToEndPointType(endPointTypeString string) (EndPo
 		return Subnet, nil
 	case "POLICYGROUP":
 		return PolicyGroup, nil
+	case "ENDPOINTZONE":
+		return EndPointZone, nil
 	}
 
-	return Invalid, fmt.Errorf(fmt.Sprintf("Invalid endpoint type %s", endPointTypeString))
+	return Invalid, fmt.Errorf(fmt.Sprintf("Invalid endpoint type %s %s", endPointTypeString, endptTypeStr))
 }

@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -136,28 +137,20 @@ func (rm *ResourceManager) GetPolicyGroupsForPod(podName string, podNs string) (
 }
 
 func (rm *ResourceManager) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
-	// switch nsEvent.Type {
-	// case api.Added:
-	// case api.Modified:
-	// 	//needs to handle a case where annotation for isolation exists/doesn't exist. Or previously existed and now doesn't exist.
-	// 	if nuagePolicy, err := translator.CreateNuageNSPolicy(nsEvent, rm.vsdMeta); err == nil {
-	// 		if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
-	// 			glog.Errorf("Got a %s error when implementing namespace policy", notImplemented)
-	// 		}
-	// 	} else {
-	// 		glog.Errorf("Got an error %s when creating nuage policy", err)
-	// 		return errors.New("Got an error when creating nuage policy")
-	// 	}
-	// case api.Deleted:
-	// 	//needs to handle a case where annotation for isolation exists/doesn't exist. Or previously existed and now doesn't exist.
-	// 	if notImplemented := rm.implementer.DeletePolicy(nsEvent.Name); notImplemented != nil {
-	// 		glog.Errorf("Got a %s error when deleting namespace policy", notImplemented)
-	// 	} else {
-	// 		glog.Errorf("Got an error %s when deleting nuage ns policy", err)
-	// 		return errors.New("Got an error when deleting nuage ns policy")
-	// 	}
+	glog.Info("Received namespace event for policy parsing %+v", nsEvent)
 
-	// }
+	switch nsEvent.Type {
+	case api.Added:
+		fallthrough
+	case api.Modified:
+		if nsEvent.Annotations != nil {
+			if annotation, ok := nsEvent.Annotations["net.beta.kubernetes.io/network-policy"]; ok {
+				if strings.Compare(annotation, "{\"ingress\": {\"isolation\": \"DefaultDeny\"}}") == 0 {
+					glog.Info("Network policy to block intra zone communication")
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -240,7 +233,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 				}
 			}
 		}
-		if nuagePolicy, err := translator.CreateNuagePGPolicy(&pe.Policy, pe.Name, rm.policyPgMap[pe.Name], rm.vsdMeta); err == nil {
+		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Name], rm.vsdMeta); err == nil {
 			if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
 				glog.Errorf("Got a %s error when implementing policy", notImplemented)
 			}

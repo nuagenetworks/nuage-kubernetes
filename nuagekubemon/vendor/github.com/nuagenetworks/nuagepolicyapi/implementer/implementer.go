@@ -116,6 +116,7 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 		}
 
 		switch toType {
+		case policies.EndPointZone:
 		case policies.Zone:
 			toZone, err := implementer.getZone(domain, defaultPolicyElement.To.Name)
 			if err != nil || toZone == nil {
@@ -139,6 +140,7 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 		}
 
 		switch fromType {
+		case policies.EndPointZone:
 		case policies.Zone:
 			fromZone, err := implementer.getZone(domain, defaultPolicyElement.From.Name)
 			if err != nil || fromZone == nil {
@@ -172,28 +174,28 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 		ingressACLEntry.NetworkID = toID
 		ingressACLEntry.Protocol = defaultPolicyElement.NetworkParameters.Protocol.String()
 		ingressACLEntry.PolicyState = "LIVE"
-		ingressACLEntry.Stateful = true
-		ingressACLEntry.Reflexive = true
-		if ingressACLEntry.Protocol != policies.ANY.String() {
-			ingressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
-			ingressACLEntry.DestinationPort = defaultPolicyElement.NetworkParameters.DestinationPortRange.String()
+		if defaultPolicyElement.Action == policies.Allow {
+			ingressACLEntry.Reflexive = true
+			ingressACLEntry.Stateful = true
 		}
+		ingressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
+		ingressACLEntry.DestinationPort = defaultPolicyElement.NetworkParameters.DestinationPortRange.String()
 
 		egressACLEntry := vspk.NewEgressACLEntryTemplate()
 		egressACLEntry.Action = policies.ConvertPolicyActionToNuageAction(defaultPolicyElement.Action)
 		egressACLEntry.Description = "egress rule"
-		egressACLEntry.LocationType = string(toType)
-		egressACLEntry.LocationID = toID
-		egressACLEntry.NetworkType = string(fromType)
-		egressACLEntry.NetworkID = fromID
+		egressACLEntry.LocationType = string(fromType)
+		egressACLEntry.LocationID = fromID
+		egressACLEntry.NetworkType = string(toType)
+		egressACLEntry.NetworkID = toID
 		egressACLEntry.Protocol = defaultPolicyElement.NetworkParameters.Protocol.String()
 		egressACLEntry.PolicyState = "LIVE"
-		egressACLEntry.Stateful = true
-		egressACLEntry.Reflexive = true
-		if egressACLEntry.Protocol != policies.ANY.String() {
-			egressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.DestinationPortRange.String()
-			egressACLEntry.DestinationPort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
+		if defaultPolicyElement.Action == policies.Allow {
+			egressACLEntry.Reflexive = true
+			egressACLEntry.Stateful = true
 		}
+		egressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
+		egressACLEntry.DestinationPort = defaultPolicyElement.NetworkParameters.DestinationPortRange.String()
 
 		ingressACLEnteries = append(ingressACLEnteries, ingressACLEntry)
 		egressACLEnteries = append(egressACLEnteries, egressACLEntry)
@@ -210,12 +212,12 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 
 	policyTransac.err = domain.CreateIngressACLTemplate(ingressACL)
 	if policyTransac.err != nil {
-		return fmt.Errorf("Unable to create Ingress ACL %+v", policyTransac.err)
+		return fmt.Errorf("Unable to create Ingress ACL template %+v", policyTransac.err)
 	}
 
 	policyTransac.err = domain.CreateEgressACLTemplate(egressACL)
 	if policyTransac.err != nil {
-		return fmt.Errorf("Unable to create Egress ACL %+v", policyTransac.err)
+		return fmt.Errorf("Unable to create Egress ACL template %+v", policyTransac.err)
 	}
 
 	for _, ingressACLEntry := range ingressACLEnteries {
@@ -228,7 +230,7 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 	for _, egressACLEntry := range egressACLEnteries {
 		policyTransac.err = egressACL.CreateEgressACLEntryTemplate(egressACLEntry)
 		if policyTransac.err != nil {
-			return fmt.Errorf("Unable to create egress ACL entry %+v", policyTransac.err)
+			return fmt.Errorf("Unable to create egress ACL entry %+v %+v", policyTransac.err, egressACLEntry)
 		}
 	}
 
@@ -400,8 +402,16 @@ func endpolicyTransaction(domain *vspk.Domain, transaction *policyTransaction) {
 
 	job := vspk.NewJob()
 	job.Command = command
-	domain.CreateJob(job)
-	waitForJob(job)
+
+	jerr := domain.CreateJob(job)
+	if jerr != nil {
+		return
+	}
+
+	jerr = waitForJob(job)
+	if jerr != nil {
+		return
+	}
 }
 
 func waitForJob(job *vspk.Job) *bambou.Error {
