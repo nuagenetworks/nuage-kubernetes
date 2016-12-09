@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/nuagenetworks/openshift-integration/nuagekubemon",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v75",
+	"GodepVersion": "v63",
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/ww/goautoneg",
@@ -504,11 +504,11 @@
 		},
 		{
 			"ImportPath": "github.com/nuagenetworks/nuagepolicyapi/implementer",
-			"Rev": "27d2b9bb0907086b00b36bd46c045e8d801194bd"
+			"Rev": "d5e5dfaebec9e04b0aa48adcc8113aa9660255b2"
 		},
 		{
 			"ImportPath": "github.com/nuagenetworks/nuagepolicyapi/policies",
-			"Rev": "27d2b9bb0907086b00b36bd46c045e8d801194bd"
+			"Rev": "d5e5dfaebec9e04b0aa48adcc8113aa9660255b2"
 		},
 		{
 			"ImportPath": "github.com/nuagenetworks/vspk-go/vspk",
