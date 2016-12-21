@@ -18,6 +18,8 @@ nuageMonRestServer: "https://localhost:9443"
 dockerBridgeName: "docker0"
 # Network MTU
 interfaceMTU: 1460
+# Service CIDR
+serviceCIDR: 0.0.0.0
 # Certificate for connecting to the kubemon REST API
 nuageMonClientCert: /usr/share/vsp-k8s/nuageMonClient.crt
 # Key to the certificate in nuageMonClientCert
