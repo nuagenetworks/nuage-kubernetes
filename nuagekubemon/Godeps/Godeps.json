@@ -504,11 +504,11 @@
 		},
 		{
 			"ImportPath": "github.com/nuagenetworks/nuagepolicyapi/implementer",
-			"Rev": "27d2b9bb0907086b00b36bd46c045e8d801194bd"
+			"Rev": "e92e0db7d9b8962db2f960dab39800382ccf918d"
 		},
 		{
 			"ImportPath": "github.com/nuagenetworks/nuagepolicyapi/policies",
-			"Rev": "27d2b9bb0907086b00b36bd46c045e8d801194bd"
+			"Rev": "e92e0db7d9b8962db2f960dab39800382ccf918d"
 		},
 		{
 			"ImportPath": "github.com/nuagenetworks/vspk-go/vspk",

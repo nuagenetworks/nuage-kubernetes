@@ -22,6 +22,15 @@ const (
 	V1Alpha Version = "v1-alpha"
 )
 
+// PolicyUpdateOperation defines the types of update ops
+type PolicyUpdateOperation int
+
+// Supported policy updates
+const (
+	UpdateAdd    PolicyUpdateOperation = 1
+	UpdateRemove PolicyUpdateOperation = 2
+)
+
 // NuagePolicy idenfies a Nuage policy
 type NuagePolicy struct {
 	Version    Version
@@ -92,6 +101,8 @@ func ConvertPolicyEndPointStringToEndPointType(endPointTypeString string) (EndPo
 		return Subnet, nil
 	case "POLICYGROUP":
 		return PolicyGroup, nil
+	case "ENDPOINT_ZONE":
+		return EndPointZone, nil
 	case "ENDPOINTZONE":
 		return EndPointZone, nil
 	}
