@@ -21,7 +21,7 @@ package main
 
 import (
 	"flag"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/monitor"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/monitor"
 )
 
 func main() {
