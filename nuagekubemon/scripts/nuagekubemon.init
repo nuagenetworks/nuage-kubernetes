@@ -1,0 +1,62 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          <NAME>
+# Required-Start:    $local_fs $network $named $time $syslog kubernetes-master
+# Required-Stop:     $local_fs $network $named $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Description:       Nuage Kubernetes Monitor
+### END INIT INFO
+
+BIN=/usr/bin/nuagekubemon
+RUNAS=root
+
+PIDFILE=/var/run/nuagekubemon.pid
+
+start() {
+  if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE"); then
+    echo 'service nuagekubemon already running' >&2
+    return 1
+  fi
+  echo 'Starting service nuagekubemon…' >&2
+  local CMD="$BIN --config=/usr/share/nuagekubemon/nuagekubemon.yaml & echo \$!"
+  su -c "$CMD" $RUNAS > "$PIDFILE"
+  echo 'service nuagekubemon started' >&2
+}
+
+stop() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo 'service nuagekubemon not running' >&2
+    return 1
+  fi
+  echo 'Stopping service nuagekubemon…' >&2
+  kill -15 $(cat "$PIDFILE") && rm -f "$PIDFILE"
+  echo 'service nuagekubemon stopped' >&2
+}
+
+status() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo 'service nuagekubemon not running' >&2
+  else
+    echo 'service nuagekubemon is running' >&2
+    tail /var/log/nuagekubemon/nuagekubemon.INFO
+  fi
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+esac
