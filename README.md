@@ -1,4 +1,10 @@
-Openshift Integration
-=====================
+# nuage-kubernetes
 
-All files related to integrating Openshift with Nuage VSP.
+Kubernetes Integration Related Artifacts
+ - Nuage ansible repository
+ - Manual installation instructions
+ - Demo scripts
+ - nuagekubemon monitor source
+ - nuage-k8s-plugin source
+ 
+
