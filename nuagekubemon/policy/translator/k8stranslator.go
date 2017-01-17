@@ -3,8 +3,8 @@ package translator
 import (
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuagepolicyapi/policies"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"strconv"

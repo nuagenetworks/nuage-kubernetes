@@ -20,7 +20,7 @@
 package client
 
 import (
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"testing"
 )
 

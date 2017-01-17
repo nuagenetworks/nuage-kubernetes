@@ -22,7 +22,7 @@ package client
 import (
 	"flag"
 	"fmt"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	"os"
 	"os/exec"
 	"testing"

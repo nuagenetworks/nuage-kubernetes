@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 	"github.com/golang/glog"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	"net/http"
 	"net/url"
 	"sync"

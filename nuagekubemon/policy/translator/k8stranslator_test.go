@@ -2,8 +2,8 @@ package translator
 
 import (
 	"fmt"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuagepolicyapi/implementer"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
 	"gopkg.in/yaml.v2"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"

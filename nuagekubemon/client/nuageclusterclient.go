@@ -20,8 +20,8 @@ package client
 
 import (
 	"github.com/golang/glog"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/config"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	oscache "github.com/openshift/origin/pkg/client/cache"
 	kapi "k8s.io/kubernetes/pkg/api"
 	kextensions "k8s.io/kubernetes/pkg/apis/extensions"

@@ -21,7 +21,7 @@ package client
 
 import (
 	"fmt"
-	"github.com/nuagenetworks/openshift-integration/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
