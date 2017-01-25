@@ -39,28 +39,30 @@ import (
 )
 
 type NuageVsdClient struct {
-	url                   string
-	version               string
-	username              string
-	password              string
-	enterprise            string
-	session               napping.Session
-	enterpriseID          string
-	domainID              string
-	namespaces            map[string]NamespaceData //namespace name -> namespace data
-	pods                  *PodList                 //<namespace>/<pod-name> -> subnet
-	pool                  IPv4SubnetPool
-	clusterNetwork        *IPv4Subnet //clusterNetworkCIDR used to generate pool
-	serviceNetwork        *IPv4Subnet
-	ingressAclTemplateID  string
-	egressAclTemplateID   string
-	nextAvailablePriority int
-	subnetSize            int         //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
-	restAPI               *sleepy.API //TODO: split the rest server into its own package
-	restServer            *http.Server
-	newSubnetQueue        chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
-	privilegedProjectName string
-	resourceManager       *policy.ResourceManager
+	url                                string
+	version                            string
+	username                           string
+	password                           string
+	enterprise                         string
+	session                            napping.Session
+	enterpriseID                       string
+	domainID                           string
+	namespaces                         map[string]NamespaceData //namespace name -> namespace data
+	pods                               *PodList                 //<namespace>/<pod-name> -> subnet
+	pool                               IPv4SubnetPool
+	clusterNetwork                     *IPv4Subnet //clusterNetworkCIDR used to generate pool
+	serviceNetwork                     *IPv4Subnet
+	ingressAclTemplateID               string
+	egressAclTemplateID                string
+	ingressAclTemplateZoneAnnotationID string
+	egressAclTemplateZoneAnnotationID  string
+	nextAvailablePriority              int
+	subnetSize                         int         //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
+	restAPI                            *sleepy.API //TODO: split the rest server into its own package
+	restServer                         *http.Server
+	newSubnetQueue                     chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
+	privilegedProjectName              string
+	resourceManager                    *policy.ResourceManager
 }
 
 type NamespaceData struct {
@@ -414,10 +416,32 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatal(err)
 	}
+
+	err = nvsdc.CreateIngressAclEntries()
+	if err != nil {
+		glog.Fatal(err)
+	}
+
 	_, err = nvsdc.CreateEgressAclTemplate(nvsdc.domainID)
 	if err != nil {
 		glog.Fatal(err)
 	}
+
+	err = nvsdc.CreateEgressAclEntries()
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	_, err = nvsdc.CreateIngressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	_, err = nvsdc.CreateEgressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
 	err = nvsdc.StartRestServer(nkmConfig.RestServer)
 	if err != nil {
 		glog.Fatal(err)
@@ -781,108 +805,94 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, error) {
+func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, priority int, ingress bool) (string, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	payload := api.VsdAclTemplate{
-		Name:              api.IngressAclTemplateName,
+		Name:              name,
 		DefaultAllowIP:    true,
 		DefaultAllowNonIP: true,
 		Active:            true,
-		Priority:          api.MAX_VSD_ACL_PRIORITY,
+		Priority:          priority,
 	}
 	e := api.RESTError{}
+
+	restpath := "/ingressacltemplates"
+	if !ingress {
+		restpath = "/egressacltemplates"
+	}
+
 	for {
 		resp, err := nvsdc.session.Post(
-			nvsdc.url+"domains/"+domainID+"/ingressacltemplates",
+			nvsdc.url+"domains/"+domainID+restpath,
 			&payload, &result, &e)
 		if err != nil {
-			glog.Error("Error when applying ingress acl template", err)
+			glog.Errorf("Error %s when creating ACL template %s", err, name)
 			return "", err
 		}
 		glog.Infoln("Got a reponse status", resp.Status(),
-			"when creating ingress acl template")
+			"when creating acl template")
 		switch resp.Status() {
 		case http.StatusCreated:
-			nvsdc.ingressAclTemplateID = result[0].ID
-			glog.Infoln("Applied default ingress ACL")
-			err := nvsdc.CreateIngressAclEntries()
-			if err != nil {
-				return "", err
-			}
-			return nvsdc.ingressAclTemplateID, nil
+			glog.Infof("Created ACL template %s with priority %d", name, priority)
+			return result[0].ID, nil
 		case http.StatusConflict:
 			if e.InternalErrorCode == 2533 {
-				ingressAclTemplate, err := nvsdc.GetIngressAclTemplate(domainID, payload.Name)
+				var aclTemplate *api.VsdAclTemplate
+				var err error
+				if ingress {
+					aclTemplate, err = nvsdc.GetIngressAclTemplate(domainID, payload.Name)
+				} else {
+					aclTemplate, err = nvsdc.GetEgressAclTemplate(domainID, payload.Name)
+				}
+
 				if err != nil {
 					return "", err
 				}
-				nvsdc.ingressAclTemplateID = ingressAclTemplate.ID
-				glog.Infoln("Applied default ingress ACL")
-				err = nvsdc.CreateIngressAclEntries()
-				if err != nil {
-					return "", err
-				}
-				return nvsdc.ingressAclTemplateID, nil
+				glog.Infof("Created ACL template %s with priority %d", name, priority)
+				return aclTemplate.ID, nil
 			} else {
 				// Increment priority, and retry
-				payload.Priority++
+				payload.Priority--
 			}
 		default:
 			return "", VsdErrorResponse(resp, &e)
 		}
 	}
 }
+func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, error) {
+	id, err := nvsdc.CreateAclTemplate(domainID, api.IngressAclTemplateName, api.MAX_VSD_ACL_PRIORITY, true)
+	if err != nil {
+		return "", err
+	}
+	nvsdc.ingressAclTemplateID = id
+	return id, nil
+}
 
 func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, error) {
-	result := make([]api.VsdAclTemplate, 1)
-	payload := api.VsdAclTemplate{
-		Name:              api.EgressAclTemplateName,
-		DefaultAllowIP:    true,
-		DefaultAllowNonIP: true,
-		Active:            true,
-		Priority:          api.MAX_VSD_ACL_PRIORITY,
+	id, err := nvsdc.CreateAclTemplate(domainID, api.EgressAclTemplateName, api.MAX_VSD_ACL_PRIORITY, false)
+	if err != nil {
+		return "", err
 	}
-	e := api.RESTError{}
-	for {
-		resp, err := nvsdc.session.Post(
-			nvsdc.url+"domains/"+domainID+"/egressacltemplates",
-			&payload, &result, &e)
-		if err != nil {
-			glog.Error("Error when applying egress acl template", err)
-			return "", err
-		}
-		glog.Infoln("Got a reponse status", resp.Status(),
-			"when creating egress acl template")
-		switch resp.Status() {
-		case http.StatusCreated:
-			nvsdc.egressAclTemplateID = result[0].ID
-			glog.Infoln("Applied default egress ACL")
-			err := nvsdc.CreateEgressAclEntries()
-			if err != nil {
-				return "", err
-			}
-			return nvsdc.egressAclTemplateID, nil
-		case http.StatusConflict:
-			if e.InternalErrorCode == 2533 {
-				egressAclTemplate, err := nvsdc.GetEgressAclTemplate(domainID, payload.Name)
-				if err != nil {
-					return "", err
-				}
-				nvsdc.egressAclTemplateID = egressAclTemplate.ID
-				glog.Infoln("Applied default egress ACL")
-				err = nvsdc.CreateEgressAclEntries()
-				if err != nil {
-					return "", err
-				}
-				return nvsdc.egressAclTemplateID, nil
-			} else {
-				// Increment priority, and retry
-				payload.Priority++
-			}
-		default:
-			return "", VsdErrorResponse(resp, &e)
-		}
+	nvsdc.egressAclTemplateID = id
+	return id, nil
+}
+
+func (nvsdc *NuageVsdClient) CreateIngressAclTemplateForNamespaceAnnotations(domainID string) (string, error) {
+	id, err := nvsdc.CreateAclTemplate(domainID, api.ZoneAnnotationTemplateName, api.MAX_VSD_ACL_PRIORITY-1, true)
+	if err != nil {
+		return "", err
 	}
+	nvsdc.ingressAclTemplateZoneAnnotationID = id
+	return id, nil
+}
+
+func (nvsdc *NuageVsdClient) CreateEgressAclTemplateForNamespaceAnnotations(domainID string) (string, error) {
+	id, err := nvsdc.CreateAclTemplate(domainID, api.ZoneAnnotationTemplateName, api.MAX_VSD_ACL_PRIORITY-1, false)
+	if err != nil {
+		return "", err
+	}
+	nvsdc.egressAclTemplateZoneAnnotationID = id
+	return id, nil
 }
 
 func (nvsdc *NuageVsdClient) UpdateAclTemplate(aclTemplate *api.VsdAclTemplate, ingress bool) error {

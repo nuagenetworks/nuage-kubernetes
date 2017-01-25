@@ -24,6 +24,7 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy/translator"
 	"github.com/nuagenetworks/nuagepolicyapi/implementer"
+	"github.com/nuagenetworks/nuagepolicyapi/policies"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/fields"
@@ -136,8 +137,68 @@ func (rm *ResourceManager) GetPolicyGroupsForPod(podName string, podNs string) (
 	return &pgList, nil
 }
 
+func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
+	updateOp policies.PolicyUpdateOperation) error {
+
+	enterprise, ok := rm.vsdMeta["enterpriseName"]
+	if !ok {
+		glog.Error("Failed to get enterprise for namespace annotation operation")
+		return errors.New("Failed to get enterprise for namespace annotation operation")
+	}
+
+	domain, ok := rm.vsdMeta["domainName"]
+	if !ok {
+		glog.Error("Failed to get domain for namespace annotation operation")
+		return errors.New("Failed to get domain for namespace annotation operation")
+	}
+
+	nuagePolicy := policies.NuagePolicy{
+		Version:    policies.V1Alpha,
+		Type:       policies.Default,
+		Enterprise: enterprise,
+		Domain:     domain,
+		Name:       api.ZoneAnnotationTemplateName,
+	}
+
+	defaultPolicyElementTCP := policies.DefaultPolicyElement{
+		Name:   fmt.Sprint("Namespace annotation for %s - TCP", namespace),
+		From:   policies.EndPoint{Name: namespace, Type: policies.Zone},
+		To:     policies.EndPoint{Name: namespace, Type: policies.Zone},
+		Action: policies.Deny,
+		NetworkParameters: policies.NetworkParameters{
+			Protocol:             policies.TCP,
+			DestinationPortRange: policies.PortRange{StartPort: 1, EndPort: 65535},
+		},
+	}
+
+	defaultPolicyElementUDP := policies.DefaultPolicyElement{
+		Name:   fmt.Sprint("Namespace annotation for %s - UDP", namespace),
+		From:   policies.EndPoint{Name: namespace, Type: policies.Zone},
+		To:     policies.EndPoint{Name: namespace, Type: policies.Zone},
+		Action: policies.Deny,
+		NetworkParameters: policies.NetworkParameters{
+			Protocol:             policies.UDP,
+			DestinationPortRange: policies.PortRange{StartPort: 1, EndPort: 65535},
+		},
+	}
+
+	nuagePolicy.PolicyElements = []policies.DefaultPolicyElement{defaultPolicyElementTCP, defaultPolicyElementUDP}
+
+	err := rm.InitPolicyImplementer()
+	if err != nil {
+		return fmt.Errorf("Unable to initialize policy implementer %+v", err)
+	}
+
+	if notImplemented := rm.implementer.UpdatePolicy(&nuagePolicy, updateOp); notImplemented != nil {
+		glog.Errorf("Got a %s error when implementing policy", notImplemented)
+		return notImplemented
+	}
+
+	return nil
+}
+
 func (rm *ResourceManager) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
-	glog.Info("Received namespace event for policy parsing %+v", nsEvent)
+	glog.Infof("Received namespace event for policy parsing %+v", nsEvent)
 
 	switch nsEvent.Type {
 	case api.Added:
@@ -146,9 +207,34 @@ func (rm *ResourceManager) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		if nsEvent.Annotations != nil {
 			if annotation, ok := nsEvent.Annotations["net.beta.kubernetes.io/network-policy"]; ok {
 				if strings.Compare(annotation, "{\"ingress\": {\"isolation\": \"DefaultDeny\"}}") == 0 {
-					glog.Info("Network policy to block intra zone communication")
+					glog.Info("Implementing Network policy to block intra zone communication")
+					err := rm.updateZoneAnnotationTemplate(nsEvent.Name, policies.UpdateAdd)
+					if err != nil {
+						glog.Errorf("Unable to add annotations for namespace %s", nsEvent.Name)
+						return err
+					}
+					glog.Infof("Successfully implemented namespace annotations for %s", nsEvent.Name)
+				} else {
+					err := rm.updateZoneAnnotationTemplate(nsEvent.Name, policies.UpdateRemove)
+					if err != nil {
+						glog.Warningf("Unable to remove annotations from namespace %s", nsEvent.Name)
+						return err
+					}
+				}
+			} else {
+				err := rm.updateZoneAnnotationTemplate(nsEvent.Name, policies.UpdateRemove)
+				if err != nil {
+					glog.Warningf("Unable to remove annotations from namespace %s", nsEvent.Name)
+					return err
 				}
 			}
+		}
+
+	case api.Deleted:
+		err := rm.updateZoneAnnotationTemplate(nsEvent.Name, policies.UpdateRemove)
+		if err != nil {
+			glog.Errorf("Unable to remove annotations from namespace %s", nsEvent.Name)
+			return err
 		}
 	}
 	return nil

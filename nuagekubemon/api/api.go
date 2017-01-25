@@ -46,8 +46,9 @@ const (
 )
 
 const (
-	IngressAclTemplateName = "Auto-generated Ingress Policies"
-	EgressAclTemplateName  = "Auto-generated Egress Policies"
+	IngressAclTemplateName     = "Auto-generated Ingress Policies"
+	EgressAclTemplateName      = "Auto-generated Egress Policies"
+	ZoneAnnotationTemplateName = "Namespace Annotations"
 )
 
 type Namespace string
