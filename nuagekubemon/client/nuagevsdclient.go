@@ -1103,11 +1103,9 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
-		Name:            name,
-		Description:     "Auto-generated domain",
-		TemplateID:      domainTemplateID,
-		PATEnabled:      api.PATEnabled,
-		UnderlayEnabled: api.PATEnabled,
+		Name:        name,
+		Description: "Auto-generated domain",
+		TemplateID:  domainTemplateID,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
