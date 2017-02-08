@@ -1,6 +1,0 @@
----
-
-- include: iptables.yml
-
-- name: Restart kubemon
-  service: name=nuagekubemon state=restarted
