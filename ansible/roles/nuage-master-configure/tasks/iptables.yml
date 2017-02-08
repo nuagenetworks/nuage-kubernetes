@@ -1,9 +1,0 @@
----
-- name: IPtables | Get iptables rules
-  command: iptables -L --wait
-  register: iptablesrules
-  always_run: yes
-
-- name: IPtables | Open Nuage monitor port with iptables
-  command: /sbin/iptables -I INPUT 1 -p tcp --dport {{ nuage_mon_rest_server_port }} -j ACCEPT -m comment --comment "nuage-monitor"
-  when: "'nuage-monitor' not in iptablesrules.stdout"

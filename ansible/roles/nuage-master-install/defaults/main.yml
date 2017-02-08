@@ -1,9 +1,0 @@
----
-kube_config_dir: /etc/kubernetes
-kube_cert_dir: "{{ kube_config_dir }}/certs"
-
-nuage_master_cspadminpasswd: ""
-nuage_master_adminusername: admin
-nuage_master_adminuserpasswd: admin
-nuage_mon_log_level: "{{ nuage_monitor_log_level | default('3') }}"
-nuage_host_subnet_len: "{{ nuage_host_subnet_length | default('8')}}"
