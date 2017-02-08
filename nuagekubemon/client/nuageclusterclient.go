@@ -146,11 +146,11 @@ func (nosc *NuageClusterClient) GetNamespaces(listOpts *kapi.ListOptions) (*[]*a
 func (nosc *NuageClusterClient) WatchNamespaces(receiver chan *api.NamespaceEvent, stop chan bool) error {
 	nsEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
-		ListFunc: func(rv kapi.ListOptions) (runtime.Object, error) {
-			return nosc.kubeClient.Namespaces().List(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()})
+		ListFunc: func(options kapi.ListOptions) (runtime.Object, error) {
+			return nosc.kubeClient.Namespaces().List(options)
 		},
-		WatchFunc: func(rv kapi.ListOptions) (watch.Interface, error) {
-			return nosc.kubeClient.Namespaces().Watch(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()})
+		WatchFunc: func(options kapi.ListOptions) (watch.Interface, error) {
+			return nosc.kubeClient.Namespaces().Watch(options)
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Namespace{}, nsEventQueue, 0).Run()
@@ -159,13 +159,17 @@ func (nosc *NuageClusterClient) WatchNamespaces(receiver chan *api.NamespaceEven
 		if err != nil {
 			return err
 		}
+
 		eventType := watch.EventType(evt)
+		ns := obj.(*kapi.Namespace)
+
 		switch eventType {
 		case watch.Added:
-			fallthrough
+			receiver <- &api.NamespaceEvent{Type: api.Added, Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
+		case watch.Modified:
+			receiver <- &api.NamespaceEvent{Type: api.Modified, Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
 		case watch.Deleted:
-			ns := obj.(*kapi.Namespace)
-			receiver <- &api.NamespaceEvent{Type: api.EventType(eventType), Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
+			receiver <- &api.NamespaceEvent{Type: api.Deleted, Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
 		}
 	}
 }
