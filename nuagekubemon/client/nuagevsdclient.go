@@ -38,6 +38,7 @@ import (
 	"time"
 )
 
+// NuageVsdClient contains all the params needed to connect and talk to VSD
 type NuageVsdClient struct {
 	url                                string
 	version                            string
@@ -65,6 +66,7 @@ type NuageVsdClient struct {
 	resourceManager                    *policy.ResourceManager
 }
 
+// NamespaceData contains information about a Namespace and its attributes
 type NamespaceData struct {
 	ZoneID              string
 	Name                string
@@ -75,6 +77,7 @@ type NamespaceData struct {
 	numSubnets          int //used for naming new subnets (nsname-0, nsname-1, etc.)
 }
 
+// SubnetNode stores subnet info
 type SubnetNode struct {
 	SubnetID   string
 	Subnet     *IPv4Subnet
@@ -83,12 +86,14 @@ type SubnetNode struct {
 	Next       *SubnetNode
 }
 
+// NewNuageVsdClient initializes and returns a new NuageVsdClient object
 func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
 	nvsdc.Init(nkmConfig, clusterCallBacks)
 	return nvsdc
 }
 
+// GetAuthorizationToken gets a VSD Auth token and refreshes it before expiry
 func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 	h := nvsdc.session.Header
 	// Add the organization header if it's not present
@@ -125,6 +130,7 @@ func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
 	return VsdErrorResponse(resp, &e)
 }
 
+// CreateEnterprise creates an Enterprise with the given name on VSD
 func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, error) {
 	payload := api.VsdEnterprise{
 		Name:        enterpriseName,
@@ -156,6 +162,7 @@ func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, er
 	}
 }
 
+// CreateAdminUser creates an Admin User on VSD
 func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, passwd string) (string, error) {
 	payload := api.VsdUser{
 		UserName:  user,
@@ -204,6 +211,7 @@ func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, passwd string) 
 	return adminID, nil
 }
 
+// GetAdminID returns the ID of the Admin User for a given Enterprise
 func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, error) {
 	result := make([]api.VsdUser, 1)
 	h := nvsdc.session.Header
@@ -233,6 +241,7 @@ func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, erro
 	}
 }
 
+// GetAdminGroupID returns the Group ID of the the admin of a given Enterprise
 func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error) {
 	result := make([]api.VsdGroup, 1)
 	h := nvsdc.session.Header
@@ -262,6 +271,7 @@ func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error
 	}
 }
 
+// GetEnterpriseID returns the ID of the given Enterprise
 func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -291,6 +301,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	}
 }
 
+// CreateSession creates a VSD session object
 func (nvsdc *NuageVsdClient) CreateSession() {
 	nvsdc.session = napping.Session{
 		Client: &http.Client{
@@ -306,6 +317,7 @@ func (nvsdc *NuageVsdClient) CreateSession() {
 	nvsdc.session.Header.Add("Connection", "close")
 }
 
+// LoginAsAdmin is used to login to VSD as admin user
 func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string) error {
 	nvsdc.username = user
 	nvsdc.password = password
@@ -316,6 +328,8 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 	return nvsdc.GetAuthorizationToken()
 }
 
+// Init initializes all the members of the NuageVSDClient object and creates the necessary
+// objects on VSD and also starts the Rest Server
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) {
 	cb := &policy.CallBacks{
 		AddPg:             nvsdc.CreatePolicyGroup,
@@ -446,6 +460,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	}
 }
 
+// StartRestServer starts the rest server that listens to the incoming requests from the plugin
 func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConfig) error {
 	// Process config options
 	url := restServerCfg.Url
@@ -509,6 +524,7 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 	return nil
 }
 
+// InstallLicense installs the VSD license
 func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
 	if licensePath == "" {
 		glog.Info("No license file specified")
@@ -547,6 +563,7 @@ func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
 	return nil
 }
 
+// GetLicense is used to find out if VSD license is added or not
 func (nvsdc *NuageVsdClient) GetLicense() error {
 	result := make([]api.VsdLicense, 1)
 	e := api.RESTError{}
@@ -562,6 +579,7 @@ func (nvsdc *NuageVsdClient) GetLicense() error {
 	return VsdErrorResponse(resp, &e)
 }
 
+// CreateDomainTemplate creates a DomainTemplate on VSD
 func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
@@ -592,6 +610,7 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 	}
 }
 
+// GetDomainTemplateID is used to get the ID of DomainTemplate with give name in a given Enterprise
 func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -620,6 +639,7 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	return "", VsdErrorResponse(resp, &e)
 }
 
+// GetIngressAclTemplate returns the IngressAclTemplate with given name in a given Domain
 func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.VsdAclTemplate, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	h := nvsdc.session.Header
@@ -648,6 +668,8 @@ func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.
 	return nil, VsdErrorResponse(resp, &e)
 }
 
+// GetAclTemplateByID returns the AclTemplate object for the given AclTemplateID, ingress param is used
+// to mention the kind of ACL : ingress/egress
 func (nvsdc *NuageVsdClient) GetAclTemplateByID(templateID string, ingress bool) (*api.VsdAclTemplate, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	e := api.RESTError{}
@@ -670,6 +692,7 @@ func (nvsdc *NuageVsdClient) GetAclTemplateByID(templateID string, ingress bool)
 	return nil, VsdErrorResponse(resp, &e)
 }
 
+// GetEgressAclTemplate returns the EgressAclTemplate with given name in a given Domain
 func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.VsdAclTemplate, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	h := nvsdc.session.Header
@@ -698,6 +721,7 @@ func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.V
 	return nil, VsdErrorResponse(resp, &e)
 }
 
+// CreateIngressAclEntries creates an IngressAclEntry on VSD
 func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	aclEntry := api.VsdAclEntry{
 		Action:       "FORWARD",
@@ -748,6 +772,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	return nil
 }
 
+// CreateEgressAclEntries creates an EgressAclEntry on VSD
 func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	aclEntry := api.VsdAclEntry{
 		Action:       "FORWARD",
@@ -798,6 +823,8 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	return nil
 }
 
+// CreateAclTemplate creates an ACL template in a given domain, ingress param is used
+// to mention the kind of ACL : ingress/egress
 func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, priority int, ingress bool) (string, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	payload := api.VsdAclTemplate{
@@ -847,13 +874,13 @@ func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, pri
 				// Increment priority, and retry
 				payload.Priority--
 			}
-			// Increment priority, and retry
-			payload.Priority++
 		default:
 			return "", VsdErrorResponse(resp, &e)
 		}
 	}
 }
+
+// CreateIngressAclTemplate creates an IngressAclTemplate in a given domain
 func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, error) {
 	id, err := nvsdc.CreateAclTemplate(domainID, api.IngressAclTemplateName, api.MAX_VSD_ACL_PRIORITY, true)
 	if err != nil {
@@ -863,6 +890,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplate(domainID string) (string, 
 	return id, nil
 }
 
+// CreateEgressAclTemplate creates an EgressAclTemplate in a given domain
 func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, error) {
 	id, err := nvsdc.CreateAclTemplate(domainID, api.EgressAclTemplateName, api.MAX_VSD_ACL_PRIORITY, false)
 	if err != nil {
@@ -872,6 +900,8 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplate(domainID string) (string, e
 	return id, nil
 }
 
+// CreateIngressAclTemplateForNamespaceAnnotations creates an IngressAclTemplate
+// for namespace annotations in a given domain
 func (nvsdc *NuageVsdClient) CreateIngressAclTemplateForNamespaceAnnotations(domainID string) (string, error) {
 	id, err := nvsdc.CreateAclTemplate(domainID, api.ZoneAnnotationTemplateName, api.MAX_VSD_ACL_PRIORITY-1, true)
 	if err != nil {
@@ -881,6 +911,8 @@ func (nvsdc *NuageVsdClient) CreateIngressAclTemplateForNamespaceAnnotations(dom
 	return id, nil
 }
 
+// CreateEgressAclTemplateForNamespaceAnnotations creates an EgressAclTemplate
+// for namespace annotations in a given domain
 func (nvsdc *NuageVsdClient) CreateEgressAclTemplateForNamespaceAnnotations(domainID string) (string, error) {
 	id, err := nvsdc.CreateAclTemplate(domainID, api.ZoneAnnotationTemplateName, api.MAX_VSD_ACL_PRIORITY-1, false)
 	if err != nil {
@@ -890,6 +922,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclTemplateForNamespaceAnnotations(doma
 	return id, nil
 }
 
+// UpdateAclTemplate is used to update an existing AclTemplate on VSD
 func (nvsdc *NuageVsdClient) UpdateAclTemplate(aclTemplate *api.VsdAclTemplate, ingress bool) error {
 	url := nvsdc.url + "egressacltemplates/" + aclTemplate.ID
 	if ingress {
@@ -905,6 +938,8 @@ func (nvsdc *NuageVsdClient) UpdateAclTemplate(aclTemplate *api.VsdAclTemplate, 
 	return nil
 }
 
+// GetAclEntryByPriority returns an AclEntry of the given priority, ingress param is used
+// to mention the kind of ACL : ingress/egress
 func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriority int) (*api.VsdAclEntry, error) {
 	result := make([]api.VsdAclEntry, 1)
 	h := nvsdc.session.Header
@@ -937,6 +972,7 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriorit
 	return nil, VsdErrorResponse(resp, &e)
 }
 
+// GetAclEntry verifies if the given AclEntry exists on VSD, and if it matches, it returns the AclEntry object
 func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry) (*api.VsdAclEntry, error) {
 	result := make([]api.VsdAclEntry, 1)
 	h := nvsdc.session.Header
@@ -992,6 +1028,8 @@ func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry
 	}
 }
 
+// CreateAclEntry creates a given AclEntry on VSD, ingress param is used
+// to mention the kind of ACL : ingress/egress
 func (nvsdc *NuageVsdClient) CreateAclEntry(ingress bool, aclEntry *api.VsdAclEntry) (string, error) {
 	//check if any entry matches the desired semantics with a different priority
 	if acl, err := nvsdc.GetAclEntry(ingress, aclEntry); err == nil && acl != nil {
@@ -1051,6 +1089,8 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(ingress bool, aclEntry *api.VsdAclEn
 	}
 }
 
+// DeleteAclEntry deletes a given AclEntry from VSD, ingress param is used
+// to mention the kind of ACL : ingress/egress
 func (nvsdc *NuageVsdClient) DeleteAclEntry(ingress bool, aclID string) error {
 	// Delete subnets in this zone
 	result := make([]struct{}, 1)
@@ -1073,6 +1113,7 @@ func (nvsdc *NuageVsdClient) DeleteAclEntry(ingress bool, aclID string) error {
 	}
 }
 
+// GetZoneID returns ID of a zone with the given name in given domain
 func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -1102,6 +1143,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	}
 }
 
+// CreateDomain creates a Domain in given Enterprise using the given domain template
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
@@ -1134,6 +1176,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 	}
 }
 
+// DeleteDomain deletes the given domain from VSD
 func (nvsdc *NuageVsdClient) DeleteDomain(id string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
@@ -1151,6 +1194,7 @@ func (nvsdc *NuageVsdClient) DeleteDomain(id string) error {
 	}
 }
 
+// CreateZone creates a zone on VSD in the given domain
 func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
@@ -1181,6 +1225,7 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 	}
 }
 
+// DeleteZone deletes the given zone from VSD
 func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 	// Delete subnets in this zone
 	result := make([]struct{}, 1)
@@ -1199,6 +1244,7 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 	}
 }
 
+// CreateSubnet creates a subnet on VSD in the given zone with the given subnet specification
 func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subnet) (string, error) {
 	result := make([]api.VsdSubnet, 1)
 	payload := api.VsdSubnet{
@@ -1238,6 +1284,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 	return result[0].ID, nil
 }
 
+// DeleteZone deletes the given subnet from VSD
 func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
@@ -1253,6 +1300,7 @@ func (nvsdc *NuageVsdClient) DeleteSubnet(id string) error {
 	return nil
 }
 
+// GetSubnet returns a VSD subnet object with given name in the given zone
 func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubnet, error) {
 	result := make([]api.VsdSubnet, 1)
 	h := nvsdc.session.Header
@@ -1274,6 +1322,7 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 	return nil, VsdErrorResponse(resp, &e)
 }
 
+// GetSubnetID fetches the subnet ID from VSD for the given subnet name
 func (nvsdc *NuageVsdClient) GetSubnetID(zoneID, subnetName string) (string, error) {
 	vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName)
 	if vsdSubnet != nil {
@@ -1282,6 +1331,7 @@ func (nvsdc *NuageVsdClient) GetSubnetID(zoneID, subnetName string) (string, err
 	return "", err
 }
 
+// GetDomainID fetches the Domain ID from VSD for the given domain name
 func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -1310,7 +1360,7 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 	return "", VsdErrorResponse(resp, &e)
 }
 
-//GetPodInterfaces returns interfaces list for a container.
+//GetPodInterfaces returns interfaces list for a pod, which can further be a collection of containers
 func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.ContainerInterface, error) {
 	//iterates over a list of containers with name matching the podName and then gets its interface elements.
 	result := make([]vspk.Container, 0, 100)
@@ -1373,6 +1423,7 @@ func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.Container
 	return nil, errors.New("Unable to fetch pods in the domain and their interfaces")
 }
 
+// GetInterfaces returns the interfaces list for a Container with given ID
 func (nvsdc *NuageVsdClient) GetInterfaces(containerID string) (*[]vspk.ContainerInterface, error) {
 	var interfaces []vspk.ContainerInterface
 	result := make([]vspk.ContainerInterface, 0, 100)
@@ -1506,6 +1557,7 @@ func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgID string, podsList []string
 	return nil
 }
 
+// RemovePortsFromPolicyGroup removes all the ports from a given policy group
 func (nvsdc *NuageVsdClient) RemovePortsFromPolicyGroup(pgID string) error {
 	vportsList := make([]string, 0)
 	e := api.RESTError{}
@@ -1526,6 +1578,7 @@ func (nvsdc *NuageVsdClient) RemovePortsFromPolicyGroup(pgID string) error {
 	return nil
 }
 
+// GetPolicyGroup returns the Policy Group object on VSD with a given name
 func (nvsdc *NuageVsdClient) GetPolicyGroup(name string) (string, error) {
 	result := make([]vspk.PolicyGroup, 1)
 	h := nvsdc.session.Header
@@ -1547,6 +1600,7 @@ func (nvsdc *NuageVsdClient) GetPolicyGroup(name string) (string, error) {
 	return "", VsdErrorResponse(resp, &e)
 }
 
+// CreatePolicyGroup creates a policy group on VSD with the given name and description
 func (nvsdc *NuageVsdClient) CreatePolicyGroup(name string, description string) (string, string, error) {
 	result := make([]vspk.PolicyGroup, 1)
 	payload := vspk.PolicyGroup{
@@ -1579,6 +1633,7 @@ func (nvsdc *NuageVsdClient) CreatePolicyGroup(name string, description string) 
 	return result[0].Name, result[0].ID, nil
 }
 
+// DeletePolicyGroup deletes a given Policy group from VSD
 func (nvsdc *NuageVsdClient) DeletePolicyGroup(id string) error {
 	result := make([]struct{}, 1)
 	e := api.RESTError{}
@@ -1594,6 +1649,8 @@ func (nvsdc *NuageVsdClient) DeletePolicyGroup(id string) error {
 	return nil
 }
 
+// Run method infinitely listens to the events about Namespaces, Services, Policies and Pods
+// on their corresponding channels and calls appropriate methods to handle those events
 func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, podChannel chan *api.PodEvent, policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
 	//we will use the kube client APIs than interfacing with the REST API
 	for {
@@ -1615,6 +1672,8 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 	}
 }
 
+// CreateAdditionalSubnet creates an additional subnet for a given namespace
+// by determining the subnet name and CIDR to use
 func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
 	glog.Infof("Got request to create subnet in namespace %q", namespaceID)
 	nvsdc.pods.editLock.Lock()
@@ -1683,6 +1742,7 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
 	}
 }
 
+// HandlePodEvent logs about the Pod events received like Added and Deleted
 func (nvsdc *NuageVsdClient) HandlePodEvent(podEvent *api.PodEvent) error {
 	glog.Infoln("Received a pod event: Pod: ", podEvent)
 	switch podEvent.Type {
@@ -1695,6 +1755,7 @@ func (nvsdc *NuageVsdClient) HandlePodEvent(podEvent *api.PodEvent) error {
 	return nil
 }
 
+// HandleNetworkPolicyEvent logs and handles the given Policy Event
 func (nvsdc *NuageVsdClient) HandleNetworkPolicyEvent(policyEvent *api.NetworkPolicyEvent) error {
 	glog.Infoln("Received a policy event: Policy: ", policyEvent)
 	switch policyEvent.Type {
@@ -1708,6 +1769,7 @@ func (nvsdc *NuageVsdClient) HandleNetworkPolicyEvent(policyEvent *api.NetworkPo
 	return nil
 }
 
+// HandleServiceEvent method logs and handles Network Macro addition/deletion for a given Service Event
 func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) error {
 	glog.Infoln("Received a service event: Service: ", serviceEvent)
 	switch serviceEvent.Type {
@@ -1790,6 +1852,8 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 	return nil
 }
 
+// HandleNsEvent method creates corresponding zone and the first subnet for a Namespace Add Event
+// and deletes the same for a Delete event
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
 	//handle annotations
@@ -1992,6 +2056,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	return nil
 }
 
+// CreatePrivilegedZoneAcls creates a privileged ACL that allows traffic between all zones and default zone
 func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, nvsdc.privilegedProjectName)
 	if err != nil {
@@ -2054,6 +2119,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 	return nil
 }
 
+// CreateSpecificZoneAcls creates Zone ACLs that allows traffic between given zone and default zone
 func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID string) error {
 	//first create the network macro group for the zone.
 	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, zoneName)
@@ -2103,19 +2169,23 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 	return nil
 }
 
+// NextAvailablePriority returns the next usable priority for ACLs
 func (nvsdc *NuageVsdClient) NextAvailablePriority() int {
 	defer nvsdc.IncrementNextAvailablePriority()
 	return nvsdc.nextAvailablePriority
 }
 
+// IncrementNextAvailablePriority increments NextAvailablePriority by 1
 func (nvsdc *NuageVsdClient) IncrementNextAvailablePriority() {
 	nvsdc.nextAvailablePriority++
 }
 
+// SetNextAvailablePriority sets the NextAvailablePriority to the given number
 func (nvsdc *NuageVsdClient) SetNextAvailablePriority(val int) {
 	nvsdc.nextAvailablePriority = val
 }
 
+// CreateNetworkMacroGroup creates a NetworkMacroGroup for a given zone
 func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
@@ -2145,6 +2215,7 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 	}
 }
 
+// GetNetworkMacroGroupID fetches the ID of given NetworkMacroGroup
 func (nvsdc *NuageVsdClient) GetNetworkMacroGroupID(enterpriseID, nmgName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -2174,6 +2245,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroGroupID(enterpriseID, nmgName string
 	}
 }
 
+// DeleteNetworkMacroGroup deletes the NetworkMacroGroup with the given ID
 func (nvsdc *NuageVsdClient) DeleteNetworkMacroGroup(networkMacroGroupID string) error {
 	// Delete network macro group
 	result := make([]struct{}, 1)
@@ -2193,6 +2265,7 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacroGroup(networkMacroGroupID string)
 	}
 }
 
+// DeleteSpecificZoneAcls deletes the specific ACL entries of given zone
 func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	//add ingress and egress ACL entries for allowing zone to default zone communication
 	// aclEntry := api.VsdAclEntry{
@@ -2247,6 +2320,7 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	return nil
 }
 
+// DeletePrivilegedZoneAcls deletes the privileged ACL entries of given zone
 func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 	// aclEntry := api.VsdAclEntry{
 	// 	Action:       "FORWARD",
@@ -2296,6 +2370,8 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 	return nil
 }
 
+// CreateNetworkMacro tries to create a NetworkMacro and returns its ID,
+// if there is a conflict, it returns the ID of the existing one
 func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacro *api.VsdNetworkMacro) (string, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	e := api.RESTError{}
@@ -2332,6 +2408,7 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacr
 	}
 }
 
+// GetNetworkMacro fetches the NetworkMacro object with given name from VSD
 func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroName string) (*api.VsdNetworkMacro, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	h := nvsdc.session.Header
@@ -2363,6 +2440,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroNa
 	}
 }
 
+// GetNetworkMacro fetches the ID of the NetworkMacro with given name
 func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacroName string) (string, error) {
 	networkMacro, err := nvsdc.GetNetworkMacro(enterpriseID, networkMacroName)
 	if networkMacro != nil {
@@ -2371,6 +2449,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacro
 	return "", err
 }
 
+// UpdateNetworkMacro updates the existing NetworkMacro
 func (nvsdc *NuageVsdClient) UpdateNetworkMacro(networkMacro *api.VsdNetworkMacro) error {
 	if networkMacro == nil {
 		return errors.New("No network macro specified")
@@ -2385,6 +2464,7 @@ func (nvsdc *NuageVsdClient) UpdateNetworkMacro(networkMacro *api.VsdNetworkMacr
 	return nil
 }
 
+// DeleteNetworkMacro deletes the NetworkMacro with given ID
 func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	// Delete network macro
 	result := make([]struct{}, 1)
@@ -2404,6 +2484,7 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	}
 }
 
+// AddUserToGroup adds a given user to a given group
 func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
 	result := make([]api.VsdUser, 0, 100)
 	e := api.RESTError{}
@@ -2476,6 +2557,7 @@ func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
 	return nil
 }
 
+// AddNetworkMacroToNMG adds a NetworkMacro to a given NetworkMacroGroup
 func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGroupID string) error {
 	result := make([]api.VsdObject, 0, 100)
 	e := api.RESTError{}
@@ -2536,6 +2618,7 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 	return nil
 }
 
+// VsdErrorResponse pretty prints the error received from VSD
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
 	glog.Errorln("Bad response status from VSD Server")
 	glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
