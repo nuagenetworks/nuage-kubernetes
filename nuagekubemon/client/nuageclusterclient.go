@@ -26,7 +26,7 @@ import (
 	kapi "k8s.io/kubernetes/pkg/api"
 	kextensions "k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/client/cache"
-	krestclient "k8s.io/kubernetes/pkg/client/restclient"
+	krestclient "k8s.io/kubernetes/pkg/client/unversioned/restclient"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/fields"
@@ -39,11 +39,13 @@ import (
 	"time"
 )
 
+// NuageClusterClient contains the config info and a handle to connect and talk to kubernetes client
 type NuageClusterClient struct {
 	kubeConfig *krestclient.Config
 	kubeClient *kclient.Client
 }
 
+// NewNuageOsClient is the factory method for NuageClusterClient
 func NewNuageOsClient(nkmConfig *config.NuageKubeMonConfig) *NuageClusterClient {
 	nosc := new(NuageClusterClient)
 	nosc.Init(nkmConfig)
@@ -132,7 +134,7 @@ func (nosc *NuageClusterClient) RunServiceWatcher(serviceChannel chan *api.Servi
 }
 
 func (nosc *NuageClusterClient) GetNamespaces(listOpts *kapi.ListOptions) (*[]*api.NamespaceEvent, error) {
-	namespaces, err := nosc.kubeClient.Namespaces().List(*listOpts)
+	namespaces, err := nosc.kubeClient.Namespaces().List(*listOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -147,10 +149,10 @@ func (nosc *NuageClusterClient) WatchNamespaces(receiver chan *api.NamespaceEven
 	nsEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func(options kapi.ListOptions) (runtime.Object, error) {
-			return nosc.kubeClient.Namespaces().List(options)
+			return nosc.kubeClient.Namespaces().List(options, nil)
 		},
 		WatchFunc: func(options kapi.ListOptions) (watch.Interface, error) {
-			return nosc.kubeClient.Namespaces().Watch(options)
+			return nosc.kubeClient.Namespaces().Watch(options, nil, nil)
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Namespace{}, nsEventQueue, 0).Run()
@@ -175,7 +177,7 @@ func (nosc *NuageClusterClient) WatchNamespaces(receiver chan *api.NamespaceEven
 }
 
 func (nosc *NuageClusterClient) GetServices(listOpts *kapi.ListOptions) (*[]*api.ServiceEvent, error) {
-	services, err := nosc.kubeClient.Services(kapi.NamespaceAll).List(*listOpts)
+	services, err := nosc.kubeClient.Services(kapi.NamespaceAll).List(*listOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -193,10 +195,10 @@ func (nosc *NuageClusterClient) WatchServices(receiver chan *api.ServiceEvent, s
 	serviceEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func(rv kapi.ListOptions) (runtime.Object, error) {
-			return nosc.kubeClient.Services(kapi.NamespaceAll).List(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()})
+			return nosc.kubeClient.Services(kapi.NamespaceAll).List(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}, nil)
 		},
 		WatchFunc: func(rv kapi.ListOptions) (watch.Interface, error) {
-			return nosc.kubeClient.Services(kapi.NamespaceAll).Watch(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()})
+			return nosc.kubeClient.Services(kapi.NamespaceAll).Watch(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}, nil, nil)
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Service{}, serviceEventQueue, 0).Run()
@@ -234,7 +236,7 @@ func (nosc *NuageClusterClient) GetPods(listOpts *kapi.ListOptions, ns string) (
 	if ns == "" {
 		ns = kapi.NamespaceAll
 	}
-	pods, err := nosc.kubeClient.Pods(ns).List(*listOpts)
+	pods, err := nosc.kubeClient.Pods(ns).List(*listOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -250,10 +252,10 @@ func (nosc *NuageClusterClient) WatchPods(receiver chan *api.PodEvent, stop chan
 	podEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
 		ListFunc: func(rv kapi.ListOptions) (runtime.Object, error) {
-			return nosc.kubeClient.Pods(kapi.NamespaceAll).List(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()})
+			return nosc.kubeClient.Pods(kapi.NamespaceAll).List(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}, nil)
 		},
 		WatchFunc: func(rv kapi.ListOptions) (watch.Interface, error) {
-			return nosc.kubeClient.Pods(kapi.NamespaceAll).Watch(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()})
+			return nosc.kubeClient.Pods(kapi.NamespaceAll).Watch(kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}, nil, nil)
 		},
 	}
 	cache.NewReflector(listWatch, &kapi.Pod{}, podEventQueue, 0).Run()
