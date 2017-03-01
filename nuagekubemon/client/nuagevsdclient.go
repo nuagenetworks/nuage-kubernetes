@@ -412,32 +412,49 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatal(err)
 	}
+
+	err = nvsdc.CreateJob(nvsdc.domainID, api.BeginPolicyChanges)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
 	_, err = nvsdc.CreateIngressAclTemplate(nvsdc.domainID)
 	if err != nil {
+		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
 		glog.Fatal(err)
 	}
 
 	err = nvsdc.CreateIngressAclEntries()
 	if err != nil {
+		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
 		glog.Fatal(err)
 	}
 
 	_, err = nvsdc.CreateEgressAclTemplate(nvsdc.domainID)
 	if err != nil {
+		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
 		glog.Fatal(err)
 	}
 
 	err = nvsdc.CreateEgressAclEntries()
 	if err != nil {
+		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
 		glog.Fatal(err)
 	}
 
 	_, err = nvsdc.CreateIngressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
 	if err != nil {
+		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
 		glog.Fatal(err)
 	}
 
 	_, err = nvsdc.CreateEgressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
+	if err != nil {
+		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+		glog.Fatal(err)
+	}
+
+	err = nvsdc.CreateJob(nvsdc.domainID, api.ApplyPolicyChanges)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -802,6 +819,29 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 			glog.Error("Error when creating ingress acl entry", err)
 		}
 	}
+	return nil
+}
+
+func (nvsdc *NuageVsdClient) CreateJob(domainID string, jobType api.VsdJobType) error {
+	result := make([]struct{}, 1)
+	var payLoad api.VsdJob
+	payLoad = api.VsdJob{Command: jobType.String()}
+	e := api.RESTError{}
+
+	resp, err := nvsdc.session.Post(
+		nvsdc.url+"domains/"+domainID+"jobs",
+		&payLoad, &result, &e)
+
+	if err != nil {
+		glog.Errorf("Error %s when starting the job %s", err, jobType)
+		return err
+	}
+
+	if resp.Status() != http.StatusCreated {
+		glog.Errorf("Error %d when starting the job %s", resp.Status, jobType)
+		return fmt.Errorf("Error %d when starting the job %s", resp.Status, jobType)
+	}
+
 	return nil
 }
 
