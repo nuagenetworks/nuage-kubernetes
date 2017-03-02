@@ -35,9 +35,10 @@ import (
 )
 
 type NuageKubeMonitor struct {
-	mConfig    config.NuageKubeMonConfig
-	mVsdClient *client.NuageVsdClient
-	mOsClient  *client.NuageClusterClient
+	mConfig     config.NuageKubeMonConfig
+	mVsdClient  *client.NuageVsdClient
+	mOsClient   *client.NuageClusterClient
+	mEtcdClient *client.EtcdClient
 	//mOsNodeClient nuageosnodeclient.NuageOsNodeClient
 }
 
@@ -122,8 +123,11 @@ func (nkm *NuageKubeMonitor) Run() {
 			programName))
 		return
 	}
+
+	nkm.mEtcdClient = client.NewEtcdClient(&(nkm.mConfig))
 	nkm.mOsClient = client.NewNuageOsClient(&(nkm.mConfig))
-	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig), nkm.mOsClient.GetClusterClientCallBacks())
+	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig), nkm.mOsClient.GetClusterClientCallBacks(), nkm.mEtcdClient)
+
 	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)
 	stop := make(chan bool)
 	nsEventChannel := make(chan *api.NamespaceEvent)

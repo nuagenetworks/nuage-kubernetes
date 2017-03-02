@@ -39,6 +39,7 @@ type NuageKubeMonConfig struct {
 	EnterpriseAdminPassword string           `yaml:"enterpriseAdminPassword"`
 	PrivilegedProject       string           `yaml:"privilegedProject"`
 	PrivilegedNamespace     string           `yaml:"privilegedNamespace"`
+	EtcdClientConfig        EtcdClientConfig `yaml:"etcdClientConfig"`
 	ConfigFile              string           `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
 	MasterConfig            MasterConfig     `yaml:"-"`
 }
@@ -55,6 +56,13 @@ type networkConfig struct {
 	ClusterCIDR  string `yaml:"clusterNetworkCIDR"`
 	SubnetLength int    `yaml:"hostSubnetLength"`
 	ServiceCIDR  string `yaml:"serviceNetworkCIDR"`
+}
+
+type EtcdClientConfig struct {
+	CA       string   `yaml:"ca"`
+	CertFile string   `yaml:"certFile"`
+	KeyFile  string   `yaml:"keyFile"`
+	URLs     []string `yaml:"urls"`
 }
 
 /* Fields we care about in the openshift master-config.yaml */

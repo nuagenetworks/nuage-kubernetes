@@ -63,6 +63,7 @@ type NuageVsdClient struct {
 	newSubnetQueue                     chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
 	privilegedProjectName              string
 	resourceManager                    *policy.ResourceManager
+	etcdClient                         *EtcdClient
 }
 
 type NamespaceData struct {
@@ -83,9 +84,9 @@ type SubnetNode struct {
 	Next       *SubnetNode
 }
 
-func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) *NuageVsdClient {
+func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdClient *EtcdClient) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
-	nvsdc.Init(nkmConfig, clusterCallBacks)
+	nvsdc.Init(nkmConfig, clusterCallBacks, etcdClient)
 	return nvsdc
 }
 
@@ -318,7 +319,7 @@ func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string)
 	return nvsdc.GetAuthorizationToken()
 }
 
-func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) {
+func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdClient *EtcdClient) {
 	cb := &policy.CallBacks{
 		AddPg:             nvsdc.CreatePolicyGroup,
 		DeletePg:          nvsdc.DeletePolicyGroup,
@@ -378,6 +379,8 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		nvsdc.resourceManager = rm
 	}
 
+	nvsdc.etcdClient = etcdClient
+
 	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue, nvsdc.resourceManager.GetPolicyGroupsForPod)
 	nvsdc.CreateSession()
 	nvsdc.nextAvailablePriority = 0
@@ -402,6 +405,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatal(err)
 	}
+
 	domainTemplateID, err := nvsdc.CreateDomainTemplate(nvsdc.enterpriseID,
 		nkmConfig.DomainName+"-Template")
 	if err != nil {
@@ -412,6 +416,13 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatal(err)
 	}
+
+	if etcdClient != nil {
+		if err = etcdClient.ACLLock(); err != nil {
+			glog.Error("Unable to get etcd ACL lock %+v", err)
+		}
+	}
+
 	_, err = nvsdc.CreateIngressAclTemplate(nvsdc.domainID)
 	if err != nil {
 		glog.Fatal(err)
@@ -440,6 +451,17 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	_, err = nvsdc.CreateEgressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
 	if err != nil {
 		glog.Fatal(err)
+	}
+
+	glog.Info("Done creating initial ACLs")
+
+	if etcdClient != nil {
+		glog.Info("Will try to unlock etcd ACL lock")
+		if err = etcdClient.ACLUnLock(); err != nil {
+			glog.Errorf("Unable to unlock the etcd ACL lock %+v", err)
+		}
+	} else {
+		glog.Info("Looks like etcd client is nil")
 	}
 
 	err = nvsdc.StartRestServer(nkmConfig.RestServer)
@@ -1720,8 +1742,23 @@ func (nvsdc *NuageVsdClient) HandleNetworkPolicyEvent(policyEvent *api.NetworkPo
 	case api.Added:
 		fallthrough
 	case api.Deleted:
-		err := nvsdc.resourceManager.HandlePolicyEvent(policyEvent)
-		glog.Infof("Policy: %s was %s %+v", policyEvent.Name, policyEvent.Type, err)
+		var err error
+		if nvsdc.etcdClient != nil {
+			if err = nvsdc.etcdClient.ACLLock(); err != nil {
+				glog.Error("Unable to get Etcd lock")
+			} else {
+				err = nvsdc.resourceManager.HandlePolicyEvent(policyEvent)
+				glog.Infof("Policy: %s was %s %+v", policyEvent.Name, policyEvent.Type, err)
+				if err = nvsdc.etcdClient.ACLUnLock(); err != nil {
+					glog.Error("Unable to unlock Etcd lock")
+				}
+			}
+
+		} else {
+			err = nvsdc.resourceManager.HandlePolicyEvent(policyEvent)
+			glog.Infof("Policy: %s was %s %+v", policyEvent.Name, policyEvent.Type, err)
+		}
+
 		return err
 	}
 	return nil
@@ -1812,8 +1849,21 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
+
 	//handle annotations
-	nvsdc.resourceManager.HandleNsEvent(nsEvent)
+	if nvsdc.etcdClient != nil {
+		if err := nvsdc.etcdClient.ACLLock(); err != nil {
+			glog.Error("Unable to get Etcd lock")
+		} else {
+			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			if err := nvsdc.etcdClient.ACLUnLock(); err != nil {
+				glog.Error("Unable to unlock Etcd lock")
+			}
+		}
+	} else {
+		nvsdc.resourceManager.HandleNsEvent(nsEvent)
+	}
+
 	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
