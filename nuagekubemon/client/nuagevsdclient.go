@@ -414,49 +414,49 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	}
 
 	err = nvsdc.CreateJob(nvsdc.domainID, api.BeginPolicyChanges)
-	if err != nil {
-		glog.Fatal(err)
-	}
+	if err == nil {
+		_, err = nvsdc.CreateIngressAclTemplate(nvsdc.domainID)
+		if err != nil {
+			_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+			glog.Fatal(err)
+		}
 
-	_, err = nvsdc.CreateIngressAclTemplate(nvsdc.domainID)
-	if err != nil {
-		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
-		glog.Fatal(err)
-	}
+		err = nvsdc.CreateIngressAclEntries()
+		if err != nil {
+			_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+			glog.Fatal(err)
+		}
 
-	err = nvsdc.CreateIngressAclEntries()
-	if err != nil {
-		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
-		glog.Fatal(err)
-	}
+		_, err = nvsdc.CreateEgressAclTemplate(nvsdc.domainID)
+		if err != nil {
+			_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+			glog.Fatal(err)
+		}
 
-	_, err = nvsdc.CreateEgressAclTemplate(nvsdc.domainID)
-	if err != nil {
-		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
-		glog.Fatal(err)
-	}
+		err = nvsdc.CreateEgressAclEntries()
+		if err != nil {
+			_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+			glog.Fatal(err)
+		}
 
-	err = nvsdc.CreateEgressAclEntries()
-	if err != nil {
-		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
-		glog.Fatal(err)
-	}
+		_, err = nvsdc.CreateIngressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
+		if err != nil {
+			_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+			glog.Fatal(err)
+		}
 
-	_, err = nvsdc.CreateIngressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
-	if err != nil {
-		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
-		glog.Fatal(err)
-	}
+		_, err = nvsdc.CreateEgressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
+		if err != nil {
+			_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
+			glog.Fatal(err)
+		}
 
-	_, err = nvsdc.CreateEgressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
-	if err != nil {
-		_ = nvsdc.CreateJob(nvsdc.domainID, api.DiscardPolicyChanges)
-		glog.Fatal(err)
-	}
-
-	err = nvsdc.CreateJob(nvsdc.domainID, api.ApplyPolicyChanges)
-	if err != nil {
-		glog.Fatal(err)
+		err = nvsdc.CreateJob(nvsdc.domainID, api.ApplyPolicyChanges)
+		if err != nil {
+			glog.Fatal(err)
+		}
+	} else {
+		glog.Errorf("Unable to create initial ACL templates and entries %s", err)
 	}
 
 	err = nvsdc.StartRestServer(nkmConfig.RestServer)
@@ -829,7 +829,7 @@ func (nvsdc *NuageVsdClient) CreateJob(domainID string, jobType api.VsdJobType) 
 	e := api.RESTError{}
 
 	resp, err := nvsdc.session.Post(
-		nvsdc.url+"domains/"+domainID+"jobs",
+		nvsdc.url+"domains/"+domainID+"/jobs",
 		&payLoad, &result, &e)
 
 	if err != nil {
