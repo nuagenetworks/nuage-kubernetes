@@ -56,6 +56,7 @@ type Namespace string
 type NamespaceEvent struct {
 	Type        EventType
 	Name        string
+	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
