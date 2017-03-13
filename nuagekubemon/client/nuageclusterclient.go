@@ -19,6 +19,7 @@
 package client
 
 import (
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
@@ -35,9 +36,30 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
+
+type Personality int
+
+const (
+	K8S       Personality = 1
+	Openshift Personality = 2
+)
+
+func GetPersonality() Personality {
+	binary := filepath.Base(os.Args[0])
+	switch binary {
+	case "nuagekubemon":
+		return K8S
+	case "nuage-openshift-monitor":
+		return Openshift
+	default:
+		panic(fmt.Sprintf("Invalid binary name %s", binary))
+	}
+}
 
 type NuageClusterClient struct {
 	kubeConfig *krestclient.Config
