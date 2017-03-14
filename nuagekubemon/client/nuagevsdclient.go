@@ -1116,6 +1116,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		Name:        name,
 		Description: "Auto-generated domain",
 		TemplateID:  domainTemplateID,
+		PATEnabled:  api.PATDisabled,
 	}
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
