@@ -1,0 +1,37 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "iI+sxLi0ePLAhK3nhmcxZWlVHvY=",
+			"path": "github.com/docker/libkv",
+			"revision": "1d8431073ae03cdaedb198a89722f3aab6d418ef",
+			"revisionTime": "2016-11-09T01:06:21Z"
+		},
+		{
+			"checksumSHA1": "f0riXTSoNiWTnXkQCUtXC9TwouM=",
+			"path": "github.com/docker/libkv/store",
+			"revision": "1d8431073ae03cdaedb198a89722f3aab6d418ef",
+			"revisionTime": "2016-11-09T01:06:21Z"
+		},
+		{
+			"checksumSHA1": "Ma4+h/mhkJb6BF03rOLnjS4OVCk=",
+			"path": "github.com/docker/libkv/store/etcd",
+			"revision": "1d8431073ae03cdaedb198a89722f3aab6d418ef",
+			"revisionTime": "2016-11-09T01:06:21Z"
+		},
+		{
+			"checksumSHA1": "QtAbHtHmDzcf6vOV9eqlCpKgjiw=",
+			"path": "google.golang.org/appengine/internal/urlfetch",
+			"revision": "c7b8227c83007befd67b324a64c969ebc1d7475d",
+			"revisionTime": "2016-11-07T22:51:02Z"
+		},
+		{
+			"checksumSHA1": "akOV9pYnCbcPA8wJUutSQVibdyg=",
+			"path": "google.golang.org/appengine/urlfetch",
+			"revision": "c7b8227c83007befd67b324a64c969ebc1d7475d",
+			"revisionTime": "2016-11-07T22:51:02Z"
+		}
+	],
+	"rootPath": "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon"
+}
