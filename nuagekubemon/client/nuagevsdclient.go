@@ -1630,13 +1630,14 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	case api.Added:
 		fallthrough
 	case api.Modified:
+		var namespace NamespaceData
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
 			}
-			namespace := NamespaceData{
+			namespace = NamespaceData{
 				ZoneID:        zoneID,
 				Name:          nsEvent.Name,
 				NetworkMacros: make(map[string]string),
