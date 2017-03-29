@@ -219,6 +219,45 @@ type VsdNetworkMacro struct {
 	Netmask string `json:"netmask"`
 }
 
+type VsdJobType string
+
+const (
+	BeginPolicyChanges   VsdJobType = "BEGIN_POLICY_CHANGES"
+	ApplyPolicyChanges   VsdJobType = "APPLY_POLICY_CHANGES"
+	DiscardPolicyChanges VsdJobType = "DISCARD_POLICY_CHANGES"
+)
+
+func (jobType VsdJobType) String() string {
+	strType := "INVALID"
+
+	switch jobType {
+	case BeginPolicyChanges:
+		strType = "BEGIN_POLICY_CHANGES"
+	case ApplyPolicyChanges:
+		strType = "APPLY_POLICY_CHANGES"
+	case DiscardPolicyChanges:
+		strType = "DISCARD_POLICY_CHANGES"
+	}
+
+	return strType
+}
+
+type VsdJob struct {
+	ID              string      `json:"ID,omitempty"`
+	ParentID        string      `json:"parentID,omitempty"`
+	ParentType      string      `json:"parentType,omitempty"`
+	Owner           string      `json:"owner,omitempty"`
+	Parameters      interface{} `json:"parameters,omitempty"`
+	LastUpdatedBy   string      `json:"lastUpdatedBy,omitempty"`
+	Result          interface{} `json:"result,omitempty"`
+	EntityScope     string      `json:"entityScope,omitempty"`
+	Command         string      `json:"command,omitempty"`
+	Progress        float64     `json:"progress,omitempty"`
+	AssocEntityType string      `json:"assocEntityType,omitempty"`
+	Status          string      `json:"status,omitempty"`
+	ExternalID      string      `json:"externalID,omitempty"`
+}
+
 func (lhs *VsdNetworkMacro) IsEqual(rhs *VsdNetworkMacro) bool {
 	if lhs.Name != rhs.Name {
 		return false
