@@ -38,10 +38,19 @@ var ViaIdentity = bambou.Identity{
 // ViasList represents a list of Vias
 type ViasList []*Via
 
-// ViasAncestor is the interface of an ancestor of a Via must implement.
+// ViasAncestor is the interface that an ancestor of a Via must implement.
+// An Ancestor is defined as an entity that has Via as a descendant.
+// An Ancestor can get a list of its child Vias, but not necessarily create one.
 type ViasAncestor interface {
 	Vias(*bambou.FetchingInfo) (ViasList, *bambou.Error)
-	CreateVias(*Via) *bambou.Error
+}
+
+// ViasParent is the interface that a parent of a Via must implement.
+// A Parent is defined as an entity that has Via as a child.
+// A Parent is an Ancestor which can create a Via.
+type ViasParent interface {
+	ViasAncestor
+	CreateVia(*Via) *bambou.Error
 }
 
 // Via represents the model of a via

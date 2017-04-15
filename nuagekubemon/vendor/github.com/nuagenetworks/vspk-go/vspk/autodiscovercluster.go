@@ -38,10 +38,19 @@ var AutoDiscoverClusterIdentity = bambou.Identity{
 // AutoDiscoverClustersList represents a list of AutoDiscoverClusters
 type AutoDiscoverClustersList []*AutoDiscoverCluster
 
-// AutoDiscoverClustersAncestor is the interface of an ancestor of a AutoDiscoverCluster must implement.
+// AutoDiscoverClustersAncestor is the interface that an ancestor of a AutoDiscoverCluster must implement.
+// An Ancestor is defined as an entity that has AutoDiscoverCluster as a descendant.
+// An Ancestor can get a list of its child AutoDiscoverClusters, but not necessarily create one.
 type AutoDiscoverClustersAncestor interface {
 	AutoDiscoverClusters(*bambou.FetchingInfo) (AutoDiscoverClustersList, *bambou.Error)
-	CreateAutoDiscoverClusters(*AutoDiscoverCluster) *bambou.Error
+}
+
+// AutoDiscoverClustersParent is the interface that a parent of a AutoDiscoverCluster must implement.
+// A Parent is defined as an entity that has AutoDiscoverCluster as a child.
+// A Parent is an Ancestor which can create a AutoDiscoverCluster.
+type AutoDiscoverClustersParent interface {
+	AutoDiscoverClustersAncestor
+	CreateAutoDiscoverCluster(*AutoDiscoverCluster) *bambou.Error
 }
 
 // AutoDiscoverCluster represents the model of a autodiscoveredcluster

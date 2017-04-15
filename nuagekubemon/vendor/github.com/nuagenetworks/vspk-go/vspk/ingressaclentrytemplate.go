@@ -38,10 +38,19 @@ var IngressACLEntryTemplateIdentity = bambou.Identity{
 // IngressACLEntryTemplatesList represents a list of IngressACLEntryTemplates
 type IngressACLEntryTemplatesList []*IngressACLEntryTemplate
 
-// IngressACLEntryTemplatesAncestor is the interface of an ancestor of a IngressACLEntryTemplate must implement.
+// IngressACLEntryTemplatesAncestor is the interface that an ancestor of a IngressACLEntryTemplate must implement.
+// An Ancestor is defined as an entity that has IngressACLEntryTemplate as a descendant.
+// An Ancestor can get a list of its child IngressACLEntryTemplates, but not necessarily create one.
 type IngressACLEntryTemplatesAncestor interface {
 	IngressACLEntryTemplates(*bambou.FetchingInfo) (IngressACLEntryTemplatesList, *bambou.Error)
-	CreateIngressACLEntryTemplates(*IngressACLEntryTemplate) *bambou.Error
+}
+
+// IngressACLEntryTemplatesParent is the interface that a parent of a IngressACLEntryTemplate must implement.
+// A Parent is defined as an entity that has IngressACLEntryTemplate as a child.
+// A Parent is an Ancestor which can create a IngressACLEntryTemplate.
+type IngressACLEntryTemplatesParent interface {
+	IngressACLEntryTemplatesAncestor
+	CreateIngressACLEntryTemplate(*IngressACLEntryTemplate) *bambou.Error
 }
 
 // IngressACLEntryTemplate represents the model of a ingressaclentrytemplate
@@ -89,12 +98,12 @@ type IngressACLEntryTemplate struct {
 func NewIngressACLEntryTemplate() *IngressACLEntryTemplate {
 
 	return &IngressACLEntryTemplate{
-		Protocol:     "6",
-		EtherType:    "0x0800",
 		DSCP:         "*",
-		LocationType: "ANY",
 		Action:       "FORWARD",
 		NetworkType:  "ANY",
+		LocationType: "ANY",
+		Protocol:     "6",
+		EtherType:    "0x0800",
 	}
 }
 
@@ -162,14 +171,6 @@ func (o *IngressACLEntryTemplate) CreateGlobalMetadata(child *GlobalMetadata) *b
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the IngressACLEntryTemplate
-func (o *IngressACLEntryTemplate) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the IngressACLEntryTemplate
 func (o *IngressACLEntryTemplate) CreateJob(child *Job) *bambou.Error {
 
@@ -182,10 +183,4 @@ func (o *IngressACLEntryTemplate) Statistics(info *bambou.FetchingInfo) (Statist
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the IngressACLEntryTemplate
-func (o *IngressACLEntryTemplate) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

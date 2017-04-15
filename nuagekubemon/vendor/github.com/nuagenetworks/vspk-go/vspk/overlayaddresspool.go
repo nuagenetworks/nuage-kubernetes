@@ -38,10 +38,19 @@ var OverlayAddressPoolIdentity = bambou.Identity{
 // OverlayAddressPoolsList represents a list of OverlayAddressPools
 type OverlayAddressPoolsList []*OverlayAddressPool
 
-// OverlayAddressPoolsAncestor is the interface of an ancestor of a OverlayAddressPool must implement.
+// OverlayAddressPoolsAncestor is the interface that an ancestor of a OverlayAddressPool must implement.
+// An Ancestor is defined as an entity that has OverlayAddressPool as a descendant.
+// An Ancestor can get a list of its child OverlayAddressPools, but not necessarily create one.
 type OverlayAddressPoolsAncestor interface {
 	OverlayAddressPools(*bambou.FetchingInfo) (OverlayAddressPoolsList, *bambou.Error)
-	CreateOverlayAddressPools(*OverlayAddressPool) *bambou.Error
+}
+
+// OverlayAddressPoolsParent is the interface that a parent of a OverlayAddressPool must implement.
+// A Parent is defined as an entity that has OverlayAddressPool as a child.
+// A Parent is an Ancestor which can create a OverlayAddressPool.
+type OverlayAddressPoolsParent interface {
+	OverlayAddressPoolsAncestor
+	CreateOverlayAddressPool(*OverlayAddressPool) *bambou.Error
 }
 
 // OverlayAddressPool represents the model of a overlayaddresspool

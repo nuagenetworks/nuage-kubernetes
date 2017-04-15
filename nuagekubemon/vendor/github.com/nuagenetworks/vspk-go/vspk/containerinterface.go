@@ -38,10 +38,19 @@ var ContainerInterfaceIdentity = bambou.Identity{
 // ContainerInterfacesList represents a list of ContainerInterfaces
 type ContainerInterfacesList []*ContainerInterface
 
-// ContainerInterfacesAncestor is the interface of an ancestor of a ContainerInterface must implement.
+// ContainerInterfacesAncestor is the interface that an ancestor of a ContainerInterface must implement.
+// An Ancestor is defined as an entity that has ContainerInterface as a descendant.
+// An Ancestor can get a list of its child ContainerInterfaces, but not necessarily create one.
 type ContainerInterfacesAncestor interface {
 	ContainerInterfaces(*bambou.FetchingInfo) (ContainerInterfacesList, *bambou.Error)
-	CreateContainerInterfaces(*ContainerInterface) *bambou.Error
+}
+
+// ContainerInterfacesParent is the interface that a parent of a ContainerInterface must implement.
+// A Parent is defined as an entity that has ContainerInterface as a child.
+// A Parent is an Ancestor which can create a ContainerInterface.
+type ContainerInterfacesParent interface {
+	ContainerInterfacesAncestor
+	CreateContainerInterface(*ContainerInterface) *bambou.Error
 }
 
 // ContainerInterface represents the model of a containerinterface
@@ -126,24 +135,12 @@ func (o *ContainerInterface) TCAs(info *bambou.FetchingInfo) (TCAsList, *bambou.
 	return list, err
 }
 
-// CreateTCA creates a new child TCA under the ContainerInterface
-func (o *ContainerInterface) CreateTCA(child *TCA) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // RedirectionTargets retrieves the list of child RedirectionTargets of the ContainerInterface
 func (o *ContainerInterface) RedirectionTargets(info *bambou.FetchingInfo) (RedirectionTargetsList, *bambou.Error) {
 
 	var list RedirectionTargetsList
 	err := bambou.CurrentSession().FetchChildren(o, RedirectionTargetIdentity, &list, info)
 	return list, err
-}
-
-// CreateRedirectionTarget creates a new child RedirectionTarget under the ContainerInterface
-func (o *ContainerInterface) CreateRedirectionTarget(child *RedirectionTarget) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Metadatas retrieves the list of child Metadatas of the ContainerInterface
@@ -168,12 +165,6 @@ func (o *ContainerInterface) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptions
 	return list, err
 }
 
-// CreateDHCPOption creates a new child DHCPOption under the ContainerInterface
-func (o *ContainerInterface) CreateDHCPOption(child *DHCPOption) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the ContainerInterface
 func (o *ContainerInterface) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -196,24 +187,12 @@ func (o *ContainerInterface) PolicyDecisions(info *bambou.FetchingInfo) (PolicyD
 	return list, err
 }
 
-// CreatePolicyDecision creates a new child PolicyDecision under the ContainerInterface
-func (o *ContainerInterface) CreatePolicyDecision(child *PolicyDecision) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // PolicyGroups retrieves the list of child PolicyGroups of the ContainerInterface
 func (o *ContainerInterface) PolicyGroups(info *bambou.FetchingInfo) (PolicyGroupsList, *bambou.Error) {
 
 	var list PolicyGroupsList
 	err := bambou.CurrentSession().FetchChildren(o, PolicyGroupIdentity, &list, info)
 	return list, err
-}
-
-// CreatePolicyGroup creates a new child PolicyGroup under the ContainerInterface
-func (o *ContainerInterface) CreatePolicyGroup(child *PolicyGroup) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StaticRoutes retrieves the list of child StaticRoutes of the ContainerInterface
@@ -224,24 +203,12 @@ func (o *ContainerInterface) StaticRoutes(info *bambou.FetchingInfo) (StaticRout
 	return list, err
 }
 
-// CreateStaticRoute creates a new child StaticRoute under the ContainerInterface
-func (o *ContainerInterface) CreateStaticRoute(child *StaticRoute) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Statistics retrieves the list of child Statistics of the ContainerInterface
 func (o *ContainerInterface) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.Error) {
 
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the ContainerInterface
-func (o *ContainerInterface) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // MultiCastChannelMaps retrieves the list of child MultiCastChannelMaps of the ContainerInterface
@@ -252,22 +219,10 @@ func (o *ContainerInterface) MultiCastChannelMaps(info *bambou.FetchingInfo) (Mu
 	return list, err
 }
 
-// CreateMultiCastChannelMap creates a new child MultiCastChannelMap under the ContainerInterface
-func (o *ContainerInterface) CreateMultiCastChannelMap(child *MultiCastChannelMap) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the ContainerInterface
 func (o *ContainerInterface) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the ContainerInterface
-func (o *ContainerInterface) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

@@ -38,10 +38,19 @@ var VMIdentity = bambou.Identity{
 // VMsList represents a list of VMs
 type VMsList []*VM
 
-// VMsAncestor is the interface of an ancestor of a VM must implement.
+// VMsAncestor is the interface that an ancestor of a VM must implement.
+// An Ancestor is defined as an entity that has VM as a descendant.
+// An Ancestor can get a list of its child VMs, but not necessarily create one.
 type VMsAncestor interface {
 	VMs(*bambou.FetchingInfo) (VMsList, *bambou.Error)
-	CreateVMs(*VM) *bambou.Error
+}
+
+// VMsParent is the interface that a parent of a VM must implement.
+// A Parent is defined as an entity that has VM as a child.
+// A Parent is an Ancestor which can create a VM.
+type VMsParent interface {
+	VMsAncestor
+	CreateVM(*VM) *bambou.Error
 }
 
 // VM represents the model of a vm
@@ -153,12 +162,6 @@ func (o *VM) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the VM
-func (o *VM) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the VM
 func (o *VM) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -195,22 +198,10 @@ func (o *VM) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVRS creates a new child VRS under the VM
-func (o *VM) CreateVRS(child *VRS) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the VM
 func (o *VM) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the VM
-func (o *VM) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

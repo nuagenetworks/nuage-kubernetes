@@ -38,10 +38,19 @@ var KeyServerMonitorSeedIdentity = bambou.Identity{
 // KeyServerMonitorSeedsList represents a list of KeyServerMonitorSeeds
 type KeyServerMonitorSeedsList []*KeyServerMonitorSeed
 
-// KeyServerMonitorSeedsAncestor is the interface of an ancestor of a KeyServerMonitorSeed must implement.
+// KeyServerMonitorSeedsAncestor is the interface that an ancestor of a KeyServerMonitorSeed must implement.
+// An Ancestor is defined as an entity that has KeyServerMonitorSeed as a descendant.
+// An Ancestor can get a list of its child KeyServerMonitorSeeds, but not necessarily create one.
 type KeyServerMonitorSeedsAncestor interface {
 	KeyServerMonitorSeeds(*bambou.FetchingInfo) (KeyServerMonitorSeedsList, *bambou.Error)
-	CreateKeyServerMonitorSeeds(*KeyServerMonitorSeed) *bambou.Error
+}
+
+// KeyServerMonitorSeedsParent is the interface that a parent of a KeyServerMonitorSeed must implement.
+// A Parent is defined as an entity that has KeyServerMonitorSeed as a child.
+// A Parent is an Ancestor which can create a KeyServerMonitorSeed.
+type KeyServerMonitorSeedsParent interface {
+	KeyServerMonitorSeedsAncestor
+	CreateKeyServerMonitorSeed(*KeyServerMonitorSeed) *bambou.Error
 }
 
 // KeyServerMonitorSeed represents the model of a keyservermonitorseed
@@ -123,12 +132,6 @@ func (o *KeyServerMonitorSeed) KeyServerMonitorEncryptedSeeds(info *bambou.Fetch
 	var list KeyServerMonitorEncryptedSeedsList
 	err := bambou.CurrentSession().FetchChildren(o, KeyServerMonitorEncryptedSeedIdentity, &list, info)
 	return list, err
-}
-
-// CreateKeyServerMonitorEncryptedSeed creates a new child KeyServerMonitorEncryptedSeed under the KeyServerMonitorSeed
-func (o *KeyServerMonitorSeed) CreateKeyServerMonitorEncryptedSeed(child *KeyServerMonitorEncryptedSeed) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the KeyServerMonitorSeed

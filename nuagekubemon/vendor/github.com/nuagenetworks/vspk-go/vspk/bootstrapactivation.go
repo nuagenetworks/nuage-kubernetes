@@ -38,10 +38,19 @@ var BootstrapActivationIdentity = bambou.Identity{
 // BootstrapActivationsList represents a list of BootstrapActivations
 type BootstrapActivationsList []*BootstrapActivation
 
-// BootstrapActivationsAncestor is the interface of an ancestor of a BootstrapActivation must implement.
+// BootstrapActivationsAncestor is the interface that an ancestor of a BootstrapActivation must implement.
+// An Ancestor is defined as an entity that has BootstrapActivation as a descendant.
+// An Ancestor can get a list of its child BootstrapActivations, but not necessarily create one.
 type BootstrapActivationsAncestor interface {
 	BootstrapActivations(*bambou.FetchingInfo) (BootstrapActivationsList, *bambou.Error)
-	CreateBootstrapActivations(*BootstrapActivation) *bambou.Error
+}
+
+// BootstrapActivationsParent is the interface that a parent of a BootstrapActivation must implement.
+// A Parent is defined as an entity that has BootstrapActivation as a child.
+// A Parent is an Ancestor which can create a BootstrapActivation.
+type BootstrapActivationsParent interface {
+	BootstrapActivationsAncestor
+	CreateBootstrapActivation(*BootstrapActivation) *bambou.Error
 }
 
 // BootstrapActivation represents the model of a bootstrapactivation
@@ -71,7 +80,9 @@ type BootstrapActivation struct {
 // NewBootstrapActivation returns a new *BootstrapActivation
 func NewBootstrapActivation() *BootstrapActivation {
 
-	return &BootstrapActivation{}
+	return &BootstrapActivation{
+		TpmState: 0,
+	}
 }
 
 // Identity returns the Identity of the object.

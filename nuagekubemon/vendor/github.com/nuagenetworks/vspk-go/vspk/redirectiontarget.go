@@ -38,10 +38,19 @@ var RedirectionTargetIdentity = bambou.Identity{
 // RedirectionTargetsList represents a list of RedirectionTargets
 type RedirectionTargetsList []*RedirectionTarget
 
-// RedirectionTargetsAncestor is the interface of an ancestor of a RedirectionTarget must implement.
+// RedirectionTargetsAncestor is the interface that an ancestor of a RedirectionTarget must implement.
+// An Ancestor is defined as an entity that has RedirectionTarget as a descendant.
+// An Ancestor can get a list of its child RedirectionTargets, but not necessarily create one.
 type RedirectionTargetsAncestor interface {
 	RedirectionTargets(*bambou.FetchingInfo) (RedirectionTargetsList, *bambou.Error)
-	CreateRedirectionTargets(*RedirectionTarget) *bambou.Error
+}
+
+// RedirectionTargetsParent is the interface that a parent of a RedirectionTarget must implement.
+// A Parent is defined as an entity that has RedirectionTarget as a child.
+// A Parent is an Ancestor which can create a RedirectionTarget.
+type RedirectionTargetsParent interface {
+	RedirectionTargetsAncestor
+	CreateRedirectionTarget(*RedirectionTarget) *bambou.Error
 }
 
 // RedirectionTarget represents the model of a redirectiontarget
@@ -149,14 +158,6 @@ func (o *RedirectionTarget) CreateGlobalMetadata(child *GlobalMetadata) *bambou.
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the RedirectionTarget
-func (o *RedirectionTarget) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the RedirectionTarget
 func (o *RedirectionTarget) CreateJob(child *Job) *bambou.Error {
 
@@ -188,10 +189,4 @@ func (o *RedirectionTarget) EventLogs(info *bambou.FetchingInfo) (EventLogsList,
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the RedirectionTarget
-func (o *RedirectionTarget) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

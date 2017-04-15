@@ -38,10 +38,19 @@ var PublicNetworkMacroIdentity = bambou.Identity{
 // PublicNetworkMacrosList represents a list of PublicNetworkMacros
 type PublicNetworkMacrosList []*PublicNetworkMacro
 
-// PublicNetworkMacrosAncestor is the interface of an ancestor of a PublicNetworkMacro must implement.
+// PublicNetworkMacrosAncestor is the interface that an ancestor of a PublicNetworkMacro must implement.
+// An Ancestor is defined as an entity that has PublicNetworkMacro as a descendant.
+// An Ancestor can get a list of its child PublicNetworkMacros, but not necessarily create one.
 type PublicNetworkMacrosAncestor interface {
 	PublicNetworkMacros(*bambou.FetchingInfo) (PublicNetworkMacrosList, *bambou.Error)
-	CreatePublicNetworkMacros(*PublicNetworkMacro) *bambou.Error
+}
+
+// PublicNetworkMacrosParent is the interface that a parent of a PublicNetworkMacro must implement.
+// A Parent is defined as an entity that has PublicNetworkMacro as a child.
+// A Parent is an Ancestor which can create a PublicNetworkMacro.
+type PublicNetworkMacrosParent interface {
+	PublicNetworkMacrosAncestor
+	CreatePublicNetworkMacro(*PublicNetworkMacro) *bambou.Error
 }
 
 // PublicNetworkMacro represents the model of a publicnetwork
@@ -136,10 +145,4 @@ func (o *PublicNetworkMacro) EventLogs(info *bambou.FetchingInfo) (EventLogsList
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the PublicNetworkMacro
-func (o *PublicNetworkMacro) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

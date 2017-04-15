@@ -38,10 +38,19 @@ var NetworkPerformanceBindingIdentity = bambou.Identity{
 // NetworkPerformanceBindingsList represents a list of NetworkPerformanceBindings
 type NetworkPerformanceBindingsList []*NetworkPerformanceBinding
 
-// NetworkPerformanceBindingsAncestor is the interface of an ancestor of a NetworkPerformanceBinding must implement.
+// NetworkPerformanceBindingsAncestor is the interface that an ancestor of a NetworkPerformanceBinding must implement.
+// An Ancestor is defined as an entity that has NetworkPerformanceBinding as a descendant.
+// An Ancestor can get a list of its child NetworkPerformanceBindings, but not necessarily create one.
 type NetworkPerformanceBindingsAncestor interface {
 	NetworkPerformanceBindings(*bambou.FetchingInfo) (NetworkPerformanceBindingsList, *bambou.Error)
-	CreateNetworkPerformanceBindings(*NetworkPerformanceBinding) *bambou.Error
+}
+
+// NetworkPerformanceBindingsParent is the interface that a parent of a NetworkPerformanceBinding must implement.
+// A Parent is defined as an entity that has NetworkPerformanceBinding as a child.
+// A Parent is an Ancestor which can create a NetworkPerformanceBinding.
+type NetworkPerformanceBindingsParent interface {
+	NetworkPerformanceBindingsAncestor
+	CreateNetworkPerformanceBinding(*NetworkPerformanceBinding) *bambou.Error
 }
 
 // NetworkPerformanceBinding represents the model of a networkperformancebinding
@@ -58,7 +67,9 @@ type NetworkPerformanceBinding struct {
 // NewNetworkPerformanceBinding returns a new *NetworkPerformanceBinding
 func NewNetworkPerformanceBinding() *NetworkPerformanceBinding {
 
-	return &NetworkPerformanceBinding{}
+	return &NetworkPerformanceBinding{
+		ReadOnly: false,
+	}
 }
 
 // Identity returns the Identity of the object.

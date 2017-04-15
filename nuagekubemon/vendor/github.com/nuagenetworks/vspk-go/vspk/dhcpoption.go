@@ -38,10 +38,19 @@ var DHCPOptionIdentity = bambou.Identity{
 // DHCPOptionsList represents a list of DHCPOptions
 type DHCPOptionsList []*DHCPOption
 
-// DHCPOptionsAncestor is the interface of an ancestor of a DHCPOption must implement.
+// DHCPOptionsAncestor is the interface that an ancestor of a DHCPOption must implement.
+// An Ancestor is defined as an entity that has DHCPOption as a descendant.
+// An Ancestor can get a list of its child DHCPOptions, but not necessarily create one.
 type DHCPOptionsAncestor interface {
 	DHCPOptions(*bambou.FetchingInfo) (DHCPOptionsList, *bambou.Error)
-	CreateDHCPOptions(*DHCPOption) *bambou.Error
+}
+
+// DHCPOptionsParent is the interface that a parent of a DHCPOption must implement.
+// A Parent is defined as an entity that has DHCPOption as a child.
+// A Parent is an Ancestor which can create a DHCPOption.
+type DHCPOptionsParent interface {
+	DHCPOptionsAncestor
+	CreateDHCPOption(*DHCPOption) *bambou.Error
 }
 
 // DHCPOption represents the model of a dhcpoption
@@ -136,10 +145,4 @@ func (o *DHCPOption) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambo
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the DHCPOption
-func (o *DHCPOption) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

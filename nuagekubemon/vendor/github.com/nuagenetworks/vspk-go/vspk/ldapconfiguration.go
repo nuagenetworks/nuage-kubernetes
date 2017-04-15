@@ -38,10 +38,19 @@ var LDAPConfigurationIdentity = bambou.Identity{
 // LDAPConfigurationsList represents a list of LDAPConfigurations
 type LDAPConfigurationsList []*LDAPConfiguration
 
-// LDAPConfigurationsAncestor is the interface of an ancestor of a LDAPConfiguration must implement.
+// LDAPConfigurationsAncestor is the interface that an ancestor of a LDAPConfiguration must implement.
+// An Ancestor is defined as an entity that has LDAPConfiguration as a descendant.
+// An Ancestor can get a list of its child LDAPConfigurations, but not necessarily create one.
 type LDAPConfigurationsAncestor interface {
 	LDAPConfigurations(*bambou.FetchingInfo) (LDAPConfigurationsList, *bambou.Error)
-	CreateLDAPConfigurations(*LDAPConfiguration) *bambou.Error
+}
+
+// LDAPConfigurationsParent is the interface that a parent of a LDAPConfiguration must implement.
+// A Parent is defined as an entity that has LDAPConfiguration as a child.
+// A Parent is an Ancestor which can create a LDAPConfiguration.
+type LDAPConfigurationsParent interface {
+	LDAPConfigurationsAncestor
+	CreateLDAPConfiguration(*LDAPConfiguration) *bambou.Error
 }
 
 // LDAPConfiguration represents the model of a ldapconfiguration

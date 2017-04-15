@@ -38,10 +38,19 @@ var PATIPEntryIdentity = bambou.Identity{
 // PATIPEntriesList represents a list of PATIPEntries
 type PATIPEntriesList []*PATIPEntry
 
-// PATIPEntriesAncestor is the interface of an ancestor of a PATIPEntry must implement.
+// PATIPEntriesAncestor is the interface that an ancestor of a PATIPEntry must implement.
+// An Ancestor is defined as an entity that has PATIPEntry as a descendant.
+// An Ancestor can get a list of its child PATIPEntries, but not necessarily create one.
 type PATIPEntriesAncestor interface {
 	PATIPEntries(*bambou.FetchingInfo) (PATIPEntriesList, *bambou.Error)
-	CreatePATIPEntries(*PATIPEntry) *bambou.Error
+}
+
+// PATIPEntriesParent is the interface that a parent of a PATIPEntry must implement.
+// A Parent is defined as an entity that has PATIPEntry as a child.
+// A Parent is an Ancestor which can create a PATIPEntry.
+type PATIPEntriesParent interface {
+	PATIPEntriesAncestor
+	CreatePATIPEntry(*PATIPEntry) *bambou.Error
 }
 
 // PATIPEntry represents the model of a patipentry
@@ -63,7 +72,9 @@ type PATIPEntry struct {
 // NewPATIPEntry returns a new *PATIPEntry
 func NewPATIPEntry() *PATIPEntry {
 
-	return &PATIPEntry{}
+	return &PATIPEntry{
+		IPType: "IPV4",
+	}
 }
 
 // Identity returns the Identity of the object.

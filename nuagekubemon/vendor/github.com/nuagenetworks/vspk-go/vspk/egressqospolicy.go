@@ -38,10 +38,19 @@ var EgressQOSPolicyIdentity = bambou.Identity{
 // EgressQOSPoliciesList represents a list of EgressQOSPolicies
 type EgressQOSPoliciesList []*EgressQOSPolicy
 
-// EgressQOSPoliciesAncestor is the interface of an ancestor of a EgressQOSPolicy must implement.
+// EgressQOSPoliciesAncestor is the interface that an ancestor of a EgressQOSPolicy must implement.
+// An Ancestor is defined as an entity that has EgressQOSPolicy as a descendant.
+// An Ancestor can get a list of its child EgressQOSPolicies, but not necessarily create one.
 type EgressQOSPoliciesAncestor interface {
 	EgressQOSPolicies(*bambou.FetchingInfo) (EgressQOSPoliciesList, *bambou.Error)
-	CreateEgressQOSPolicies(*EgressQOSPolicy) *bambou.Error
+}
+
+// EgressQOSPoliciesParent is the interface that a parent of a EgressQOSPolicy must implement.
+// A Parent is defined as an entity that has EgressQOSPolicy as a child.
+// A Parent is an Ancestor which can create a EgressQOSPolicy.
+type EgressQOSPoliciesParent interface {
+	EgressQOSPoliciesAncestor
+	CreateEgressQOSPolicy(*EgressQOSPolicy) *bambou.Error
 }
 
 // EgressQOSPolicy represents the model of a egressqospolicy

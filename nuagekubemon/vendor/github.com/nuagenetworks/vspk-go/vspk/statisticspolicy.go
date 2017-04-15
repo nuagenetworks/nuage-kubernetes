@@ -38,10 +38,19 @@ var StatisticsPolicyIdentity = bambou.Identity{
 // StatisticsPoliciesList represents a list of StatisticsPolicies
 type StatisticsPoliciesList []*StatisticsPolicy
 
-// StatisticsPoliciesAncestor is the interface of an ancestor of a StatisticsPolicy must implement.
+// StatisticsPoliciesAncestor is the interface that an ancestor of a StatisticsPolicy must implement.
+// An Ancestor is defined as an entity that has StatisticsPolicy as a descendant.
+// An Ancestor can get a list of its child StatisticsPolicies, but not necessarily create one.
 type StatisticsPoliciesAncestor interface {
 	StatisticsPolicies(*bambou.FetchingInfo) (StatisticsPoliciesList, *bambou.Error)
-	CreateStatisticsPolicies(*StatisticsPolicy) *bambou.Error
+}
+
+// StatisticsPoliciesParent is the interface that a parent of a StatisticsPolicy must implement.
+// A Parent is defined as an entity that has StatisticsPolicy as a child.
+// A Parent is an Ancestor which can create a StatisticsPolicy.
+type StatisticsPoliciesParent interface {
+	StatisticsPoliciesAncestor
+	CreateStatisticsPolicy(*StatisticsPolicy) *bambou.Error
 }
 
 // StatisticsPolicy represents the model of a statisticspolicy

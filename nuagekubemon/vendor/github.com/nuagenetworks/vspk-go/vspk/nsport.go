@@ -38,10 +38,19 @@ var NSPortIdentity = bambou.Identity{
 // NSPortsList represents a list of NSPorts
 type NSPortsList []*NSPort
 
-// NSPortsAncestor is the interface of an ancestor of a NSPort must implement.
+// NSPortsAncestor is the interface that an ancestor of a NSPort must implement.
+// An Ancestor is defined as an entity that has NSPort as a descendant.
+// An Ancestor can get a list of its child NSPorts, but not necessarily create one.
 type NSPortsAncestor interface {
 	NSPorts(*bambou.FetchingInfo) (NSPortsList, *bambou.Error)
-	CreateNSPorts(*NSPort) *bambou.Error
+}
+
+// NSPortsParent is the interface that a parent of a NSPort must implement.
+// A Parent is defined as an entity that has NSPort as a child.
+// A Parent is an Ancestor which can create a NSPort.
+type NSPortsParent interface {
+	NSPortsAncestor
+	CreateNSPort(*NSPort) *bambou.Error
 }
 
 // NSPort represents the model of a nsport
@@ -73,7 +82,10 @@ type NSPort struct {
 // NewNSPort returns a new *NSPort
 func NewNSPort() *NSPort {
 
-	return &NSPort{}
+	return &NSPort{
+		NATTraversal: "NONE",
+		Mtu:          1500,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -162,12 +174,6 @@ func (o *NSPort) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the NSPort
-func (o *NSPort) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the NSPort
 func (o *NSPort) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -204,12 +210,6 @@ func (o *NSPort) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.
 	return list, err
 }
 
-// CreateStatistics creates a new child Statistics under the NSPort
-func (o *NSPort) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the NSPort
 func (o *NSPort) StatisticsPolicies(info *bambou.FetchingInfo) (StatisticsPoliciesList, *bambou.Error) {
 
@@ -230,10 +230,4 @@ func (o *NSPort) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Er
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the NSPort
-func (o *NSPort) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

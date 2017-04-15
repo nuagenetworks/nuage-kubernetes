@@ -38,10 +38,19 @@ var DiskStatIdentity = bambou.Identity{
 // DiskStatsList represents a list of DiskStats
 type DiskStatsList []*DiskStat
 
-// DiskStatsAncestor is the interface of an ancestor of a DiskStat must implement.
+// DiskStatsAncestor is the interface that an ancestor of a DiskStat must implement.
+// An Ancestor is defined as an entity that has DiskStat as a descendant.
+// An Ancestor can get a list of its child DiskStats, but not necessarily create one.
 type DiskStatsAncestor interface {
 	DiskStats(*bambou.FetchingInfo) (DiskStatsList, *bambou.Error)
-	CreateDiskStats(*DiskStat) *bambou.Error
+}
+
+// DiskStatsParent is the interface that a parent of a DiskStat must implement.
+// A Parent is defined as an entity that has DiskStat as a child.
+// A Parent is an Ancestor which can create a DiskStat.
+type DiskStatsParent interface {
+	DiskStatsAncestor
+	CreateDiskStat(*DiskStat) *bambou.Error
 }
 
 // DiskStat represents the model of a diskstat

@@ -38,10 +38,19 @@ var VPortMirrorIdentity = bambou.Identity{
 // VPortMirrorsList represents a list of VPortMirrors
 type VPortMirrorsList []*VPortMirror
 
-// VPortMirrorsAncestor is the interface of an ancestor of a VPortMirror must implement.
+// VPortMirrorsAncestor is the interface that an ancestor of a VPortMirror must implement.
+// An Ancestor is defined as an entity that has VPortMirror as a descendant.
+// An Ancestor can get a list of its child VPortMirrors, but not necessarily create one.
 type VPortMirrorsAncestor interface {
 	VPortMirrors(*bambou.FetchingInfo) (VPortMirrorsList, *bambou.Error)
-	CreateVPortMirrors(*VPortMirror) *bambou.Error
+}
+
+// VPortMirrorsParent is the interface that a parent of a VPortMirror must implement.
+// A Parent is defined as an entity that has VPortMirror as a child.
+// A Parent is an Ancestor which can create a VPortMirror.
+type VPortMirrorsParent interface {
+	VPortMirrorsAncestor
+	CreateVPortMirror(*VPortMirror) *bambou.Error
 }
 
 // VPortMirror represents the model of a vportmirror

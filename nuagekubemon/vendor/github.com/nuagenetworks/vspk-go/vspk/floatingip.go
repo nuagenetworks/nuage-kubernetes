@@ -38,10 +38,19 @@ var FloatingIpIdentity = bambou.Identity{
 // FloatingIpsList represents a list of FloatingIps
 type FloatingIpsList []*FloatingIp
 
-// FloatingIpsAncestor is the interface of an ancestor of a FloatingIp must implement.
+// FloatingIpsAncestor is the interface that an ancestor of a FloatingIp must implement.
+// An Ancestor is defined as an entity that has FloatingIp as a descendant.
+// An Ancestor can get a list of its child FloatingIps, but not necessarily create one.
 type FloatingIpsAncestor interface {
 	FloatingIps(*bambou.FetchingInfo) (FloatingIpsList, *bambou.Error)
-	CreateFloatingIps(*FloatingIp) *bambou.Error
+}
+
+// FloatingIpsParent is the interface that a parent of a FloatingIp must implement.
+// A Parent is defined as an entity that has FloatingIp as a child.
+// A Parent is an Ancestor which can create a FloatingIp.
+type FloatingIpsParent interface {
+	FloatingIpsAncestor
+	CreateFloatingIp(*FloatingIp) *bambou.Error
 }
 
 // FloatingIp represents the model of a floatingip
@@ -138,22 +147,10 @@ func (o *FloatingIp) VPorts(info *bambou.FetchingInfo) (VPortsList, *bambou.Erro
 	return list, err
 }
 
-// CreateVPort creates a new child VPort under the FloatingIp
-func (o *FloatingIp) CreateVPort(child *VPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the FloatingIp
 func (o *FloatingIp) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the FloatingIp
-func (o *FloatingIp) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

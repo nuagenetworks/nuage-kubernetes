@@ -38,10 +38,19 @@ var IKEGatewayConnectionIdentity = bambou.Identity{
 // IKEGatewayConnectionsList represents a list of IKEGatewayConnections
 type IKEGatewayConnectionsList []*IKEGatewayConnection
 
-// IKEGatewayConnectionsAncestor is the interface of an ancestor of a IKEGatewayConnection must implement.
+// IKEGatewayConnectionsAncestor is the interface that an ancestor of a IKEGatewayConnection must implement.
+// An Ancestor is defined as an entity that has IKEGatewayConnection as a descendant.
+// An Ancestor can get a list of its child IKEGatewayConnections, but not necessarily create one.
 type IKEGatewayConnectionsAncestor interface {
 	IKEGatewayConnections(*bambou.FetchingInfo) (IKEGatewayConnectionsList, *bambou.Error)
-	CreateIKEGatewayConnections(*IKEGatewayConnection) *bambou.Error
+}
+
+// IKEGatewayConnectionsParent is the interface that a parent of a IKEGatewayConnection must implement.
+// A Parent is defined as an entity that has IKEGatewayConnection as a child.
+// A Parent is an Ancestor which can create a IKEGatewayConnection.
+type IKEGatewayConnectionsParent interface {
+	IKEGatewayConnectionsAncestor
+	CreateIKEGatewayConnection(*IKEGatewayConnection) *bambou.Error
 }
 
 // IKEGatewayConnection represents the model of a ikegatewayconnection
@@ -72,7 +81,9 @@ type IKEGatewayConnection struct {
 // NewIKEGatewayConnection returns a new *IKEGatewayConnection
 func NewIKEGatewayConnection() *IKEGatewayConnection {
 
-	return &IKEGatewayConnection{}
+	return &IKEGatewayConnection{
+		NSGIdentifierType: "ID_KEY_ID",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -145,10 +156,4 @@ func (o *IKEGatewayConnection) Subnets(info *bambou.FetchingInfo) (SubnetsList, 
 	var list SubnetsList
 	err := bambou.CurrentSession().FetchChildren(o, SubnetIdentity, &list, info)
 	return list, err
-}
-
-// CreateSubnet creates a new child Subnet under the IKEGatewayConnection
-func (o *IKEGatewayConnection) CreateSubnet(child *Subnet) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

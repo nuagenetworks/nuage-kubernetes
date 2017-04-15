@@ -38,10 +38,19 @@ var ZoneTemplateIdentity = bambou.Identity{
 // ZoneTemplatesList represents a list of ZoneTemplates
 type ZoneTemplatesList []*ZoneTemplate
 
-// ZoneTemplatesAncestor is the interface of an ancestor of a ZoneTemplate must implement.
+// ZoneTemplatesAncestor is the interface that an ancestor of a ZoneTemplate must implement.
+// An Ancestor is defined as an entity that has ZoneTemplate as a descendant.
+// An Ancestor can get a list of its child ZoneTemplates, but not necessarily create one.
 type ZoneTemplatesAncestor interface {
 	ZoneTemplates(*bambou.FetchingInfo) (ZoneTemplatesList, *bambou.Error)
-	CreateZoneTemplates(*ZoneTemplate) *bambou.Error
+}
+
+// ZoneTemplatesParent is the interface that a parent of a ZoneTemplate must implement.
+// A Parent is defined as an entity that has ZoneTemplate as a child.
+// A Parent is an Ancestor which can create a ZoneTemplate.
+type ZoneTemplatesParent interface {
+	ZoneTemplatesAncestor
+	CreateZoneTemplate(*ZoneTemplate) *bambou.Error
 }
 
 // ZoneTemplate represents the model of a zonetemplate
@@ -70,6 +79,7 @@ type ZoneTemplate struct {
 func NewZoneTemplate() *ZoneTemplate {
 
 	return &ZoneTemplate{
+		DPI:       "INHERITED",
 		Multicast: "INHERITED",
 	}
 }
@@ -172,10 +182,4 @@ func (o *ZoneTemplate) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bam
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the ZoneTemplate
-func (o *ZoneTemplate) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

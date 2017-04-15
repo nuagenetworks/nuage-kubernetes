@@ -38,10 +38,19 @@ var MetadataIdentity = bambou.Identity{
 // MetadatasList represents a list of Metadatas
 type MetadatasList []*Metadata
 
-// MetadatasAncestor is the interface of an ancestor of a Metadata must implement.
+// MetadatasAncestor is the interface that an ancestor of a Metadata must implement.
+// An Ancestor is defined as an entity that has Metadata as a descendant.
+// An Ancestor can get a list of its child Metadatas, but not necessarily create one.
 type MetadatasAncestor interface {
 	Metadatas(*bambou.FetchingInfo) (MetadatasList, *bambou.Error)
-	CreateMetadatas(*Metadata) *bambou.Error
+}
+
+// MetadatasParent is the interface that a parent of a Metadata must implement.
+// A Parent is defined as an entity that has Metadata as a child.
+// A Parent is an Ancestor which can create a Metadata.
+type MetadatasParent interface {
+	MetadatasAncestor
+	CreateMetadata(*Metadata) *bambou.Error
 }
 
 // Metadata represents the model of a metadata
@@ -127,10 +136,4 @@ func (o *Metadata) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Metadata
-func (o *Metadata) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

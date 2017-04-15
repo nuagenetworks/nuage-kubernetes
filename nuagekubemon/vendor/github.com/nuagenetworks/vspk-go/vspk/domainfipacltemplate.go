@@ -38,10 +38,19 @@ var DomainFIPAclTemplateIdentity = bambou.Identity{
 // DomainFIPAclTemplatesList represents a list of DomainFIPAclTemplates
 type DomainFIPAclTemplatesList []*DomainFIPAclTemplate
 
-// DomainFIPAclTemplatesAncestor is the interface of an ancestor of a DomainFIPAclTemplate must implement.
+// DomainFIPAclTemplatesAncestor is the interface that an ancestor of a DomainFIPAclTemplate must implement.
+// An Ancestor is defined as an entity that has DomainFIPAclTemplate as a descendant.
+// An Ancestor can get a list of its child DomainFIPAclTemplates, but not necessarily create one.
 type DomainFIPAclTemplatesAncestor interface {
 	DomainFIPAclTemplates(*bambou.FetchingInfo) (DomainFIPAclTemplatesList, *bambou.Error)
-	CreateDomainFIPAclTemplates(*DomainFIPAclTemplate) *bambou.Error
+}
+
+// DomainFIPAclTemplatesParent is the interface that a parent of a DomainFIPAclTemplate must implement.
+// A Parent is defined as an entity that has DomainFIPAclTemplate as a child.
+// A Parent is an Ancestor which can create a DomainFIPAclTemplate.
+type DomainFIPAclTemplatesParent interface {
+	DomainFIPAclTemplatesAncestor
+	CreateDomainFIPAclTemplate(*DomainFIPAclTemplate) *bambou.Error
 }
 
 // DomainFIPAclTemplate represents the model of a egressdomainfloatingipacltemplate

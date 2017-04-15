@@ -3,7 +3,7 @@ kubeConfig: "/usr/share/nuagekubemon/nuage.kubeconfig"
 # Openshift master config file
 masterConfig: "/path/to/master-config.yaml"
 # URL of the VSD Architect
-vsdApiUrl: "https://xmpp.example.com:8443"
+vsdApiUrl: "https://xmpp.example.com:7443"
 # API version to query against.  Usually "v3_2"
 vspVersion: "v3_2"
 # File containing a VSP license to install.  Only necessary if no license has
@@ -13,12 +13,10 @@ vspVersion: "v3_2"
 enterpriseName: "K8S-Enterprise"
 # Name of the domain in which pods will reside
 domainName: "K8S-Domain"
-# CSP admin user's password
-cspAdminPassword: ''
-# Enterprise admin user name
-enterpriseAdminUser: 'admin'
-# Enterprise admin password
-enterpriseAdminPassword: ''
+# VSD generated user certificate file location on master node
+userCertificateFile: '/opt/user.pem'
+# VSD generated user key file location on master node
+userKeyFile: '/opt/user-Key.pem'
 # Location where logs should be saved
 log_dir: '/var/log/nuagekubemon'
 # The name of the namespace that should be accessible to all namespaces.  The

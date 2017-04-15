@@ -38,10 +38,19 @@ var VCenterHypervisorIdentity = bambou.Identity{
 // VCenterHypervisorsList represents a list of VCenterHypervisors
 type VCenterHypervisorsList []*VCenterHypervisor
 
-// VCenterHypervisorsAncestor is the interface of an ancestor of a VCenterHypervisor must implement.
+// VCenterHypervisorsAncestor is the interface that an ancestor of a VCenterHypervisor must implement.
+// An Ancestor is defined as an entity that has VCenterHypervisor as a descendant.
+// An Ancestor can get a list of its child VCenterHypervisors, but not necessarily create one.
 type VCenterHypervisorsAncestor interface {
 	VCenterHypervisors(*bambou.FetchingInfo) (VCenterHypervisorsList, *bambou.Error)
-	CreateVCenterHypervisors(*VCenterHypervisor) *bambou.Error
+}
+
+// VCenterHypervisorsParent is the interface that a parent of a VCenterHypervisor must implement.
+// A Parent is defined as an entity that has VCenterHypervisor as a child.
+// A Parent is an Ancestor which can create a VCenterHypervisor.
+type VCenterHypervisorsParent interface {
+	VCenterHypervisorsAncestor
+	CreateVCenterHypervisor(*VCenterHypervisor) *bambou.Error
 }
 
 // VCenterHypervisor represents the model of a vcenterhypervisor
@@ -53,9 +62,12 @@ type VCenterHypervisor struct {
 	VCenterIP                        string        `json:"vCenterIP,omitempty"`
 	VCenterPassword                  string        `json:"vCenterPassword,omitempty"`
 	VCenterUser                      string        `json:"vCenterUser,omitempty"`
+	VRSConfigurationTimeLimit        int           `json:"VRSConfigurationTimeLimit,omitempty"`
 	VRSMetricsID                     string        `json:"VRSMetricsID,omitempty"`
+	VRSState                         string        `json:"VRSState,omitempty"`
 	VRequireNuageMetadata            bool          `json:"vRequireNuageMetadata"`
 	Name                             string        `json:"name,omitempty"`
+	ManagedObjectID                  string        `json:"managedObjectID,omitempty"`
 	LastUpdatedBy                    string        `json:"lastUpdatedBy,omitempty"`
 	LastVRSDeployedDate              float64       `json:"lastVRSDeployedDate,omitempty"`
 	DataDNS1                         string        `json:"dataDNS1,omitempty"`
@@ -112,6 +124,12 @@ type VCenterHypervisor struct {
 	NovaMetadataServiceUsername      string        `json:"novaMetadataServiceUsername,omitempty"`
 	NovaMetadataSharedSecret         string        `json:"novaMetadataSharedSecret,omitempty"`
 	NovaRegionName                   string        `json:"novaRegionName,omitempty"`
+	UpgradePackagePassword           string        `json:"upgradePackagePassword,omitempty"`
+	UpgradePackageURL                string        `json:"upgradePackageURL,omitempty"`
+	UpgradePackageUsername           string        `json:"upgradePackageUsername,omitempty"`
+	UpgradeScriptTimeLimit           int           `json:"upgradeScriptTimeLimit,omitempty"`
+	UpgradeStatus                    string        `json:"upgradeStatus,omitempty"`
+	UpgradeTimedout                  bool          `json:"upgradeTimedout"`
 	PrimaryNuageController           string        `json:"primaryNuageController,omitempty"`
 	VrsId                            string        `json:"vrsId,omitempty"`
 	VrsPassword                      string        `json:"vrsPassword,omitempty"`
@@ -133,6 +151,7 @@ type VCenterHypervisor struct {
 	MulticastSourcePortgroup         string        `json:"multicastSourcePortgroup,omitempty"`
 	CustomizedScriptURL              string        `json:"customizedScriptURL,omitempty"`
 	AvailableNetworks                []interface{} `json:"availableNetworks,omitempty"`
+	OvfURL                           string        `json:"ovfURL,omitempty"`
 	ExternalID                       string        `json:"externalID,omitempty"`
 	HypervisorIP                     string        `json:"hypervisorIP,omitempty"`
 	HypervisorPassword               string        `json:"hypervisorPassword,omitempty"`
@@ -142,7 +161,10 @@ type VCenterHypervisor struct {
 // NewVCenterHypervisor returns a new *VCenterHypervisor
 func NewVCenterHypervisor() *VCenterHypervisor {
 
-	return &VCenterHypervisor{}
+	return &VCenterHypervisor{
+		VRSState:              "NOT_DEPLOYED",
+		DestinationMirrorPort: "no_mirror",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -209,14 +231,6 @@ func (o *VCenterHypervisor) CreateGlobalMetadata(child *GlobalMetadata) *bambou.
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the VCenterHypervisor
-func (o *VCenterHypervisor) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the VCenterHypervisor
 func (o *VCenterHypervisor) CreateJob(child *Job) *bambou.Error {
 
@@ -243,12 +257,6 @@ func (o *VCenterHypervisor) VRSMetrics(info *bambou.FetchingInfo) (VRSMetricsLis
 	var list VRSMetricsList
 	err := bambou.CurrentSession().FetchChildren(o, VRSMetricsIdentity, &list, info)
 	return list, err
-}
-
-// CreateVRSMetrics creates a new child VRSMetrics under the VCenterHypervisor
-func (o *VCenterHypervisor) CreateVRSMetrics(child *VRSMetrics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // VRSRedeploymentpolicies retrieves the list of child VRSRedeploymentpolicies of the VCenterHypervisor

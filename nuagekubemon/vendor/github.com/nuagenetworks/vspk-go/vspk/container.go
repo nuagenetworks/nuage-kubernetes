@@ -38,10 +38,19 @@ var ContainerIdentity = bambou.Identity{
 // ContainersList represents a list of Containers
 type ContainersList []*Container
 
-// ContainersAncestor is the interface of an ancestor of a Container must implement.
+// ContainersAncestor is the interface that an ancestor of a Container must implement.
+// An Ancestor is defined as an entity that has Container as a descendant.
+// An Ancestor can get a list of its child Containers, but not necessarily create one.
 type ContainersAncestor interface {
 	Containers(*bambou.FetchingInfo) (ContainersList, *bambou.Error)
-	CreateContainers(*Container) *bambou.Error
+}
+
+// ContainersParent is the interface that a parent of a Container must implement.
+// A Parent is defined as an entity that has Container as a child.
+// A Parent is an Ancestor which can create a Container.
+type ContainersParent interface {
+	ContainersAncestor
+	CreateContainer(*Container) *bambou.Error
 }
 
 // Container represents the model of a container
@@ -141,12 +150,6 @@ func (o *Container) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the Container
-func (o *Container) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the Container
 func (o *Container) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -197,22 +200,10 @@ func (o *Container) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVRS creates a new child VRS under the Container
-func (o *Container) CreateVRS(child *VRS) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the Container
 func (o *Container) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Container
-func (o *Container) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

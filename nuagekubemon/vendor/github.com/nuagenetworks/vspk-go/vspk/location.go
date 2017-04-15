@@ -38,10 +38,19 @@ var LocationIdentity = bambou.Identity{
 // LocationsList represents a list of Locations
 type LocationsList []*Location
 
-// LocationsAncestor is the interface of an ancestor of a Location must implement.
+// LocationsAncestor is the interface that an ancestor of a Location must implement.
+// An Ancestor is defined as an entity that has Location as a descendant.
+// An Ancestor can get a list of its child Locations, but not necessarily create one.
 type LocationsAncestor interface {
 	Locations(*bambou.FetchingInfo) (LocationsList, *bambou.Error)
-	CreateLocations(*Location) *bambou.Error
+}
+
+// LocationsParent is the interface that a parent of a Location must implement.
+// A Parent is defined as an entity that has Location as a child.
+// A Parent is an Ancestor which can create a Location.
+type LocationsParent interface {
+	LocationsAncestor
+	CreateLocation(*Location) *bambou.Error
 }
 
 // Location represents the model of a location

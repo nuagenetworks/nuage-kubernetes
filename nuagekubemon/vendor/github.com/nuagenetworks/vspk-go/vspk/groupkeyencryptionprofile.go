@@ -38,10 +38,19 @@ var GroupKeyEncryptionProfileIdentity = bambou.Identity{
 // GroupKeyEncryptionProfilesList represents a list of GroupKeyEncryptionProfiles
 type GroupKeyEncryptionProfilesList []*GroupKeyEncryptionProfile
 
-// GroupKeyEncryptionProfilesAncestor is the interface of an ancestor of a GroupKeyEncryptionProfile must implement.
+// GroupKeyEncryptionProfilesAncestor is the interface that an ancestor of a GroupKeyEncryptionProfile must implement.
+// An Ancestor is defined as an entity that has GroupKeyEncryptionProfile as a descendant.
+// An Ancestor can get a list of its child GroupKeyEncryptionProfiles, but not necessarily create one.
 type GroupKeyEncryptionProfilesAncestor interface {
 	GroupKeyEncryptionProfiles(*bambou.FetchingInfo) (GroupKeyEncryptionProfilesList, *bambou.Error)
-	CreateGroupKeyEncryptionProfiles(*GroupKeyEncryptionProfile) *bambou.Error
+}
+
+// GroupKeyEncryptionProfilesParent is the interface that a parent of a GroupKeyEncryptionProfile must implement.
+// A Parent is defined as an entity that has GroupKeyEncryptionProfile as a child.
+// A Parent is an Ancestor which can create a GroupKeyEncryptionProfile.
+type GroupKeyEncryptionProfilesParent interface {
+	GroupKeyEncryptionProfilesAncestor
+	CreateGroupKeyEncryptionProfile(*GroupKeyEncryptionProfile) *bambou.Error
 }
 
 // GroupKeyEncryptionProfile represents the model of a groupkeyencryptionprofile
@@ -79,7 +88,9 @@ type GroupKeyEncryptionProfile struct {
 // NewGroupKeyEncryptionProfile returns a new *GroupKeyEncryptionProfile
 func NewGroupKeyEncryptionProfile() *GroupKeyEncryptionProfile {
 
-	return &GroupKeyEncryptionProfile{}
+	return &GroupKeyEncryptionProfile{
+		SeedGenerationInterval: 1200,
+	}
 }
 
 // Identity returns the Identity of the object.

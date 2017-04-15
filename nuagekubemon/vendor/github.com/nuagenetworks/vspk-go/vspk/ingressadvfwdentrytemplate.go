@@ -38,10 +38,19 @@ var IngressAdvFwdEntryTemplateIdentity = bambou.Identity{
 // IngressAdvFwdEntryTemplatesList represents a list of IngressAdvFwdEntryTemplates
 type IngressAdvFwdEntryTemplatesList []*IngressAdvFwdEntryTemplate
 
-// IngressAdvFwdEntryTemplatesAncestor is the interface of an ancestor of a IngressAdvFwdEntryTemplate must implement.
+// IngressAdvFwdEntryTemplatesAncestor is the interface that an ancestor of a IngressAdvFwdEntryTemplate must implement.
+// An Ancestor is defined as an entity that has IngressAdvFwdEntryTemplate as a descendant.
+// An Ancestor can get a list of its child IngressAdvFwdEntryTemplates, but not necessarily create one.
 type IngressAdvFwdEntryTemplatesAncestor interface {
 	IngressAdvFwdEntryTemplates(*bambou.FetchingInfo) (IngressAdvFwdEntryTemplatesList, *bambou.Error)
-	CreateIngressAdvFwdEntryTemplates(*IngressAdvFwdEntryTemplate) *bambou.Error
+}
+
+// IngressAdvFwdEntryTemplatesParent is the interface that a parent of a IngressAdvFwdEntryTemplate must implement.
+// A Parent is defined as an entity that has IngressAdvFwdEntryTemplate as a child.
+// A Parent is an Ancestor which can create a IngressAdvFwdEntryTemplate.
+type IngressAdvFwdEntryTemplatesParent interface {
+	IngressAdvFwdEntryTemplatesAncestor
+	CreateIngressAdvFwdEntryTemplate(*IngressAdvFwdEntryTemplate) *bambou.Error
 }
 
 // IngressAdvFwdEntryTemplate represents the model of a ingressadvfwdentrytemplate
@@ -91,12 +100,12 @@ type IngressAdvFwdEntryTemplate struct {
 func NewIngressAdvFwdEntryTemplate() *IngressAdvFwdEntryTemplate {
 
 	return &IngressAdvFwdEntryTemplate{
-		Protocol:     "6",
-		EtherType:    "0x0800",
 		DSCP:         "*",
-		LocationType: "ANY",
 		Action:       "FORWARD",
 		NetworkType:  "ANY",
+		LocationType: "ANY",
+		Protocol:     "6",
+		EtherType:    "0x0800",
 	}
 }
 
@@ -164,14 +173,6 @@ func (o *IngressAdvFwdEntryTemplate) CreateGlobalMetadata(child *GlobalMetadata)
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the IngressAdvFwdEntryTemplate
-func (o *IngressAdvFwdEntryTemplate) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the IngressAdvFwdEntryTemplate
 func (o *IngressAdvFwdEntryTemplate) CreateJob(child *Job) *bambou.Error {
 
@@ -184,10 +185,4 @@ func (o *IngressAdvFwdEntryTemplate) Statistics(info *bambou.FetchingInfo) (Stat
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the IngressAdvFwdEntryTemplate
-func (o *IngressAdvFwdEntryTemplate) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

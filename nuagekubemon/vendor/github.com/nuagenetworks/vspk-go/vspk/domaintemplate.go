@@ -38,10 +38,19 @@ var DomainTemplateIdentity = bambou.Identity{
 // DomainTemplatesList represents a list of DomainTemplates
 type DomainTemplatesList []*DomainTemplate
 
-// DomainTemplatesAncestor is the interface of an ancestor of a DomainTemplate must implement.
+// DomainTemplatesAncestor is the interface that an ancestor of a DomainTemplate must implement.
+// An Ancestor is defined as an entity that has DomainTemplate as a descendant.
+// An Ancestor can get a list of its child DomainTemplates, but not necessarily create one.
 type DomainTemplatesAncestor interface {
 	DomainTemplates(*bambou.FetchingInfo) (DomainTemplatesList, *bambou.Error)
-	CreateDomainTemplates(*DomainTemplate) *bambou.Error
+}
+
+// DomainTemplatesParent is the interface that a parent of a DomainTemplate must implement.
+// A Parent is defined as an entity that has DomainTemplate as a child.
+// A Parent is an Ancestor which can create a DomainTemplate.
+type DomainTemplatesParent interface {
+	DomainTemplatesAncestor
+	CreateDomainTemplate(*DomainTemplate) *bambou.Error
 }
 
 // DomainTemplate represents the model of a domaintemplate
@@ -67,7 +76,9 @@ type DomainTemplate struct {
 // NewDomainTemplate returns a new *DomainTemplate
 func NewDomainTemplate() *DomainTemplate {
 
-	return &DomainTemplate{}
+	return &DomainTemplate{
+		DPI: "DISABLED",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -246,14 +257,6 @@ func (o *DomainTemplate) CreateIngressExternalServiceTemplate(child *IngressExte
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the DomainTemplate
-func (o *DomainTemplate) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the DomainTemplate
 func (o *DomainTemplate) CreateJob(child *Job) *bambou.Error {
 
@@ -329,12 +332,6 @@ func (o *DomainTemplate) Groups(info *bambou.FetchingInfo) (GroupsList, *bambou.
 	return list, err
 }
 
-// CreateGroup creates a new child Group under the DomainTemplate
-func (o *DomainTemplate) CreateGroup(child *Group) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // SubnetTemplates retrieves the list of child SubnetTemplates of the DomainTemplate
 func (o *DomainTemplate) SubnetTemplates(info *bambou.FetchingInfo) (SubnetTemplatesList, *bambou.Error) {
 
@@ -343,22 +340,10 @@ func (o *DomainTemplate) SubnetTemplates(info *bambou.FetchingInfo) (SubnetTempl
 	return list, err
 }
 
-// CreateSubnetTemplate creates a new child SubnetTemplate under the DomainTemplate
-func (o *DomainTemplate) CreateSubnetTemplate(child *SubnetTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the DomainTemplate
 func (o *DomainTemplate) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the DomainTemplate
-func (o *DomainTemplate) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

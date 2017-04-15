@@ -38,10 +38,19 @@ var VSPIdentity = bambou.Identity{
 // VSPsList represents a list of VSPs
 type VSPsList []*VSP
 
-// VSPsAncestor is the interface of an ancestor of a VSP must implement.
+// VSPsAncestor is the interface that an ancestor of a VSP must implement.
+// An Ancestor is defined as an entity that has VSP as a descendant.
+// An Ancestor can get a list of its child VSPs, but not necessarily create one.
 type VSPsAncestor interface {
 	VSPs(*bambou.FetchingInfo) (VSPsList, *bambou.Error)
-	CreateVSPs(*VSP) *bambou.Error
+}
+
+// VSPsParent is the interface that a parent of a VSP must implement.
+// A Parent is defined as an entity that has VSP as a child.
+// A Parent is an Ancestor which can create a VSP.
+type VSPsParent interface {
+	VSPsAncestor
+	CreateVSP(*VSP) *bambou.Error
 }
 
 // VSP represents the model of a vsp
@@ -137,24 +146,12 @@ func (o *VSP) HSCs(info *bambou.FetchingInfo) (HSCsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateHSC creates a new child HSC under the VSP
-func (o *VSP) CreateHSC(child *HSC) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VSCs retrieves the list of child VSCs of the VSP
 func (o *VSP) VSCs(info *bambou.FetchingInfo) (VSCsList, *bambou.Error) {
 
 	var list VSCsList
 	err := bambou.CurrentSession().FetchChildren(o, VSCIdentity, &list, info)
 	return list, err
-}
-
-// CreateVSC creates a new child VSC under the VSP
-func (o *VSP) CreateVSC(child *VSC) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // VSDs retrieves the list of child VSDs of the VSP
@@ -165,22 +162,10 @@ func (o *VSP) VSDs(info *bambou.FetchingInfo) (VSDsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVSD creates a new child VSD under the VSP
-func (o *VSP) CreateVSD(child *VSD) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the VSP
 func (o *VSP) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the VSP
-func (o *VSP) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

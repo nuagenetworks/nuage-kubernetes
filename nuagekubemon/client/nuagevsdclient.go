@@ -20,7 +20,6 @@ package client
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/golang/glog"
@@ -34,16 +33,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
 type NuageVsdClient struct {
 	url                                string
 	version                            string
-	username                           string
-	password                           string
-	enterprise                         string
 	session                            napping.Session
 	enterpriseID                       string
 	domainID                           string
@@ -89,181 +84,6 @@ func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *a
 	return nvsdc
 }
 
-func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
-	h := nvsdc.session.Header
-	// Add the organization header if it's not present
-	if h.Get("X-Nuage-Organization") == "" {
-		h.Add("X-Nuage-Organization", nvsdc.enterprise)
-	}
-	if h.Get("Authorization") == "" {
-		h.Add("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
-	} else {
-		h.Set("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
-	}
-	var result [1]api.VsdAuthToken
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"me", nil, &result, &e)
-	if err != nil {
-		glog.Error("Error when requesting authorization token", err)
-		return err
-	}
-	glog.Infoln("Got a reponse status", resp.Status())
-	if resp.Status() == http.StatusOK {
-		// Launch a separate go routine to get the new token 3 minutes before
-		// this one expires
-		// APIKeyExpiry is in milliseconds, while Unix time is in seconds.
-		delay := time.Duration(result[0].APIKeyExpiry-(time.Now().Unix()*1000))*time.Millisecond - 3*time.Minute
-		// If there's less than 3 minutes until expiration, get the new key when
-		// the old one expires.
-		if delay < 0 {
-			delay = time.Duration(result[0].APIKeyExpiry-(time.Now().Unix()*1000)) * time.Millisecond
-		}
-		time.AfterFunc(delay, func() { nvsdc.GetAuthorizationToken() })
-		h.Set("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+result[0].APIKey)))
-		return nil
-	} else {
-		return VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, error) {
-	payload := api.VsdEnterprise{
-		Name:        enterpriseName,
-		Description: "Auto-generated enterprise",
-	}
-	result := make([]api.VsdEnterprise, 1)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when creating enterprise", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when creating the enterprise")
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Created the enterprise: ", result[0].ID)
-		return result[0].ID, nil
-	case http.StatusConflict:
-		glog.Infoln("Error from VSD:\n", e)
-		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetEnterpriseID(enterpriseName)
-		if err != nil {
-			glog.Errorf("Error when getting enterprise ID: %s", err)
-			return "", err
-		} else {
-			return id, nil
-		}
-	default:
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, passwd string) (string, error) {
-	payload := api.VsdUser{
-		UserName:  user,
-		Password:  passwd,
-		FirstName: "Admin",
-		LastName:  "Admin",
-		Email:     "admin@localhost",
-	}
-	result := make([]api.VsdUser, 1)
-	e := api.RESTError{}
-	//Get admin ID after creating the admin user
-	var adminId string
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/users", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when creating admin user", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when creating the admin user")
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Created the admin user: ", result[0].ID)
-		adminId = result[0].ID
-	case http.StatusConflict:
-		glog.Infoln("Error from VSD:\n", e)
-		//Enterprise already exists, call Get to retrieve the ID
-		id, erradminID := nvsdc.GetAdminID(enterpriseID, "admin")
-		if erradminID != nil {
-			glog.Errorf("Error when getting admin user's ID: %s", erradminID)
-		} else {
-			adminId = id
-		}
-	default:
-		return "", VsdErrorResponse(resp, &e)
-	}
-	//Get admin group ID and add the admin id to the admin group
-	groupId, err := nvsdc.GetAdminGroupID(enterpriseID)
-	if err != nil {
-		glog.Errorf("Error when getting admin group ID: %s", err)
-		return "", err
-	}
-	err = nvsdc.AddUserToGroup(adminId, groupId)
-	if err != nil {
-		glog.Errorf("Failed to add %s to admin group", user)
-		return "", err
-	}
-	return adminId, nil
-}
-
-func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, error) {
-	result := make([]api.VsdUser, 1)
-	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `userName == "`+name+`"`)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/users", nil, &result, &e)
-	h.Del("X-Nuage-Filter")
-	if err != nil {
-		glog.Errorf("Error when getting admin user ID %s", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting user ID")
-	if resp.Status() == http.StatusOK {
-		// Status code 200 is returned even if there's no results.  If
-		// the filter didn't match anything (or there was nothing to
-		// return), the result object will just be empty.
-		if result[0].UserName == name {
-			return result[0].ID, nil
-		} else if result[0].UserName == "" {
-			return "", errors.New("User not found")
-		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].UserName, name))
-		}
-	} else {
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error) {
-	result := make([]api.VsdGroup, 1)
-	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `role == "ORGADMIN"`)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/groups", nil, &result, &e)
-	h.Del("X-Nuage-Filter")
-	if err != nil {
-		glog.Errorf("Error when getting admin group ID %s", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting ID of group ORGADMIN")
-	if resp.Status() == http.StatusOK {
-		// Status code 200 is returned even if there's no results.  If
-		// the filter didn't match anything (or there was nothing to
-		// return), the result object will just be empty.
-		if result[0].Role == "ORGADMIN" {
-			return result[0].ID, nil
-		} else if result[0].ID == "" {
-			return "", errors.New("Admin Group not found")
-		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of \"ORGADMIN\"", result[0].Role))
-		}
-	} else {
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
 func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
@@ -293,29 +113,33 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateSession() {
+func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile string) {
+
+	cert, err := tls.LoadX509KeyPair(userCertFile, userKeyFile)
+	if err != nil {
+		glog.Errorf("Error loading VSD generated certificates to authenticate with VSD %s", err)
+	}
+
+	// Setup HTTPS client
+	tlsConfig := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		InsecureSkipVerify: true,
+	}
+	tlsConfig.BuildNameToCertificate()
+
 	nvsdc.session = napping.Session{
 		Client: &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: tlsConfig,
 			},
 		},
 		Header: &http.Header{},
 	}
+
 	nvsdc.session.Header.Add("Content-Type", "application/json")
 	// Request that the TCP connection is closed when the transaction is
 	// complete
 	nvsdc.session.Header.Add("Connection", "close")
-}
-
-func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string) error {
-	nvsdc.username = user
-	nvsdc.password = password
-	nvsdc.enterprise = enterpriseName
-	h := nvsdc.session.Header
-	h.Del("X-Nuage-Organization")
-	h.Del("Authorization")
-	return nvsdc.GetAuthorizationToken()
 }
 
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) {
@@ -328,9 +152,6 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	var err error
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	nvsdc.username = "csproot"
-	nvsdc.password = nkmConfig.CSPAdminPassword
-	nvsdc.enterprise = "csp"
 	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
@@ -367,10 +188,9 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	vsdMeta := make(policy.VsdMetaData)
 	vsdMeta["domainName"] = nkmConfig.DomainName
 	vsdMeta["enterpriseName"] = nkmConfig.EnterpriseName
-	vsdMeta["organization"] = nvsdc.enterprise
-	vsdMeta["username"] = nvsdc.username
-	vsdMeta["password"] = nvsdc.password
 	vsdMeta["vsdUrl"] = nkmConfig.NuageVsdApiUrl
+	vsdMeta["usercertfile"] = nkmConfig.UserCertificateFile
+	vsdMeta["userkeyfile"] = nkmConfig.UserKeyFile
 	rm, err := policy.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
 	if err != nil {
 		glog.Error("Failed to initialize the resource manager properly")
@@ -379,29 +199,20 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	}
 
 	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue, nvsdc.resourceManager.GetPolicyGroupsForPod)
-	nvsdc.CreateSession()
+
+	nvsdc.CreateSession(nkmConfig.UserCertificateFile, nkmConfig.UserKeyFile)
 	nvsdc.nextAvailablePriority = 0
 
-	err = nvsdc.GetAuthorizationToken()
-	if err != nil {
-		glog.Fatal(err)
+	for {
+		nvsdc.enterpriseID, err = nvsdc.GetEnterpriseID(nkmConfig.EnterpriseName)
+		if err != nil {
+			glog.Error("Failed to fetch enterprise ID from VSD. Will retry in 10 seconds")
+		} else {
+			break
+		}
+		time.Sleep(time.Duration(10) * time.Second)
 	}
-	nvsdc.enterpriseID, err = nvsdc.CreateEnterprise(nkmConfig.EnterpriseName)
-	if err != nil {
-		glog.Fatal(err)
-	}
-	_, err = nvsdc.CreateAdminUser(nvsdc.enterpriseID, nkmConfig.EnterpriseAdminUserName, nkmConfig.EnterpriseAdminPassword)
-	if err != nil {
-		glog.Fatal(err)
-	}
-	err = nvsdc.InstallLicense(nkmConfig.LicenseFile)
-	if err != nil {
-		glog.Fatal(err)
-	}
-	err = nvsdc.LoginAsAdmin(nkmConfig.EnterpriseAdminUserName, nkmConfig.EnterpriseAdminPassword, nkmConfig.EnterpriseName)
-	if err != nil {
-		glog.Fatal(err)
-	}
+
 	domainTemplateID, err := nvsdc.CreateDomainTemplate(nvsdc.enterpriseID,
 		nkmConfig.DomainName+"-Template")
 	if err != nil {
@@ -509,60 +320,6 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 	// TODO: if TLS setup is unsucessful, serve over http instead
 	go nvsdc.restServer.ListenAndServeTLS(serverCert, serverKey)
 	return nil
-}
-
-func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
-	if licensePath == "" {
-		glog.Info("No license file specified")
-		//check if a license already exists.
-		// if it does then its not an error
-		return nvsdc.GetLicense()
-	}
-	//try installing the license file
-	license, err := ioutil.ReadFile(licensePath)
-	if err != nil {
-		glog.Error("Failed to read license file", err)
-		return err
-	}
-	licenseString := strings.TrimSpace(string(license))
-	payload := api.VsdLicense{
-		License: licenseString,
-	}
-	result := make([]api.VsdLicense, 1)
-	e := api.RESTError{}
-	glog.Info("Attempting to install license file", licensePath)
-	resp, err := nvsdc.session.Post(nvsdc.url+"licenses", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when installing license", err)
-		return err
-	}
-	glog.Infoln("License Install: reponse status", resp.Status())
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Installed the license: ", result[0].LicenseId)
-	case http.StatusConflict:
-		//TODO: license already exists, call Get to retrieve the ID? Do we need to delete the existing license?
-		glog.Info("License already exists")
-	default:
-		return VsdErrorResponse(resp, &e)
-	}
-	return nil
-}
-
-func (nvsdc *NuageVsdClient) GetLicense() error {
-	result := make([]api.VsdLicense, 1)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"licenses", nil, &result, &e)
-	if err != nil {
-		glog.Error("Error when requesting license", err)
-		return err
-	}
-	glog.Infoln("GetLicense() got a reponse status", resp.Status())
-	if resp.Status() == http.StatusOK {
-		return nil
-	} else {
-		return VsdErrorResponse(resp, &e)
-	}
 }
 
 func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateName string) (string, error) {
@@ -2429,79 +2186,6 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	default:
 		return VsdErrorResponse(resp, &e)
 	}
-}
-
-func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
-	result := make([]api.VsdUser, 0, 100)
-	e := api.RESTError{}
-	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
-	page := 0
-	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
-	// guarantee that the headers are cleared so that we don't change the
-	// behavior of other functions
-	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
-	defer nvsdc.session.Header.Del("X-Nuage-Page")
-	userIDList := []string{userID}
-	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"groups/"+groupID+"/users",
-			nil, &result, &e)
-		if err != nil {
-			glog.Errorf("Error when adding user %s to group %s: %s", userID,
-				groupID, err)
-			return err
-		}
-		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
-			break
-		} else if resp.Status() == http.StatusOK {
-			// Add all the items on this page to the list
-			for _, user := range result {
-				if user.ID == userID {
-					// The user is already a part of the intended group, so no
-					// extra work is necessary.
-					return nil
-				}
-				userIDList = append(userIDList, user.ID)
-			}
-			// If there's less than 100 items in the page, we must've reached
-			// the last page.  Break here instead of getting the next
-			// (guaranteed empty) page.
-			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
-				if count < 100 {
-					break
-				}
-			} else {
-				// Something went wrong with parsing the x-nuage-count header
-				return errors.New("Invalid X-Nuage-Count: " + err.Error())
-			}
-			// Update headers to get the next page
-			page++
-			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
-		} else {
-			// Something went wrong
-			return VsdErrorResponse(resp, &e)
-		}
-	}
-	// Delete headers.  Calling Header.Del(...) on a non-existent header is a
-	// no-op, so the `defer ...Header.Del(...)` calls above are still valid.
-	nvsdc.session.Header.Del("X-Nuage-PageSize")
-	nvsdc.session.Header.Del("X-Nuage-Page")
-	resp, err := nvsdc.session.Put(nvsdc.url+"groups/"+
-		groupID+"/users", &userIDList, nil, &e)
-	if err != nil {
-		glog.Errorf("Error when adding user %s to group %s: %s", userID,
-			groupID, err)
-		return err
-	} else {
-		glog.Infoln("Got a reponse status", resp.Status(),
-			"when adding user to group")
-		switch resp.Status() {
-		case http.StatusNoContent:
-			glog.Infof("Added user %s to group %s", userID, groupID)
-		default:
-			return VsdErrorResponse(resp, &e)
-		}
-	}
-	return nil
 }
 
 func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGroupID string) error {

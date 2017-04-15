@@ -38,10 +38,19 @@ var IPReservationIdentity = bambou.Identity{
 // IPReservationsList represents a list of IPReservations
 type IPReservationsList []*IPReservation
 
-// IPReservationsAncestor is the interface of an ancestor of a IPReservation must implement.
+// IPReservationsAncestor is the interface that an ancestor of a IPReservation must implement.
+// An Ancestor is defined as an entity that has IPReservation as a descendant.
+// An Ancestor can get a list of its child IPReservations, but not necessarily create one.
 type IPReservationsAncestor interface {
 	IPReservations(*bambou.FetchingInfo) (IPReservationsList, *bambou.Error)
-	CreateIPReservations(*IPReservation) *bambou.Error
+}
+
+// IPReservationsParent is the interface that a parent of a IPReservation must implement.
+// A Parent is defined as an entity that has IPReservation as a child.
+// A Parent is an Ancestor which can create a IPReservation.
+type IPReservationsParent interface {
+	IPReservationsAncestor
+	CreateIPReservation(*IPReservation) *bambou.Error
 }
 
 // IPReservation represents the model of a ipreservation
@@ -134,10 +143,4 @@ func (o *IPReservation) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *ba
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the IPReservation
-func (o *IPReservation) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

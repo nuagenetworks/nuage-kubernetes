@@ -38,10 +38,19 @@ var InfrastructureGatewayProfileIdentity = bambou.Identity{
 // InfrastructureGatewayProfilesList represents a list of InfrastructureGatewayProfiles
 type InfrastructureGatewayProfilesList []*InfrastructureGatewayProfile
 
-// InfrastructureGatewayProfilesAncestor is the interface of an ancestor of a InfrastructureGatewayProfile must implement.
+// InfrastructureGatewayProfilesAncestor is the interface that an ancestor of a InfrastructureGatewayProfile must implement.
+// An Ancestor is defined as an entity that has InfrastructureGatewayProfile as a descendant.
+// An Ancestor can get a list of its child InfrastructureGatewayProfiles, but not necessarily create one.
 type InfrastructureGatewayProfilesAncestor interface {
 	InfrastructureGatewayProfiles(*bambou.FetchingInfo) (InfrastructureGatewayProfilesList, *bambou.Error)
-	CreateInfrastructureGatewayProfiles(*InfrastructureGatewayProfile) *bambou.Error
+}
+
+// InfrastructureGatewayProfilesParent is the interface that a parent of a InfrastructureGatewayProfile must implement.
+// A Parent is defined as an entity that has InfrastructureGatewayProfile as a child.
+// A Parent is an Ancestor which can create a InfrastructureGatewayProfile.
+type InfrastructureGatewayProfilesParent interface {
+	InfrastructureGatewayProfilesAncestor
+	CreateInfrastructureGatewayProfile(*InfrastructureGatewayProfile) *bambou.Error
 }
 
 // InfrastructureGatewayProfile represents the model of a infrastructuregatewayprofile
@@ -62,6 +71,7 @@ type InfrastructureGatewayProfile struct {
 	RemoteLogServerPort          int    `json:"remoteLogServerPort,omitempty"`
 	Description                  string `json:"description,omitempty"`
 	MetadataUpgradePath          string `json:"metadataUpgradePath,omitempty"`
+	FlowEvictionThreshold        int    `json:"flowEvictionThreshold,omitempty"`
 	EnterpriseID                 string `json:"enterpriseID,omitempty"`
 	EntityScope                  string `json:"entityScope,omitempty"`
 	ControllerLessDuration       string `json:"controllerLessDuration,omitempty"`
@@ -69,6 +79,7 @@ type InfrastructureGatewayProfile struct {
 	ControllerLessForwardingMode string `json:"controllerLessForwardingMode,omitempty"`
 	ControllerLessRemoteDuration string `json:"controllerLessRemoteDuration,omitempty"`
 	ForceImmediateSystemSync     bool   `json:"forceImmediateSystemSync"`
+	OpenFlowAuditTimer           int    `json:"openFlowAuditTimer,omitempty"`
 	UpgradeAction                string `json:"upgradeAction,omitempty"`
 	ProxyDNSName                 string `json:"proxyDNSName,omitempty"`
 	UseTwoFactor                 bool   `json:"useTwoFactor"`
@@ -81,13 +92,18 @@ type InfrastructureGatewayProfile struct {
 func NewInfrastructureGatewayProfile() *InfrastructureGatewayProfile {
 
 	return &InfrastructureGatewayProfile{
-		UpgradeAction:       "NONE",
-		StatsCollectorPort:  29090,
-		SystemSyncScheduler: "0 0 * * 0",
-		DeadTimer:           "ONE_HOUR",
-		UseTwoFactor:        true,
-		RemoteLogMode:       "DISABLED",
-		DatapathSyncTimeout: 1000,
+		DatapathSyncTimeout:          1000,
+		DeadTimer:                    "ONE_HOUR",
+		RemoteLogMode:                "DISABLED",
+		FlowEvictionThreshold:        2500,
+		ControllerLessDuration:       "PT7D",
+		ControllerLessForwardingMode: "DISABLED",
+		ControllerLessRemoteDuration: "PT7D",
+		OpenFlowAuditTimer:           180,
+		UpgradeAction:                "NONE",
+		UseTwoFactor:                 true,
+		StatsCollectorPort:           39090,
+		SystemSyncScheduler:          "0 0 * * 0",
 	}
 }
 

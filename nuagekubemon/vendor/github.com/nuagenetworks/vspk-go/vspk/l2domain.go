@@ -38,10 +38,19 @@ var L2DomainIdentity = bambou.Identity{
 // L2DomainsList represents a list of L2Domains
 type L2DomainsList []*L2Domain
 
-// L2DomainsAncestor is the interface of an ancestor of a L2Domain must implement.
+// L2DomainsAncestor is the interface that an ancestor of a L2Domain must implement.
+// An Ancestor is defined as an entity that has L2Domain as a descendant.
+// An Ancestor can get a list of its child L2Domains, but not necessarily create one.
 type L2DomainsAncestor interface {
 	L2Domains(*bambou.FetchingInfo) (L2DomainsList, *bambou.Error)
-	CreateL2Domains(*L2Domain) *bambou.Error
+}
+
+// L2DomainsParent is the interface that a parent of a L2Domain must implement.
+// A Parent is defined as an entity that has L2Domain as a child.
+// A Parent is an Ancestor which can create a L2Domain.
+type L2DomainsParent interface {
+	L2DomainsAncestor
+	CreateL2Domain(*L2Domain) *bambou.Error
 }
 
 // L2Domain represents the model of a l2domain
@@ -81,6 +90,7 @@ type L2Domain struct {
 func NewL2Domain() *L2Domain {
 
 	return &L2Domain{
+		DPI:             "DISABLED",
 		MaintenanceMode: "DISABLED",
 	}
 }
@@ -143,12 +153,6 @@ func (o *L2Domain) AddressRanges(info *bambou.FetchingInfo) (AddressRangesList, 
 	return list, err
 }
 
-// CreateAddressRange creates a new child AddressRange under the L2Domain
-func (o *L2Domain) CreateAddressRange(child *AddressRange) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // RedirectionTargets retrieves the list of child RedirectionTargets of the L2Domain
 func (o *L2Domain) RedirectionTargets(info *bambou.FetchingInfo) (RedirectionTargetsList, *bambou.Error) {
 
@@ -197,12 +201,6 @@ func (o *L2Domain) EgressACLEntryTemplates(info *bambou.FetchingInfo) (EgressACL
 	var list EgressACLEntryTemplatesList
 	err := bambou.CurrentSession().FetchChildren(o, EgressACLEntryTemplateIdentity, &list, info)
 	return list, err
-}
-
-// CreateEgressACLEntryTemplate creates a new child EgressACLEntryTemplate under the L2Domain
-func (o *L2Domain) CreateEgressACLEntryTemplate(child *EgressACLEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // EgressACLTemplates retrieves the list of child EgressACLTemplates of the L2Domain
@@ -255,12 +253,6 @@ func (o *L2Domain) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the L2Domain
-func (o *L2Domain) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VMInterfaces retrieves the list of child VMInterfaces of the L2Domain
 func (o *L2Domain) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bambou.Error) {
 
@@ -269,24 +261,12 @@ func (o *L2Domain) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *b
 	return list, err
 }
 
-// CreateVMInterface creates a new child VMInterface under the L2Domain
-func (o *L2Domain) CreateVMInterface(child *VMInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // IngressACLEntryTemplates retrieves the list of child IngressACLEntryTemplates of the L2Domain
 func (o *L2Domain) IngressACLEntryTemplates(info *bambou.FetchingInfo) (IngressACLEntryTemplatesList, *bambou.Error) {
 
 	var list IngressACLEntryTemplatesList
 	err := bambou.CurrentSession().FetchChildren(o, IngressACLEntryTemplateIdentity, &list, info)
 	return list, err
-}
-
-// CreateIngressACLEntryTemplate creates a new child IngressACLEntryTemplate under the L2Domain
-func (o *L2Domain) CreateIngressACLEntryTemplate(child *IngressACLEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // IngressACLTemplates retrieves the list of child IngressACLTemplates of the L2Domain
@@ -331,14 +311,6 @@ func (o *L2Domain) CreateIngressExternalServiceTemplate(child *IngressExternalSe
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the L2Domain
-func (o *L2Domain) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the L2Domain
 func (o *L2Domain) CreateJob(child *Job) *bambou.Error {
 
@@ -367,24 +339,12 @@ func (o *L2Domain) Containers(info *bambou.FetchingInfo) (ContainersList, *bambo
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the L2Domain
-func (o *L2Domain) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // ContainerInterfaces retrieves the list of child ContainerInterfaces of the L2Domain
 func (o *L2Domain) ContainerInterfaces(info *bambou.FetchingInfo) (ContainerInterfacesList, *bambou.Error) {
 
 	var list ContainerInterfacesList
 	err := bambou.CurrentSession().FetchChildren(o, ContainerInterfaceIdentity, &list, info)
 	return list, err
-}
-
-// CreateContainerInterface creates a new child ContainerInterface under the L2Domain
-func (o *L2Domain) CreateContainerInterface(child *ContainerInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // QOSs retrieves the list of child QOSs of the L2Domain
@@ -409,24 +369,12 @@ func (o *L2Domain) HostInterfaces(info *bambou.FetchingInfo) (HostInterfacesList
 	return list, err
 }
 
-// CreateHostInterface creates a new child HostInterface under the L2Domain
-func (o *L2Domain) CreateHostInterface(child *HostInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // UplinkRDs retrieves the list of child UplinkRDs of the L2Domain
 func (o *L2Domain) UplinkRDs(info *bambou.FetchingInfo) (UplinkRDsList, *bambou.Error) {
 
 	var list UplinkRDsList
 	err := bambou.CurrentSession().FetchChildren(o, UplinkRDIdentity, &list, info)
 	return list, err
-}
-
-// CreateUplinkRD creates a new child UplinkRD under the L2Domain
-func (o *L2Domain) CreateUplinkRD(child *UplinkRD) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // VPNConnections retrieves the list of child VPNConnections of the L2Domain
@@ -479,24 +427,12 @@ func (o *L2Domain) BridgeInterfaces(info *bambou.FetchingInfo) (BridgeInterfaces
 	return list, err
 }
 
-// CreateBridgeInterface creates a new child BridgeInterface under the L2Domain
-func (o *L2Domain) CreateBridgeInterface(child *BridgeInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Groups retrieves the list of child Groups of the L2Domain
 func (o *L2Domain) Groups(info *bambou.FetchingInfo) (GroupsList, *bambou.Error) {
 
 	var list GroupsList
 	err := bambou.CurrentSession().FetchChildren(o, GroupIdentity, &list, info)
 	return list, err
-}
-
-// CreateGroup creates a new child Group under the L2Domain
-func (o *L2Domain) CreateGroup(child *Group) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StaticRoutes retrieves the list of child StaticRoutes of the L2Domain
@@ -521,12 +457,6 @@ func (o *L2Domain) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambo
 	return list, err
 }
 
-// CreateStatistics creates a new child Statistics under the L2Domain
-func (o *L2Domain) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the L2Domain
 func (o *L2Domain) StatisticsPolicies(info *bambou.FetchingInfo) (StatisticsPoliciesList, *bambou.Error) {
 
@@ -547,10 +477,4 @@ func (o *L2Domain) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the L2Domain
-func (o *L2Domain) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

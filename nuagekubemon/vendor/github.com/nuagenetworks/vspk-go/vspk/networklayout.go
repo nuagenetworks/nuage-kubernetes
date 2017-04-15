@@ -38,10 +38,19 @@ var NetworkLayoutIdentity = bambou.Identity{
 // NetworkLayoutsList represents a list of NetworkLayouts
 type NetworkLayoutsList []*NetworkLayout
 
-// NetworkLayoutsAncestor is the interface of an ancestor of a NetworkLayout must implement.
+// NetworkLayoutsAncestor is the interface that an ancestor of a NetworkLayout must implement.
+// An Ancestor is defined as an entity that has NetworkLayout as a descendant.
+// An Ancestor can get a list of its child NetworkLayouts, but not necessarily create one.
 type NetworkLayoutsAncestor interface {
 	NetworkLayouts(*bambou.FetchingInfo) (NetworkLayoutsList, *bambou.Error)
-	CreateNetworkLayouts(*NetworkLayout) *bambou.Error
+}
+
+// NetworkLayoutsParent is the interface that a parent of a NetworkLayout must implement.
+// A Parent is defined as an entity that has NetworkLayout as a child.
+// A Parent is an Ancestor which can create a NetworkLayout.
+type NetworkLayoutsParent interface {
+	NetworkLayoutsAncestor
+	CreateNetworkLayout(*NetworkLayout) *bambou.Error
 }
 
 // NetworkLayout represents the model of a networklayout
