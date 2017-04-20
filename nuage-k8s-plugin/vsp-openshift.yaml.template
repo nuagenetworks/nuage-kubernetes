@@ -10,6 +10,8 @@ CACert: /usr/share/vsp-openshift/ca.crt
 enterpriseName: "Openshift-Enterprise"
 # Name of the domain in which pods will reside
 domainName: "Openshift-Domain"
+# Name of the VSD user in admin group
+vsdUser: ""
 # IP address and port number of master API server
 masterApiServer: "https://127.0.0.1:8443"
 # Host name and port of the kubemon REST API

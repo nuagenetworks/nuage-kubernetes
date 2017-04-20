@@ -363,19 +363,20 @@ def find_metadata(options, config, setup):
     zone = options.namespace
     network = options.namespace + '-0'
     user = 'admin'
-    mtu = 1460
+    mtu = 1450
     podmeta = None
     if config is not None:
         domain = config.get("domainName", "%s-Domain" % platform)
         ent = config.get("enterpriseName", "%s-Enterprise" % platform)
         mtu = config.get("interfaceMTU", mtu)
+        user = config.get("vsdUser", user)
     if setup:
         podmeta = get_pod_metadata(options, config)
     if podmeta is not None and 'labels' in podmeta:
         network = podmeta['labels'].get('nuage.io/subnet',
                                         options.namespace + '-0')
         zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
-        user = podmeta['labels'].get('nuage.io/user', 'admin')
+        user = podmeta['labels'].get('nuage.io/user', user)
         pglabels = podmeta['labels'].get('nuage.io/policy-group', None)
         if pglabels:
             pg = [pglabels]
@@ -482,7 +483,7 @@ def find_metadata(options, config, setup):
                         "ent": ent,
                         "pid": pid,
                         "delete_timer": delete_timer,
-                        "mtu": mtu if mtu else 1460,
+                        "mtu": mtu if mtu else 1450,
                         "name": name}
             if pg is not None:
                 metadata['pg'] = pg
@@ -503,7 +504,7 @@ def find_metadata(options, config, setup):
                         "ent": ent,
                         "pid": pid,
                         "delete_timer": delete_timer,
-                        "mtu": mtu if mtu else 1460,
+                        "mtu": mtu if mtu else 1450,
                         "name": name}
             if pg is not None:
                 metadata['pg'] = pg
