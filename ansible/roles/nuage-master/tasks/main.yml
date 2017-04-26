@@ -60,6 +60,14 @@
   become: yes
   package: name=jq state=present
 
+- name: Install Nuage VSD user certificate
+  become: yes
+  copy: src="{{ vsd_user_cert_file }}" dest="{{ cert_output_dir }}/{{ vsd_user_cert_file | basename }}"
+
+- name: Install Nuage VSD user key
+  become: yes
+  copy: src="{{ vsd_user_key_file }}" dest="{{ cert_output_dir }}/{{ vsd_user_key_file | basename }}"
+
 - name: restart daemons
   command: /bin/true
   notify:
