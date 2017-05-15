@@ -85,35 +85,28 @@ func (rm *ResourceManager) Init(callBacks *CallBacks, clusterCbs *api.ClusterCli
 }
 
 func (rm *ResourceManager) InitPolicyImplementer() error {
-	user, ok := rm.vsdMeta["username"]
-	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies : Username absent")
-		return fmt.Errorf("Username absent")
-	}
-
-	password, ok := rm.vsdMeta["password"]
-	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies: Password absent")
-		return fmt.Errorf("Password absent")
-	}
-
-	org, ok := rm.vsdMeta["organization"]
-	if !ok {
-		glog.Error("Cannot get the master organization for vspk policies: Organization absent")
-		return fmt.Errorf("Organization absent")
-	}
-
 	url, ok := rm.vsdMeta["vsdUrl"]
 	if !ok {
 		glog.Error("Couldn't initialize a implementer for vspk policies: vsdURL absent")
 		return fmt.Errorf("VSD URL absent")
 	}
 
+	usercert, ok := rm.vsdMeta["usercertfile"]
+	if !ok {
+		glog.Error("Couldn't initialize a implementer for vspk policies: user certificate file absent")
+		return fmt.Errorf("VSD User certificate file absent")
+	}
+
+	userkey, ok := rm.vsdMeta["userkeyfile"]
+	if !ok {
+		glog.Error("Couldn't initialize a implementer for vspk policies: user key file absent")
+		return fmt.Errorf("VSD User key file absent")
+	}
+
 	vsdCredentials := implementer.VSDCredentials{
-		Username:     user,
-		Password:     password,
-		Organization: org,
 		URL:          url,
+		UserCertFile: usercert,
+		UserKeyFile:  userkey,
 	}
 
 	return rm.implementer.Init(&vsdCredentials)
