@@ -33,14 +33,12 @@ $ nuagekubemon --config=/usr/share/nuagekubemon/nuagekubemon.yaml
 ```
 
 ## Node Installation
-### Install vsp-k8s
-- Put `vsp-k8s` at
-  `/usr/libexec/kubernetes/kubelet-plugins/net/exec/vsp-k8s/vsp-k8s`
-  - This is probably not the expected place on Ubuntu because /usr/libexec/
-    didn't exist, but that's an issue we can solve another time
+### Install Nuage k8s CNI plugin
+- Put `nuage-cni-k8s` at
+  `/usr/bin`
 - Create the `/usr/share/vsp-k8s` directory
  
-### Configure k8s-vsp on each node as follows:
+### Configure vsp-k8s on each node as follows:
 - Copy the included `vsp-k8s.yaml` into `/usr/share/vsp-k8s/`
   - Change the values of `masterApiServer` and `nuageMonRestServer` to point to
     your k8s master
@@ -57,8 +55,8 @@ $ nuagekubemon --config=/usr/share/nuagekubemon/nuagekubemon.yaml
 Configure `/etc/default/openvswitch` to use PAT and set `PLATFORM="k8s"`
    
 ### Configure k8s to use the vsp-k8s plugin
-Add `--network-plugin-dir=/usr/libexec/kubernetes/kubelet-plugins/net/exec` and
-`--network-plugin=vsp-k8s` to the end of `$KUBELET_OPTS` in
+Add `--cni-bin-dir=/usr/bin/` and
+`--network-plugin=cni` to the end of `$KUBELET_OPTS` in
 `/etc/default/kubelet`
 
 ### Set kube-proxy to userspace mode
