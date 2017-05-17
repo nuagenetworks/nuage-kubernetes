@@ -483,7 +483,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	}
 	aclEntry.Action = "DROP"
 	aclEntry.Description = "Drop intra-domain traffic"
-	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
+	aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
@@ -533,7 +533,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	}
 	aclEntry.Action = "DROP"
 	aclEntry.Description = "Drop intra-domain traffic"
-	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
+	aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
 	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
