@@ -417,6 +417,9 @@ func (nvsdc *NuageVsdClient) GetAclTemplateByID(templateID string, ingress bool)
 	if ingress {
 		url = nvsdc.url + "ingressacltemplates/" + templateID
 	}
+
+	glog.Infof("Getting ACL template by ID %s using URL: %s", templateID, url)
+
 	resp, err := nvsdc.session.Get(url, nil, &result, &e)
 	if err != nil {
 		glog.Errorf("Error when getting ACL template with ID %s: %s", templateID, err)
@@ -562,8 +565,8 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress bool) (string, error) {
-	result := make([]api.VsdObject, 1)
+func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress bool, priority int) (string, error) {
+	result := make([]api.VsdAclTemplate, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
@@ -584,14 +587,12 @@ func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress boo
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
-		if result[0].Name == name {
-			return result[0].ID, nil
-		} else if result[0].Name == "" {
-			return "", errors.New("ACL template not found")
-		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+		for index := range result {
+			if result[index].Name == name && result[index].Priority == priority && result[index].Active == true {
+				return result[index].ID, nil
+			}
 		}
+		return "", errors.New("Active ACL template not found")
 	} else {
 		return "", VsdErrorResponse(resp, &e)
 	}
@@ -614,7 +615,7 @@ func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, pri
 	}
 
 	for {
-		id, err := nvsdc.GetAclTemplateID(domainID, name, ingress)
+		id, err := nvsdc.GetAclTemplateID(domainID, name, ingress, priority)
 		if err != nil {
 			glog.Errorf("Error when ACL template domain ID: %s", err)
 		} else {
@@ -718,6 +719,9 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriorit
 	if ingress {
 		url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 	}
+
+	glog.Infof("Getting ACL entry by priority %d using URL: %s ", aclEntryPriority, url)
+
 	resp, err := nvsdc.session.Get(url, nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
@@ -726,6 +730,8 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriorit
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry with priority", aclEntryPriority)
 	if resp.Status() == http.StatusOK {
+		glog.Infoln("Result for ACL entry obtained from VSD for priority ACL: ", result)
+		glog.Infoln("Result first element for ACL entry obtained from VSD for priority ACL: ", result[0])
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -752,6 +758,9 @@ func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry
 	if ingress {
 		url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 	}
+
+	glog.Infof("Getting ACL entry using URL: %s ", url)
+
 	resp, err := nvsdc.session.Get(url, nil, &result, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
@@ -760,6 +769,8 @@ func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry: ", aclEntry)
 	if resp.Status() == http.StatusOK {
+		glog.Infoln("Result for ACL entry obtained from VSD: ", result)
+		glog.Infoln("Result first element for ACL entry obtained from VSD: ", result[0])
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
