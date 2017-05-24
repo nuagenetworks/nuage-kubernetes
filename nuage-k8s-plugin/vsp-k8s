@@ -369,13 +369,14 @@ def find_metadata(options, config, setup):
         domain = config.get("domainName", "%s-Domain" % platform)
         ent = config.get("enterpriseName", "%s-Enterprise" % platform)
         mtu = config.get("interfaceMTU", mtu)
+        user = config.get("vsdUser", user)
     if setup:
         podmeta = get_pod_metadata(options, config)
     if podmeta is not None and 'labels' in podmeta:
         network = podmeta['labels'].get('nuage.io/subnet',
                                         options.namespace + '-0')
         zone = podmeta['labels'].get('nuage.io/zone', options.namespace)
-        user = podmeta['labels'].get('nuage.io/user', 'admin')
+        user = podmeta['labels'].get('nuage.io/user', user)
         pglabels = podmeta['labels'].get('nuage.io/policy-group', None)
         if pglabels:
             pg = [pglabels]
