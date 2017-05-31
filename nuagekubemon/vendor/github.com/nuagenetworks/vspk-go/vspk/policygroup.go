@@ -38,10 +38,19 @@ var PolicyGroupIdentity = bambou.Identity{
 // PolicyGroupsList represents a list of PolicyGroups
 type PolicyGroupsList []*PolicyGroup
 
-// PolicyGroupsAncestor is the interface of an ancestor of a PolicyGroup must implement.
+// PolicyGroupsAncestor is the interface that an ancestor of a PolicyGroup must implement.
+// An Ancestor is defined as an entity that has PolicyGroup as a descendant.
+// An Ancestor can get a list of its child PolicyGroups, but not necessarily create one.
 type PolicyGroupsAncestor interface {
 	PolicyGroups(*bambou.FetchingInfo) (PolicyGroupsList, *bambou.Error)
-	CreatePolicyGroups(*PolicyGroup) *bambou.Error
+}
+
+// PolicyGroupsParent is the interface that a parent of a PolicyGroup must implement.
+// A Parent is defined as an entity that has PolicyGroup as a child.
+// A Parent is an Ancestor which can create a PolicyGroup.
+type PolicyGroupsParent interface {
+	PolicyGroupsAncestor
+	CreatePolicyGroup(*PolicyGroup) *bambou.Error
 }
 
 // PolicyGroup represents the model of a policygroup
@@ -134,14 +143,6 @@ func (o *PolicyGroup) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the PolicyGroup
-func (o *PolicyGroup) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the PolicyGroup
 func (o *PolicyGroup) CreateJob(child *Job) *bambou.Error {
 
@@ -173,10 +174,4 @@ func (o *PolicyGroup) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bamb
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the PolicyGroup
-func (o *PolicyGroup) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

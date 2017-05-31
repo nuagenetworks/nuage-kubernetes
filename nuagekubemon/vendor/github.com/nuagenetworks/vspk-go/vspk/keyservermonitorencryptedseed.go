@@ -38,10 +38,19 @@ var KeyServerMonitorEncryptedSeedIdentity = bambou.Identity{
 // KeyServerMonitorEncryptedSeedsList represents a list of KeyServerMonitorEncryptedSeeds
 type KeyServerMonitorEncryptedSeedsList []*KeyServerMonitorEncryptedSeed
 
-// KeyServerMonitorEncryptedSeedsAncestor is the interface of an ancestor of a KeyServerMonitorEncryptedSeed must implement.
+// KeyServerMonitorEncryptedSeedsAncestor is the interface that an ancestor of a KeyServerMonitorEncryptedSeed must implement.
+// An Ancestor is defined as an entity that has KeyServerMonitorEncryptedSeed as a descendant.
+// An Ancestor can get a list of its child KeyServerMonitorEncryptedSeeds, but not necessarily create one.
 type KeyServerMonitorEncryptedSeedsAncestor interface {
 	KeyServerMonitorEncryptedSeeds(*bambou.FetchingInfo) (KeyServerMonitorEncryptedSeedsList, *bambou.Error)
-	CreateKeyServerMonitorEncryptedSeeds(*KeyServerMonitorEncryptedSeed) *bambou.Error
+}
+
+// KeyServerMonitorEncryptedSeedsParent is the interface that a parent of a KeyServerMonitorEncryptedSeed must implement.
+// A Parent is defined as an entity that has KeyServerMonitorEncryptedSeed as a child.
+// A Parent is an Ancestor which can create a KeyServerMonitorEncryptedSeed.
+type KeyServerMonitorEncryptedSeedsParent interface {
+	KeyServerMonitorEncryptedSeedsAncestor
+	CreateKeyServerMonitorEncryptedSeed(*KeyServerMonitorEncryptedSeed) *bambou.Error
 }
 
 // KeyServerMonitorEncryptedSeed represents the model of a keyservermonitorencryptedseed

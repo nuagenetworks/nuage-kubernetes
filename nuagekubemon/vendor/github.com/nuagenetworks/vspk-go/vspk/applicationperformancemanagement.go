@@ -38,10 +38,19 @@ var ApplicationperformancemanagementIdentity = bambou.Identity{
 // ApplicationperformancemanagementsList represents a list of Applicationperformancemanagements
 type ApplicationperformancemanagementsList []*Applicationperformancemanagement
 
-// ApplicationperformancemanagementsAncestor is the interface of an ancestor of a Applicationperformancemanagement must implement.
+// ApplicationperformancemanagementsAncestor is the interface that an ancestor of a Applicationperformancemanagement must implement.
+// An Ancestor is defined as an entity that has Applicationperformancemanagement as a descendant.
+// An Ancestor can get a list of its child Applicationperformancemanagements, but not necessarily create one.
 type ApplicationperformancemanagementsAncestor interface {
 	Applicationperformancemanagements(*bambou.FetchingInfo) (ApplicationperformancemanagementsList, *bambou.Error)
-	CreateApplicationperformancemanagements(*Applicationperformancemanagement) *bambou.Error
+}
+
+// ApplicationperformancemanagementsParent is the interface that a parent of a Applicationperformancemanagement must implement.
+// A Parent is defined as an entity that has Applicationperformancemanagement as a child.
+// A Parent is an Ancestor which can create a Applicationperformancemanagement.
+type ApplicationperformancemanagementsParent interface {
+	ApplicationperformancemanagementsAncestor
+	CreateApplicationperformancemanagement(*Applicationperformancemanagement) *bambou.Error
 }
 
 // Applicationperformancemanagement represents the model of a applicationperformancemanagement
@@ -53,14 +62,15 @@ type Applicationperformancemanagement struct {
 	Name                           string `json:"name,omitempty"`
 	ReadOnly                       bool   `json:"readOnly"`
 	Description                    string `json:"description,omitempty"`
-	ApplicationGroupType           string `json:"applicationGroupType,omitempty"`
 	AssociatedPerformanceMonitorID string `json:"associatedPerformanceMonitorID,omitempty"`
 }
 
 // NewApplicationperformancemanagement returns a new *Applicationperformancemanagement
 func NewApplicationperformancemanagement() *Applicationperformancemanagement {
 
-	return &Applicationperformancemanagement{}
+	return &Applicationperformancemanagement{
+		ReadOnly: false,
+	}
 }
 
 // Identity returns the Identity of the object.

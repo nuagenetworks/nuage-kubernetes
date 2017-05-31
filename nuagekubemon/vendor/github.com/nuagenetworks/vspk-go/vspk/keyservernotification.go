@@ -38,10 +38,19 @@ var KeyServerNotificationIdentity = bambou.Identity{
 // KeyServerNotificationsList represents a list of KeyServerNotifications
 type KeyServerNotificationsList []*KeyServerNotification
 
-// KeyServerNotificationsAncestor is the interface of an ancestor of a KeyServerNotification must implement.
+// KeyServerNotificationsAncestor is the interface that an ancestor of a KeyServerNotification must implement.
+// An Ancestor is defined as an entity that has KeyServerNotification as a descendant.
+// An Ancestor can get a list of its child KeyServerNotifications, but not necessarily create one.
 type KeyServerNotificationsAncestor interface {
 	KeyServerNotifications(*bambou.FetchingInfo) (KeyServerNotificationsList, *bambou.Error)
-	CreateKeyServerNotifications(*KeyServerNotification) *bambou.Error
+}
+
+// KeyServerNotificationsParent is the interface that a parent of a KeyServerNotification must implement.
+// A Parent is defined as an entity that has KeyServerNotification as a child.
+// A Parent is an Ancestor which can create a KeyServerNotification.
+type KeyServerNotificationsParent interface {
+	KeyServerNotificationsAncestor
+	CreateKeyServerNotification(*KeyServerNotification) *bambou.Error
 }
 
 // KeyServerNotification represents the model of a keyservernotification

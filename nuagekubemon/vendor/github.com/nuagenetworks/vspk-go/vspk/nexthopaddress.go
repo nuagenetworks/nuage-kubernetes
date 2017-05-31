@@ -38,9 +38,18 @@ var NextHopAddressIdentity = bambou.Identity{
 // NextHopAddressList represents a list of NextHopAddress
 type NextHopAddressList []*NextHopAddress
 
-// NextHopAddressAncestor is the interface of an ancestor of a NextHopAddress must implement.
+// NextHopAddressAncestor is the interface that an ancestor of a NextHopAddress must implement.
+// An Ancestor is defined as an entity that has NextHopAddress as a descendant.
+// An Ancestor can get a list of its child NextHopAddress, but not necessarily create one.
 type NextHopAddressAncestor interface {
 	NextHopAddress(*bambou.FetchingInfo) (NextHopAddressList, *bambou.Error)
+}
+
+// NextHopAddressParent is the interface that a parent of a NextHopAddress must implement.
+// A Parent is defined as an entity that has NextHopAddress as a child.
+// A Parent is an Ancestor which can create a NextHopAddress.
+type NextHopAddressParent interface {
+	NextHopAddressAncestor
 	CreateNextHopAddress(*NextHopAddress) *bambou.Error
 }
 

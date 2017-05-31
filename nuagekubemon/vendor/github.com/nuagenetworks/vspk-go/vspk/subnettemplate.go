@@ -38,10 +38,19 @@ var SubnetTemplateIdentity = bambou.Identity{
 // SubnetTemplatesList represents a list of SubnetTemplates
 type SubnetTemplatesList []*SubnetTemplate
 
-// SubnetTemplatesAncestor is the interface of an ancestor of a SubnetTemplate must implement.
+// SubnetTemplatesAncestor is the interface that an ancestor of a SubnetTemplate must implement.
+// An Ancestor is defined as an entity that has SubnetTemplate as a descendant.
+// An Ancestor can get a list of its child SubnetTemplates, but not necessarily create one.
 type SubnetTemplatesAncestor interface {
 	SubnetTemplates(*bambou.FetchingInfo) (SubnetTemplatesList, *bambou.Error)
-	CreateSubnetTemplates(*SubnetTemplate) *bambou.Error
+}
+
+// SubnetTemplatesParent is the interface that a parent of a SubnetTemplate must implement.
+// A Parent is defined as an entity that has SubnetTemplate as a child.
+// A Parent is an Ancestor which can create a SubnetTemplate.
+type SubnetTemplatesParent interface {
+	SubnetTemplatesAncestor
+	CreateSubnetTemplate(*SubnetTemplate) *bambou.Error
 }
 
 // SubnetTemplate represents the model of a subnettemplate
@@ -74,8 +83,9 @@ type SubnetTemplate struct {
 func NewSubnetTemplate() *SubnetTemplate {
 
 	return &SubnetTemplate{
-		Multicast: "INHERITED",
+		DPI:       "INHERITED",
 		IPType:    "IPV4",
+		Multicast: "INHERITED",
 	}
 }
 
@@ -179,22 +189,10 @@ func (o *SubnetTemplate) Subnets(info *bambou.FetchingInfo) (SubnetsList, *bambo
 	return list, err
 }
 
-// CreateSubnet creates a new child Subnet under the SubnetTemplate
-func (o *SubnetTemplate) CreateSubnet(child *Subnet) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the SubnetTemplate
 func (o *SubnetTemplate) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the SubnetTemplate
-func (o *SubnetTemplate) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

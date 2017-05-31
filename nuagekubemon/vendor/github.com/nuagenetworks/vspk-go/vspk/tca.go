@@ -38,38 +38,55 @@ var TCAIdentity = bambou.Identity{
 // TCAsList represents a list of TCAs
 type TCAsList []*TCA
 
-// TCAsAncestor is the interface of an ancestor of a TCA must implement.
+// TCAsAncestor is the interface that an ancestor of a TCA must implement.
+// An Ancestor is defined as an entity that has TCA as a descendant.
+// An Ancestor can get a list of its child TCAs, but not necessarily create one.
 type TCAsAncestor interface {
 	TCAs(*bambou.FetchingInfo) (TCAsList, *bambou.Error)
-	CreateTCAs(*TCA) *bambou.Error
+}
+
+// TCAsParent is the interface that a parent of a TCA must implement.
+// A Parent is defined as an entity that has TCA as a child.
+// A Parent is an Ancestor which can create a TCA.
+type TCAsParent interface {
+	TCAsAncestor
+	CreateTCA(*TCA) *bambou.Error
 }
 
 // TCA represents the model of a tca
 type TCA struct {
-	ID            string `json:"ID,omitempty"`
-	ParentID      string `json:"parentID,omitempty"`
-	ParentType    string `json:"parentType,omitempty"`
-	Owner         string `json:"owner,omitempty"`
-	URLEndPoint   string `json:"URLEndPoint,omitempty"`
-	Name          string `json:"name,omitempty"`
-	LastUpdatedBy string `json:"lastUpdatedBy,omitempty"`
-	Scope         string `json:"scope,omitempty"`
-	Period        int    `json:"period,omitempty"`
-	Description   string `json:"description,omitempty"`
-	Metric        string `json:"metric,omitempty"`
-	Threshold     int    `json:"threshold,omitempty"`
-	EntityScope   string `json:"entityScope,omitempty"`
-	ExternalID    string `json:"externalID,omitempty"`
-	Type          string `json:"type,omitempty"`
+	ID                  string `json:"ID,omitempty"`
+	ParentID            string `json:"parentID,omitempty"`
+	ParentType          string `json:"parentType,omitempty"`
+	Owner               string `json:"owner,omitempty"`
+	URLEndPoint         string `json:"URLEndPoint,omitempty"`
+	Name                string `json:"name,omitempty"`
+	TargetPolicyGroupID string `json:"targetPolicyGroupID,omitempty"`
+	LastUpdatedBy       string `json:"lastUpdatedBy,omitempty"`
+	Action              string `json:"action,omitempty"`
+	Period              int    `json:"period,omitempty"`
+	Description         string `json:"description,omitempty"`
+	Metric              string `json:"metric,omitempty"`
+	Threshold           int    `json:"threshold,omitempty"`
+	ThrottleTime        int    `json:"throttleTime,omitempty"`
+	Disable             bool   `json:"disable"`
+	DisplayStatus       string `json:"displayStatus,omitempty"`
+	EntityScope         string `json:"entityScope,omitempty"`
+	Count               int    `json:"count,omitempty"`
+	Status              bool   `json:"status"`
+	ExternalID          string `json:"externalID,omitempty"`
+	Type                string `json:"type,omitempty"`
 }
 
 // NewTCA returns a new *TCA
 func NewTCA() *TCA {
 
 	return &TCA{
-		Scope:  "LOCAL",
-		Metric: "BYTES_IN",
-		Type:   "ROLLING_AVERAGE",
+		Metric:       "BYTES_IN",
+		ThrottleTime: 0,
+		Disable:      false,
+		Status:       false,
+		Type:         "ROLLING_AVERAGE",
 	}
 }
 
@@ -157,10 +174,4 @@ func (o *TCA) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the TCA
-func (o *TCA) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

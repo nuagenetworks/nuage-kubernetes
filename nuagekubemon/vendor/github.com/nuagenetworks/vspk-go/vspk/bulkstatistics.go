@@ -38,9 +38,18 @@ var BulkStatisticsIdentity = bambou.Identity{
 // BulkStatisticsList represents a list of BulkStatistics
 type BulkStatisticsList []*BulkStatistics
 
-// BulkStatisticsAncestor is the interface of an ancestor of a BulkStatistics must implement.
+// BulkStatisticsAncestor is the interface that an ancestor of a BulkStatistics must implement.
+// An Ancestor is defined as an entity that has BulkStatistics as a descendant.
+// An Ancestor can get a list of its child BulkStatistics, but not necessarily create one.
 type BulkStatisticsAncestor interface {
 	BulkStatistics(*bambou.FetchingInfo) (BulkStatisticsList, *bambou.Error)
+}
+
+// BulkStatisticsParent is the interface that a parent of a BulkStatistics must implement.
+// A Parent is defined as an entity that has BulkStatistics as a child.
+// A Parent is an Ancestor which can create a BulkStatistics.
+type BulkStatisticsParent interface {
+	BulkStatisticsAncestor
 	CreateBulkStatistics(*BulkStatistics) *bambou.Error
 }
 

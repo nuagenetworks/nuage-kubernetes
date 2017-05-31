@@ -38,10 +38,19 @@ var VMResyncIdentity = bambou.Identity{
 // VMResyncsList represents a list of VMResyncs
 type VMResyncsList []*VMResync
 
-// VMResyncsAncestor is the interface of an ancestor of a VMResync must implement.
+// VMResyncsAncestor is the interface that an ancestor of a VMResync must implement.
+// An Ancestor is defined as an entity that has VMResync as a descendant.
+// An Ancestor can get a list of its child VMResyncs, but not necessarily create one.
 type VMResyncsAncestor interface {
 	VMResyncs(*bambou.FetchingInfo) (VMResyncsList, *bambou.Error)
-	CreateVMResyncs(*VMResync) *bambou.Error
+}
+
+// VMResyncsParent is the interface that a parent of a VMResync must implement.
+// A Parent is defined as an entity that has VMResync as a child.
+// A Parent is an Ancestor which can create a VMResync.
+type VMResyncsParent interface {
+	VMResyncsAncestor
+	CreateVMResync(*VMResync) *bambou.Error
 }
 
 // VMResync represents the model of a resync

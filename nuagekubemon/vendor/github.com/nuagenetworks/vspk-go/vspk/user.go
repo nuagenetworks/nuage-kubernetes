@@ -38,10 +38,19 @@ var UserIdentity = bambou.Identity{
 // UsersList represents a list of Users
 type UsersList []*User
 
-// UsersAncestor is the interface of an ancestor of a User must implement.
+// UsersAncestor is the interface that an ancestor of a User must implement.
+// An Ancestor is defined as an entity that has User as a descendant.
+// An Ancestor can get a list of its child Users, but not necessarily create one.
 type UsersAncestor interface {
 	Users(*bambou.FetchingInfo) (UsersList, *bambou.Error)
-	CreateUsers(*User) *bambou.Error
+}
+
+// UsersParent is the interface that a parent of a User must implement.
+// A Parent is defined as an entity that has User as a child.
+// A Parent is an Ancestor which can create a User.
+type UsersParent interface {
+	UsersAncestor
+	CreateUser(*User) *bambou.Error
 }
 
 // User represents the model of a user
@@ -143,12 +152,6 @@ func (o *User) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the User
-func (o *User) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Containers retrieves the list of child Containers of the User
 func (o *User) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Error) {
 
@@ -157,24 +160,12 @@ func (o *User) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Er
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the User
-func (o *User) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Groups retrieves the list of child Groups of the User
 func (o *User) Groups(info *bambou.FetchingInfo) (GroupsList, *bambou.Error) {
 
 	var list GroupsList
 	err := bambou.CurrentSession().FetchChildren(o, GroupIdentity, &list, info)
 	return list, err
-}
-
-// CreateGroup creates a new child Group under the User
-func (o *User) CreateGroup(child *Group) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Avatars retrieves the list of child Avatars of the User
@@ -197,10 +188,4 @@ func (o *User) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Erro
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the User
-func (o *User) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

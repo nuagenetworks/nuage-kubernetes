@@ -38,10 +38,19 @@ var VRSRedeploymentpolicyIdentity = bambou.Identity{
 // VRSRedeploymentpoliciesList represents a list of VRSRedeploymentpolicies
 type VRSRedeploymentpoliciesList []*VRSRedeploymentpolicy
 
-// VRSRedeploymentpoliciesAncestor is the interface of an ancestor of a VRSRedeploymentpolicy must implement.
+// VRSRedeploymentpoliciesAncestor is the interface that an ancestor of a VRSRedeploymentpolicy must implement.
+// An Ancestor is defined as an entity that has VRSRedeploymentpolicy as a descendant.
+// An Ancestor can get a list of its child VRSRedeploymentpolicies, but not necessarily create one.
 type VRSRedeploymentpoliciesAncestor interface {
 	VRSRedeploymentpolicies(*bambou.FetchingInfo) (VRSRedeploymentpoliciesList, *bambou.Error)
-	CreateVRSRedeploymentpolicies(*VRSRedeploymentpolicy) *bambou.Error
+}
+
+// VRSRedeploymentpoliciesParent is the interface that a parent of a VRSRedeploymentpolicy must implement.
+// A Parent is defined as an entity that has VRSRedeploymentpolicy as a child.
+// A Parent is an Ancestor which can create a VRSRedeploymentpolicy.
+type VRSRedeploymentpoliciesParent interface {
+	VRSRedeploymentpoliciesAncestor
+	CreateVRSRedeploymentpolicy(*VRSRedeploymentpolicy) *bambou.Error
 }
 
 // VRSRedeploymentpolicy represents the model of a vrsredeploymentpolicy

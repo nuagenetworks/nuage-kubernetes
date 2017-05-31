@@ -38,10 +38,19 @@ var OverlayPATNATEntryIdentity = bambou.Identity{
 // OverlayPATNATEntriesList represents a list of OverlayPATNATEntries
 type OverlayPATNATEntriesList []*OverlayPATNATEntry
 
-// OverlayPATNATEntriesAncestor is the interface of an ancestor of a OverlayPATNATEntry must implement.
+// OverlayPATNATEntriesAncestor is the interface that an ancestor of a OverlayPATNATEntry must implement.
+// An Ancestor is defined as an entity that has OverlayPATNATEntry as a descendant.
+// An Ancestor can get a list of its child OverlayPATNATEntries, but not necessarily create one.
 type OverlayPATNATEntriesAncestor interface {
 	OverlayPATNATEntries(*bambou.FetchingInfo) (OverlayPATNATEntriesList, *bambou.Error)
-	CreateOverlayPATNATEntries(*OverlayPATNATEntry) *bambou.Error
+}
+
+// OverlayPATNATEntriesParent is the interface that a parent of a OverlayPATNATEntry must implement.
+// A Parent is defined as an entity that has OverlayPATNATEntry as a child.
+// A Parent is an Ancestor which can create a OverlayPATNATEntry.
+type OverlayPATNATEntriesParent interface {
+	OverlayPATNATEntriesAncestor
+	CreateOverlayPATNATEntry(*OverlayPATNATEntry) *bambou.Error
 }
 
 // OverlayPATNATEntry represents the model of a overlaypatnatentry

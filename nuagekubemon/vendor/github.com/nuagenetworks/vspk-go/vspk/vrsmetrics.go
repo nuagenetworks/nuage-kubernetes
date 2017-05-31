@@ -38,9 +38,18 @@ var VRSMetricsIdentity = bambou.Identity{
 // VRSMetricsList represents a list of VRSMetrics
 type VRSMetricsList []*VRSMetrics
 
-// VRSMetricsAncestor is the interface of an ancestor of a VRSMetrics must implement.
+// VRSMetricsAncestor is the interface that an ancestor of a VRSMetrics must implement.
+// An Ancestor is defined as an entity that has VRSMetrics as a descendant.
+// An Ancestor can get a list of its child VRSMetrics, but not necessarily create one.
 type VRSMetricsAncestor interface {
 	VRSMetrics(*bambou.FetchingInfo) (VRSMetricsList, *bambou.Error)
+}
+
+// VRSMetricsParent is the interface that a parent of a VRSMetrics must implement.
+// A Parent is defined as an entity that has VRSMetrics as a child.
+// A Parent is an Ancestor which can create a VRSMetrics.
+type VRSMetricsParent interface {
+	VRSMetricsAncestor
 	CreateVRSMetrics(*VRSMetrics) *bambou.Error
 }
 

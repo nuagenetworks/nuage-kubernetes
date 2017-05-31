@@ -38,10 +38,19 @@ var MetadataTagIdentity = bambou.Identity{
 // MetadataTagsList represents a list of MetadataTags
 type MetadataTagsList []*MetadataTag
 
-// MetadataTagsAncestor is the interface of an ancestor of a MetadataTag must implement.
+// MetadataTagsAncestor is the interface that an ancestor of a MetadataTag must implement.
+// An Ancestor is defined as an entity that has MetadataTag as a descendant.
+// An Ancestor can get a list of its child MetadataTags, but not necessarily create one.
 type MetadataTagsAncestor interface {
 	MetadataTags(*bambou.FetchingInfo) (MetadataTagsList, *bambou.Error)
-	CreateMetadataTags(*MetadataTag) *bambou.Error
+}
+
+// MetadataTagsParent is the interface that a parent of a MetadataTag must implement.
+// A Parent is defined as an entity that has MetadataTag as a child.
+// A Parent is an Ancestor which can create a MetadataTag.
+type MetadataTagsParent interface {
+	MetadataTagsAncestor
+	CreateMetadataTag(*MetadataTag) *bambou.Error
 }
 
 // MetadataTag represents the model of a metadatatag
@@ -109,12 +118,6 @@ func (o *MetadataTag) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bamb
 	return list, err
 }
 
-// CreateMetadata creates a new child Metadata under the MetadataTag
-func (o *MetadataTag) CreateMetadata(child *Metadata) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the MetadataTag
 func (o *MetadataTag) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -123,22 +126,10 @@ func (o *MetadataTag) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadata
 	return list, err
 }
 
-// CreateGlobalMetadata creates a new child GlobalMetadata under the MetadataTag
-func (o *MetadataTag) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the MetadataTag
 func (o *MetadataTag) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the MetadataTag
-func (o *MetadataTag) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

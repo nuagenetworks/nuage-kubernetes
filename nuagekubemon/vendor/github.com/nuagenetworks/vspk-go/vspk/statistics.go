@@ -38,9 +38,18 @@ var StatisticsIdentity = bambou.Identity{
 // StatisticsList represents a list of Statistics
 type StatisticsList []*Statistics
 
-// StatisticsAncestor is the interface of an ancestor of a Statistics must implement.
+// StatisticsAncestor is the interface that an ancestor of a Statistics must implement.
+// An Ancestor is defined as an entity that has Statistics as a descendant.
+// An Ancestor can get a list of its child Statistics, but not necessarily create one.
 type StatisticsAncestor interface {
 	Statistics(*bambou.FetchingInfo) (StatisticsList, *bambou.Error)
+}
+
+// StatisticsParent is the interface that a parent of a Statistics must implement.
+// A Parent is defined as an entity that has Statistics as a child.
+// A Parent is an Ancestor which can create a Statistics.
+type StatisticsParent interface {
+	StatisticsAncestor
 	CreateStatistics(*Statistics) *bambou.Error
 }
 

@@ -38,10 +38,19 @@ var IngressAdvFwdTemplateIdentity = bambou.Identity{
 // IngressAdvFwdTemplatesList represents a list of IngressAdvFwdTemplates
 type IngressAdvFwdTemplatesList []*IngressAdvFwdTemplate
 
-// IngressAdvFwdTemplatesAncestor is the interface of an ancestor of a IngressAdvFwdTemplate must implement.
+// IngressAdvFwdTemplatesAncestor is the interface that an ancestor of a IngressAdvFwdTemplate must implement.
+// An Ancestor is defined as an entity that has IngressAdvFwdTemplate as a descendant.
+// An Ancestor can get a list of its child IngressAdvFwdTemplates, but not necessarily create one.
 type IngressAdvFwdTemplatesAncestor interface {
 	IngressAdvFwdTemplates(*bambou.FetchingInfo) (IngressAdvFwdTemplatesList, *bambou.Error)
-	CreateIngressAdvFwdTemplates(*IngressAdvFwdTemplate) *bambou.Error
+}
+
+// IngressAdvFwdTemplatesParent is the interface that a parent of a IngressAdvFwdTemplate must implement.
+// A Parent is defined as an entity that has IngressAdvFwdTemplate as a child.
+// A Parent is an Ancestor which can create a IngressAdvFwdTemplate.
+type IngressAdvFwdTemplatesParent interface {
+	IngressAdvFwdTemplatesAncestor
+	CreateIngressAdvFwdTemplate(*IngressAdvFwdTemplate) *bambou.Error
 }
 
 // IngressAdvFwdTemplate represents the model of a ingressadvfwdtemplate
@@ -59,6 +68,7 @@ type IngressAdvFwdTemplate struct {
 	Priority               int    `json:"priority,omitempty"`
 	PriorityType           string `json:"priorityType,omitempty"`
 	AssociatedLiveEntityID string `json:"associatedLiveEntityID,omitempty"`
+	AutoGeneratePriority   bool   `json:"autoGeneratePriority"`
 	ExternalID             string `json:"externalID,omitempty"`
 }
 
@@ -144,14 +154,6 @@ func (o *IngressAdvFwdTemplate) IngressAdvFwdEntryTemplates(info *bambou.Fetchin
 func (o *IngressAdvFwdTemplate) CreateIngressAdvFwdEntryTemplate(child *IngressAdvFwdEntryTemplate) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// Jobs retrieves the list of child Jobs of the IngressAdvFwdTemplate
-func (o *IngressAdvFwdTemplate) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
 }
 
 // CreateJob creates a new child Job under the IngressAdvFwdTemplate

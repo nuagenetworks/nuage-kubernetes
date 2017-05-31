@@ -38,10 +38,19 @@ var QOSIdentity = bambou.Identity{
 // QOSsList represents a list of QOSs
 type QOSsList []*QOS
 
-// QOSsAncestor is the interface of an ancestor of a QOS must implement.
+// QOSsAncestor is the interface that an ancestor of a QOS must implement.
+// An Ancestor is defined as an entity that has QOS as a descendant.
+// An Ancestor can get a list of its child QOSs, but not necessarily create one.
 type QOSsAncestor interface {
 	QOSs(*bambou.FetchingInfo) (QOSsList, *bambou.Error)
-	CreateQOSs(*QOS) *bambou.Error
+}
+
+// QOSsParent is the interface that a parent of a QOS must implement.
+// A Parent is defined as an entity that has QOS as a child.
+// A Parent is an Ancestor which can create a QOS.
+type QOSsParent interface {
+	QOSsAncestor
+	CreateQOS(*QOS) *bambou.Error
 }
 
 // QOS represents the model of a qos
@@ -68,6 +77,10 @@ type QOS struct {
 	ServiceClass                           string `json:"serviceClass,omitempty"`
 	Description                            string `json:"description,omitempty"`
 	RewriteForwardingClass                 bool   `json:"rewriteForwardingClass"`
+	EgressFIPCommittedBurstSize            string `json:"EgressFIPCommittedBurstSize,omitempty"`
+	EgressFIPCommittedInformationRate      string `json:"EgressFIPCommittedInformationRate,omitempty"`
+	EgressFIPPeakBurstSize                 string `json:"EgressFIPPeakBurstSize,omitempty"`
+	EgressFIPPeakInformationRate           string `json:"EgressFIPPeakInformationRate,omitempty"`
 	EntityScope                            string `json:"entityScope,omitempty"`
 	CommittedBurstSize                     string `json:"committedBurstSize,omitempty"`
 	CommittedInformationRate               string `json:"committedInformationRate,omitempty"`
@@ -157,12 +170,6 @@ func (o *QOS) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the QOS
-func (o *QOS) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Containers retrieves the list of child Containers of the QOS
 func (o *QOS) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Error) {
 
@@ -171,22 +178,10 @@ func (o *QOS) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Err
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the QOS
-func (o *QOS) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the QOS
 func (o *QOS) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the QOS
-func (o *QOS) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

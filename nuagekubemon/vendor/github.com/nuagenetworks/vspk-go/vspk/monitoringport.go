@@ -38,10 +38,19 @@ var MonitoringPortIdentity = bambou.Identity{
 // MonitoringPortsList represents a list of MonitoringPorts
 type MonitoringPortsList []*MonitoringPort
 
-// MonitoringPortsAncestor is the interface of an ancestor of a MonitoringPort must implement.
+// MonitoringPortsAncestor is the interface that an ancestor of a MonitoringPort must implement.
+// An Ancestor is defined as an entity that has MonitoringPort as a descendant.
+// An Ancestor can get a list of its child MonitoringPorts, but not necessarily create one.
 type MonitoringPortsAncestor interface {
 	MonitoringPorts(*bambou.FetchingInfo) (MonitoringPortsList, *bambou.Error)
-	CreateMonitoringPorts(*MonitoringPort) *bambou.Error
+}
+
+// MonitoringPortsParent is the interface that a parent of a MonitoringPort must implement.
+// A Parent is defined as an entity that has MonitoringPort as a child.
+// A Parent is an Ancestor which can create a MonitoringPort.
+type MonitoringPortsParent interface {
+	MonitoringPortsAncestor
+	CreateMonitoringPort(*MonitoringPort) *bambou.Error
 }
 
 // MonitoringPort represents the model of a monitoringport

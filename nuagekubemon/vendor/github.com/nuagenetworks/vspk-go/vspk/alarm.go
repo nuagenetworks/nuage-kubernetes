@@ -38,10 +38,19 @@ var AlarmIdentity = bambou.Identity{
 // AlarmsList represents a list of Alarms
 type AlarmsList []*Alarm
 
-// AlarmsAncestor is the interface of an ancestor of a Alarm must implement.
+// AlarmsAncestor is the interface that an ancestor of a Alarm must implement.
+// An Ancestor is defined as an entity that has Alarm as a descendant.
+// An Ancestor can get a list of its child Alarms, but not necessarily create one.
 type AlarmsAncestor interface {
 	Alarms(*bambou.FetchingInfo) (AlarmsList, *bambou.Error)
-	CreateAlarms(*Alarm) *bambou.Error
+}
+
+// AlarmsParent is the interface that a parent of a Alarm must implement.
+// A Parent is defined as an entity that has Alarm as a child.
+// A Parent is an Ancestor which can create a Alarm.
+type AlarmsParent interface {
+	AlarmsAncestor
+	CreateAlarm(*Alarm) *bambou.Error
 }
 
 // Alarm represents the model of a alarm

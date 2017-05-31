@@ -38,10 +38,19 @@ var IKEGatewayConfigIdentity = bambou.Identity{
 // IKEGatewayConfigsList represents a list of IKEGatewayConfigs
 type IKEGatewayConfigsList []*IKEGatewayConfig
 
-// IKEGatewayConfigsAncestor is the interface of an ancestor of a IKEGatewayConfig must implement.
+// IKEGatewayConfigsAncestor is the interface that an ancestor of a IKEGatewayConfig must implement.
+// An Ancestor is defined as an entity that has IKEGatewayConfig as a descendant.
+// An Ancestor can get a list of its child IKEGatewayConfigs, but not necessarily create one.
 type IKEGatewayConfigsAncestor interface {
 	IKEGatewayConfigs(*bambou.FetchingInfo) (IKEGatewayConfigsList, *bambou.Error)
-	CreateIKEGatewayConfigs(*IKEGatewayConfig) *bambou.Error
+}
+
+// IKEGatewayConfigsParent is the interface that a parent of a IKEGatewayConfig must implement.
+// A Parent is defined as an entity that has IKEGatewayConfig as a child.
+// A Parent is an Ancestor which can create a IKEGatewayConfig.
+type IKEGatewayConfigsParent interface {
+	IKEGatewayConfigsAncestor
+	CreateIKEGatewayConfig(*IKEGatewayConfig) *bambou.Error
 }
 
 // IKEGatewayConfig represents the model of a ikegatewayconfig

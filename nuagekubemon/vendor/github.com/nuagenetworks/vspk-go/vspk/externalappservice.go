@@ -38,10 +38,19 @@ var ExternalAppServiceIdentity = bambou.Identity{
 // ExternalAppServicesList represents a list of ExternalAppServices
 type ExternalAppServicesList []*ExternalAppService
 
-// ExternalAppServicesAncestor is the interface of an ancestor of a ExternalAppService must implement.
+// ExternalAppServicesAncestor is the interface that an ancestor of a ExternalAppService must implement.
+// An Ancestor is defined as an entity that has ExternalAppService as a descendant.
+// An Ancestor can get a list of its child ExternalAppServices, but not necessarily create one.
 type ExternalAppServicesAncestor interface {
 	ExternalAppServices(*bambou.FetchingInfo) (ExternalAppServicesList, *bambou.Error)
-	CreateExternalAppServices(*ExternalAppService) *bambou.Error
+}
+
+// ExternalAppServicesParent is the interface that a parent of a ExternalAppService must implement.
+// A Parent is defined as an entity that has ExternalAppService as a child.
+// A Parent is an Ancestor which can create a ExternalAppService.
+type ExternalAppServicesParent interface {
+	ExternalAppServicesAncestor
+	CreateExternalAppService(*ExternalAppService) *bambou.Error
 }
 
 // ExternalAppService represents the model of a externalappservice

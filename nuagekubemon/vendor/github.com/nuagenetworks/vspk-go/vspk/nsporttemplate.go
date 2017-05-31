@@ -38,10 +38,19 @@ var NSPortTemplateIdentity = bambou.Identity{
 // NSPortTemplatesList represents a list of NSPortTemplates
 type NSPortTemplatesList []*NSPortTemplate
 
-// NSPortTemplatesAncestor is the interface of an ancestor of a NSPortTemplate must implement.
+// NSPortTemplatesAncestor is the interface that an ancestor of a NSPortTemplate must implement.
+// An Ancestor is defined as an entity that has NSPortTemplate as a descendant.
+// An Ancestor can get a list of its child NSPortTemplates, but not necessarily create one.
 type NSPortTemplatesAncestor interface {
 	NSPortTemplates(*bambou.FetchingInfo) (NSPortTemplatesList, *bambou.Error)
-	CreateNSPortTemplates(*NSPortTemplate) *bambou.Error
+}
+
+// NSPortTemplatesParent is the interface that a parent of a NSPortTemplate must implement.
+// A Parent is defined as an entity that has NSPortTemplate as a child.
+// A Parent is an Ancestor which can create a NSPortTemplate.
+type NSPortTemplatesParent interface {
+	NSPortTemplatesAncestor
+	CreateNSPortTemplate(*NSPortTemplate) *bambou.Error
 }
 
 // NSPortTemplate represents the model of a nsporttemplate
@@ -67,7 +76,9 @@ type NSPortTemplate struct {
 // NewNSPortTemplate returns a new *NSPortTemplate
 func NewNSPortTemplate() *NSPortTemplate {
 
-	return &NSPortTemplate{}
+	return &NSPortTemplate{
+		Mtu: 1500,
+	}
 }
 
 // Identity returns the Identity of the object.

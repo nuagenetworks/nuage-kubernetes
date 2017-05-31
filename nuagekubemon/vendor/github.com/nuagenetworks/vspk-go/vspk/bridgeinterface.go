@@ -38,10 +38,19 @@ var BridgeInterfaceIdentity = bambou.Identity{
 // BridgeInterfacesList represents a list of BridgeInterfaces
 type BridgeInterfacesList []*BridgeInterface
 
-// BridgeInterfacesAncestor is the interface of an ancestor of a BridgeInterface must implement.
+// BridgeInterfacesAncestor is the interface that an ancestor of a BridgeInterface must implement.
+// An Ancestor is defined as an entity that has BridgeInterface as a descendant.
+// An Ancestor can get a list of its child BridgeInterfaces, but not necessarily create one.
 type BridgeInterfacesAncestor interface {
 	BridgeInterfaces(*bambou.FetchingInfo) (BridgeInterfacesList, *bambou.Error)
-	CreateBridgeInterfaces(*BridgeInterface) *bambou.Error
+}
+
+// BridgeInterfacesParent is the interface that a parent of a BridgeInterface must implement.
+// A Parent is defined as an entity that has BridgeInterface as a child.
+// A Parent is an Ancestor which can create a BridgeInterface.
+type BridgeInterfacesParent interface {
+	BridgeInterfacesAncestor
+	CreateBridgeInterface(*BridgeInterface) *bambou.Error
 }
 
 // BridgeInterface represents the model of a bridgeinterface
@@ -120,24 +129,12 @@ func (o *BridgeInterface) TCAs(info *bambou.FetchingInfo) (TCAsList, *bambou.Err
 	return list, err
 }
 
-// CreateTCA creates a new child TCA under the BridgeInterface
-func (o *BridgeInterface) CreateTCA(child *TCA) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // RedirectionTargets retrieves the list of child RedirectionTargets of the BridgeInterface
 func (o *BridgeInterface) RedirectionTargets(info *bambou.FetchingInfo) (RedirectionTargetsList, *bambou.Error) {
 
 	var list RedirectionTargetsList
 	err := bambou.CurrentSession().FetchChildren(o, RedirectionTargetIdentity, &list, info)
 	return list, err
-}
-
-// CreateRedirectionTarget creates a new child RedirectionTarget under the BridgeInterface
-func (o *BridgeInterface) CreateRedirectionTarget(child *RedirectionTarget) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Metadatas retrieves the list of child Metadatas of the BridgeInterface
@@ -162,12 +159,6 @@ func (o *BridgeInterface) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptionsLis
 	return list, err
 }
 
-// CreateDHCPOption creates a new child DHCPOption under the BridgeInterface
-func (o *BridgeInterface) CreateDHCPOption(child *DHCPOption) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the BridgeInterface
 func (o *BridgeInterface) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -190,24 +181,12 @@ func (o *BridgeInterface) PolicyDecisions(info *bambou.FetchingInfo) (PolicyDeci
 	return list, err
 }
 
-// CreatePolicyDecision creates a new child PolicyDecision under the BridgeInterface
-func (o *BridgeInterface) CreatePolicyDecision(child *PolicyDecision) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // PolicyGroups retrieves the list of child PolicyGroups of the BridgeInterface
 func (o *BridgeInterface) PolicyGroups(info *bambou.FetchingInfo) (PolicyGroupsList, *bambou.Error) {
 
 	var list PolicyGroupsList
 	err := bambou.CurrentSession().FetchChildren(o, PolicyGroupIdentity, &list, info)
 	return list, err
-}
-
-// CreatePolicyGroup creates a new child PolicyGroup under the BridgeInterface
-func (o *BridgeInterface) CreatePolicyGroup(child *PolicyGroup) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // QOSs retrieves the list of child QOSs of the BridgeInterface
@@ -232,22 +211,10 @@ func (o *BridgeInterface) Statistics(info *bambou.FetchingInfo) (StatisticsList,
 	return list, err
 }
 
-// CreateStatistics creates a new child Statistics under the BridgeInterface
-func (o *BridgeInterface) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the BridgeInterface
 func (o *BridgeInterface) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the BridgeInterface
-func (o *BridgeInterface) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

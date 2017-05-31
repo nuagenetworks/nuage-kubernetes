@@ -38,10 +38,19 @@ var EnterprisePermissionIdentity = bambou.Identity{
 // EnterprisePermissionsList represents a list of EnterprisePermissions
 type EnterprisePermissionsList []*EnterprisePermission
 
-// EnterprisePermissionsAncestor is the interface of an ancestor of a EnterprisePermission must implement.
+// EnterprisePermissionsAncestor is the interface that an ancestor of a EnterprisePermission must implement.
+// An Ancestor is defined as an entity that has EnterprisePermission as a descendant.
+// An Ancestor can get a list of its child EnterprisePermissions, but not necessarily create one.
 type EnterprisePermissionsAncestor interface {
 	EnterprisePermissions(*bambou.FetchingInfo) (EnterprisePermissionsList, *bambou.Error)
-	CreateEnterprisePermissions(*EnterprisePermission) *bambou.Error
+}
+
+// EnterprisePermissionsParent is the interface that a parent of a EnterprisePermission must implement.
+// A Parent is defined as an entity that has EnterprisePermission as a child.
+// A Parent is an Ancestor which can create a EnterprisePermission.
+type EnterprisePermissionsParent interface {
+	EnterprisePermissionsAncestor
+	CreateEnterprisePermission(*EnterprisePermission) *bambou.Error
 }
 
 // EnterprisePermission represents the model of a enterprisepermission

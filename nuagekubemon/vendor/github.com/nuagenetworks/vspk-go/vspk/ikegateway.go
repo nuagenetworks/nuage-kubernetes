@@ -38,10 +38,19 @@ var IKEGatewayIdentity = bambou.Identity{
 // IKEGatewaysList represents a list of IKEGateways
 type IKEGatewaysList []*IKEGateway
 
-// IKEGatewaysAncestor is the interface of an ancestor of a IKEGateway must implement.
+// IKEGatewaysAncestor is the interface that an ancestor of a IKEGateway must implement.
+// An Ancestor is defined as an entity that has IKEGateway as a descendant.
+// An Ancestor can get a list of its child IKEGateways, but not necessarily create one.
 type IKEGatewaysAncestor interface {
 	IKEGateways(*bambou.FetchingInfo) (IKEGatewaysList, *bambou.Error)
-	CreateIKEGateways(*IKEGateway) *bambou.Error
+}
+
+// IKEGatewaysParent is the interface that a parent of a IKEGateway must implement.
+// A Parent is defined as an entity that has IKEGateway as a child.
+// A Parent is an Ancestor which can create a IKEGateway.
+type IKEGatewaysParent interface {
+	IKEGatewaysAncestor
+	CreateIKEGateway(*IKEGateway) *bambou.Error
 }
 
 // IKEGateway represents the model of a ikegateway
@@ -64,7 +73,10 @@ type IKEGateway struct {
 // NewIKEGateway returns a new *IKEGateway
 func NewIKEGateway() *IKEGateway {
 
-	return &IKEGateway{}
+	return &IKEGateway{
+		IKEVersion: "V2",
+		IKEv1Mode:  "NONE",
+	}
 }
 
 // Identity returns the Identity of the object.

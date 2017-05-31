@@ -38,10 +38,19 @@ var PortIdentity = bambou.Identity{
 // PortsList represents a list of Ports
 type PortsList []*Port
 
-// PortsAncestor is the interface of an ancestor of a Port must implement.
+// PortsAncestor is the interface that an ancestor of a Port must implement.
+// An Ancestor is defined as an entity that has Port as a descendant.
+// An Ancestor can get a list of its child Ports, but not necessarily create one.
 type PortsAncestor interface {
 	Ports(*bambou.FetchingInfo) (PortsList, *bambou.Error)
-	CreatePorts(*Port) *bambou.Error
+}
+
+// PortsParent is the interface that a parent of a Port must implement.
+// A Parent is defined as an entity that has Port as a child.
+// A Parent is an Ancestor which can create a Port.
+type PortsParent interface {
+	PortsAncestor
+	CreatePort(*Port) *bambou.Error
 }
 
 // Port represents the model of a port
@@ -160,12 +169,6 @@ func (o *Port) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the Port
-func (o *Port) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the Port
 func (o *Port) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -200,10 +203,4 @@ func (o *Port) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Erro
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Port
-func (o *Port) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

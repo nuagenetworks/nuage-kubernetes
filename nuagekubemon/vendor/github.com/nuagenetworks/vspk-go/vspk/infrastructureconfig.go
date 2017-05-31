@@ -38,10 +38,19 @@ var InfrastructureConfigIdentity = bambou.Identity{
 // InfrastructureConfigsList represents a list of InfrastructureConfigs
 type InfrastructureConfigsList []*InfrastructureConfig
 
-// InfrastructureConfigsAncestor is the interface of an ancestor of a InfrastructureConfig must implement.
+// InfrastructureConfigsAncestor is the interface that an ancestor of a InfrastructureConfig must implement.
+// An Ancestor is defined as an entity that has InfrastructureConfig as a descendant.
+// An Ancestor can get a list of its child InfrastructureConfigs, but not necessarily create one.
 type InfrastructureConfigsAncestor interface {
 	InfrastructureConfigs(*bambou.FetchingInfo) (InfrastructureConfigsList, *bambou.Error)
-	CreateInfrastructureConfigs(*InfrastructureConfig) *bambou.Error
+}
+
+// InfrastructureConfigsParent is the interface that a parent of a InfrastructureConfig must implement.
+// A Parent is defined as an entity that has InfrastructureConfig as a child.
+// A Parent is an Ancestor which can create a InfrastructureConfig.
+type InfrastructureConfigsParent interface {
+	InfrastructureConfigsAncestor
+	CreateInfrastructureConfig(*InfrastructureConfig) *bambou.Error
 }
 
 // InfrastructureConfig represents the model of a infraconfig

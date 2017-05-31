@@ -38,10 +38,19 @@ var PATMapperIdentity = bambou.Identity{
 // PATMappersList represents a list of PATMappers
 type PATMappersList []*PATMapper
 
-// PATMappersAncestor is the interface of an ancestor of a PATMapper must implement.
+// PATMappersAncestor is the interface that an ancestor of a PATMapper must implement.
+// An Ancestor is defined as an entity that has PATMapper as a descendant.
+// An Ancestor can get a list of its child PATMappers, but not necessarily create one.
 type PATMappersAncestor interface {
 	PATMappers(*bambou.FetchingInfo) (PATMappersList, *bambou.Error)
-	CreatePATMappers(*PATMapper) *bambou.Error
+}
+
+// PATMappersParent is the interface that a parent of a PATMapper must implement.
+// A Parent is defined as an entity that has PATMapper as a child.
+// A Parent is an Ancestor which can create a PATMapper.
+type PATMappersParent interface {
+	PATMappersAncestor
+	CreatePATMapper(*PATMapper) *bambou.Error
 }
 
 // PATMapper represents the model of a patmapper
@@ -105,15 +114,4 @@ func (o *PATMapper) SharedNetworkResources(info *bambou.FetchingInfo) (SharedNet
 	var list SharedNetworkResourcesList
 	err := bambou.CurrentSession().FetchChildren(o, SharedNetworkResourceIdentity, &list, info)
 	return list, err
-}
-
-// AssignSharedNetworkResources assigns the list of SharedNetworkResources to the PATMapper
-func (o *PATMapper) AssignSharedNetworkResources(children SharedNetworkResourcesList) *bambou.Error {
-
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
-
-	return bambou.CurrentSession().AssignChildren(o, list, SharedNetworkResourceIdentity)
 }

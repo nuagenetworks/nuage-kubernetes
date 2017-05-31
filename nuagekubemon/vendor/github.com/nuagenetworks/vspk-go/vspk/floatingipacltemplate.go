@@ -38,10 +38,19 @@ var FloatingIPACLTemplateIdentity = bambou.Identity{
 // FloatingIPACLTemplatesList represents a list of FloatingIPACLTemplates
 type FloatingIPACLTemplatesList []*FloatingIPACLTemplate
 
-// FloatingIPACLTemplatesAncestor is the interface of an ancestor of a FloatingIPACLTemplate must implement.
+// FloatingIPACLTemplatesAncestor is the interface that an ancestor of a FloatingIPACLTemplate must implement.
+// An Ancestor is defined as an entity that has FloatingIPACLTemplate as a descendant.
+// An Ancestor can get a list of its child FloatingIPACLTemplates, but not necessarily create one.
 type FloatingIPACLTemplatesAncestor interface {
 	FloatingIPACLTemplates(*bambou.FetchingInfo) (FloatingIPACLTemplatesList, *bambou.Error)
-	CreateFloatingIPACLTemplates(*FloatingIPACLTemplate) *bambou.Error
+}
+
+// FloatingIPACLTemplatesParent is the interface that a parent of a FloatingIPACLTemplate must implement.
+// A Parent is defined as an entity that has FloatingIPACLTemplate as a child.
+// A Parent is an Ancestor which can create a FloatingIPACLTemplate.
+type FloatingIPACLTemplatesParent interface {
+	FloatingIPACLTemplatesAncestor
+	CreateFloatingIPACLTemplate(*FloatingIPACLTemplate) *bambou.Error
 }
 
 // FloatingIPACLTemplate represents the model of a egressfloatingipacltemplate

@@ -38,10 +38,19 @@ var AllAlarmIdentity = bambou.Identity{
 // AllAlarmsList represents a list of AllAlarms
 type AllAlarmsList []*AllAlarm
 
-// AllAlarmsAncestor is the interface of an ancestor of a AllAlarm must implement.
+// AllAlarmsAncestor is the interface that an ancestor of a AllAlarm must implement.
+// An Ancestor is defined as an entity that has AllAlarm as a descendant.
+// An Ancestor can get a list of its child AllAlarms, but not necessarily create one.
 type AllAlarmsAncestor interface {
 	AllAlarms(*bambou.FetchingInfo) (AllAlarmsList, *bambou.Error)
-	CreateAllAlarms(*AllAlarm) *bambou.Error
+}
+
+// AllAlarmsParent is the interface that a parent of a AllAlarm must implement.
+// A Parent is defined as an entity that has AllAlarm as a child.
+// A Parent is an Ancestor which can create a AllAlarm.
+type AllAlarmsParent interface {
+	AllAlarmsAncestor
+	CreateAllAlarm(*AllAlarm) *bambou.Error
 }
 
 // AllAlarm represents the model of a allalarm

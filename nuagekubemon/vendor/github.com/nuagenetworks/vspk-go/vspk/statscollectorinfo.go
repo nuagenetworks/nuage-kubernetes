@@ -38,10 +38,19 @@ var StatsCollectorInfoIdentity = bambou.Identity{
 // StatsCollectorInfosList represents a list of StatsCollectorInfos
 type StatsCollectorInfosList []*StatsCollectorInfo
 
-// StatsCollectorInfosAncestor is the interface of an ancestor of a StatsCollectorInfo must implement.
+// StatsCollectorInfosAncestor is the interface that an ancestor of a StatsCollectorInfo must implement.
+// An Ancestor is defined as an entity that has StatsCollectorInfo as a descendant.
+// An Ancestor can get a list of its child StatsCollectorInfos, but not necessarily create one.
 type StatsCollectorInfosAncestor interface {
 	StatsCollectorInfos(*bambou.FetchingInfo) (StatsCollectorInfosList, *bambou.Error)
-	CreateStatsCollectorInfos(*StatsCollectorInfo) *bambou.Error
+}
+
+// StatsCollectorInfosParent is the interface that a parent of a StatsCollectorInfo must implement.
+// A Parent is defined as an entity that has StatsCollectorInfo as a child.
+// A Parent is an Ancestor which can create a StatsCollectorInfo.
+type StatsCollectorInfosParent interface {
+	StatsCollectorInfosAncestor
+	CreateStatsCollectorInfo(*StatsCollectorInfo) *bambou.Error
 }
 
 // StatsCollectorInfo represents the model of a statisticscollector

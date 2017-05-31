@@ -38,10 +38,19 @@ var RedundantPortIdentity = bambou.Identity{
 // RedundantPortsList represents a list of RedundantPorts
 type RedundantPortsList []*RedundantPort
 
-// RedundantPortsAncestor is the interface of an ancestor of a RedundantPort must implement.
+// RedundantPortsAncestor is the interface that an ancestor of a RedundantPort must implement.
+// An Ancestor is defined as an entity that has RedundantPort as a descendant.
+// An Ancestor can get a list of its child RedundantPorts, but not necessarily create one.
 type RedundantPortsAncestor interface {
 	RedundantPorts(*bambou.FetchingInfo) (RedundantPortsList, *bambou.Error)
-	CreateRedundantPorts(*RedundantPort) *bambou.Error
+}
+
+// RedundantPortsParent is the interface that a parent of a RedundantPort must implement.
+// A Parent is defined as an entity that has RedundantPort as a child.
+// A Parent is an Ancestor which can create a RedundantPort.
+type RedundantPortsParent interface {
+	RedundantPortsAncestor
+	CreateRedundantPort(*RedundantPort) *bambou.Error
 }
 
 // RedundantPort represents the model of a nsredundantport
@@ -159,10 +168,4 @@ func (o *RedundantPort) NSPorts(info *bambou.FetchingInfo) (NSPortsList, *bambou
 	var list NSPortsList
 	err := bambou.CurrentSession().FetchChildren(o, NSPortIdentity, &list, info)
 	return list, err
-}
-
-// CreateNSPort creates a new child NSPort under the RedundantPort
-func (o *RedundantPort) CreateNSPort(child *NSPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
