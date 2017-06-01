@@ -26,6 +26,9 @@ vsduser=k8s-admin
 vsd_user_cert_file=/usr/local/vsd-user.pem
 # Complete local path to the VSD user key file
 vsd_user_key_file=/usr/local/vsd-user-Key.pem
+# Kubernetes version shud be set to 1.6+ for all
+# k8s versions 1.6 and above
+k8s_version=1.6+
 
 [masters]
 master1.nuageopenshift.com ansible_ssh_user=root 
