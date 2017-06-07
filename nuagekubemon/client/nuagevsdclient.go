@@ -1716,6 +1716,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		}
 		var subnetID string
 		var subnet *IPv4Subnet
+		var deletedSubnet *IPv4Subnet
 		subnetSize := nvsdc.subnetSize
 		if nsSubnetSize, labelExists := nsEvent.Labels["nuage.io/ns_subnet_size"]; labelExists {
 			glog.Infoln("Subnet size label exists.")
@@ -1753,7 +1754,15 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			currentSubnetSize = 32 - subnet.CIDRMask
 			if currentSubnetSize != subnetSize {
 				if err = nvsdc.DeleteSubnet(vsdSubnet.ID); err != nil {
+					glog.Warningf("Failed to delete subnet %q in zone %q",
+						vsdSubnet.ID, nsEvent.Name)
 					return err
+				}
+				deletedSubnet = subnet
+				err = nvsdc.pool.Free(subnet)
+				if err != nil {
+					glog.Warningf("Failed to free subnet %q from zone %q",
+						subnet.String(), nsEvent.Name)
 				}
 				needToCreateSubnet = true
 			}
@@ -1768,7 +1777,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
 			if err != nil {
 				glog.Errorf("Received error %v while trying to allocate Subnet space", err)
-				return err
+				if deletedSubnet == nil {
+					return err
+				}
+				subnet = deletedSubnet
+
 			}
 			for {
 				subnetID, err = nvsdc.CreateSubnet(subnetName, namespace.ZoneID,
@@ -1788,7 +1801,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					// Only free the subnet if it wasn't overlapping so
 					// that overlapping subnets are not retried
 					nvsdc.pool.Free(subnet)
-					return err
+					if(deletedSubnet == subnet) {
+						return err
+					}
+					subnet = deletedSubnet
 				}
 			}
 
