@@ -210,7 +210,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	for {
 		nvsdc.enterpriseID, err = nvsdc.GetEnterpriseID(nkmConfig.EnterpriseName)
 		if err != nil {
-			glog.Error("Received error %v while trying to get Enterprise ID. Will retry in 10 seconds", err)
+			glog.Errorf("Received error %v while trying to get Enterprise ID. Will retry in 10 seconds", err)
 		} else {
 			break
 		}
@@ -1714,11 +1714,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		var deletedSubnet *IPv4Subnet
 		subnetSize := nvsdc.subnetSize
 		if nsSubnetSize, labelExists := nsEvent.Labels["nuage.io/ns_subnet_size"]; labelExists {
-			glog.Infoln("Subnet size label exists.")
+			glog.Infoln("Subnet size label present: ", nsSubnetSize);
 			size, err := strconv.Atoi(nsSubnetSize)
 			if err == nil && size > 0 && size < 32 {
 				subnetSize = size
-				glog.Infoln("Subnet size : ", nsSubnetSize)
 			} else {
 				return errors.New("Invalid subnet size. Expected between /0 and /32")
 			}
@@ -1756,8 +1755,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				deletedSubnet = subnet
 				err = nvsdc.pool.Free(subnet)
 				if err != nil {
-					glog.Warningf("Failed to free subnet %q from zone %q",
-						subnet.String(), nsEvent.Name)
+					glog.Warningf("Failed to free subnet %q from zone %q with error %v",
+						subnet.String(), nsEvent.Name, err)
 				}
 				needToCreateSubnet = true
 			}
@@ -1795,7 +1794,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				} else {
 					// Only free the subnet if it wasn't overlapping so
 					// that overlapping subnets are not retried
-					nvsdc.pool.Free(subnet)
+					err = nvsdc.pool.Free(subnet)
+					if err != nil {
+						glog.Warningf("Failed to free subnet %q from zone %q with error %v",
+							subnet.String(), nsEvent.Name, err)
+					}
 					if(deletedSubnet == subnet) {
 						return err
 					}
