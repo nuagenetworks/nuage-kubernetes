@@ -21,7 +21,7 @@ plugin_rpm=http://10.10.10.10/nuage-cni-k8s-0.0-7.2161.el7.centos.x86_64.rpm
 # Location of the K8S loopback CNI plugin on local host
 k8s_cni_loopback_plugin=/tmp/loopback
 # VSD user in the admin group
-vsduser=k8s-admin
+vsd_user=k8s-admin
 # Complete local path to the VSD user certificate file
 vsd_user_cert_file=/usr/local/vsd-user.pem
 # Complete local path to the VSD user key file

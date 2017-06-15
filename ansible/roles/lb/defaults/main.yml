@@ -1,0 +1,14 @@
+---
+haproxy_frontends:
+- name: main
+  binds:
+  - "*:{{ k8s_api_port | default(6443) }}"
+  default_backend: default
+
+haproxy_backends:
+- name: default
+  balance: roundrobin
+  servers:
+  - name: web01
+    address: 127.0.0.1:9000
+    opts: check
