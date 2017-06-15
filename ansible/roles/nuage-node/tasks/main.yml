@@ -7,10 +7,6 @@
   become: yes
   yum: name=python-pip state=present
 
-- name: Install pykube
-  become: yes
-  pip: name=pykube version=0.13.0
-
 - name: Start iptables-service 
   become: yes
   service: name=iptables state=started
