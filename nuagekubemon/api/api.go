@@ -246,11 +246,7 @@ func (acl *VsdAclEntry) TryNextAclPriority() {
 }
 
 func (lhs *VsdAclEntry) IsEqual(rhs *VsdAclEntry) bool {
-	if lhs.DSCP != "" && lhs.DSCP != rhs.DSCP {
-		glog.Info("DSCP for 2 ACLs dont match")
-		glog.Infof("LHS: %s, RHS: %s", lhs.DSCP, rhs.DSCP)
-		return false
-	}
+
 	if lhs.Action != "" && lhs.Action != rhs.Action {
 		glog.Info("Action for 2 ACLs dont match")
 		glog.Infof("LHS: %s, RHS: %s", lhs.Action, rhs.Action)
@@ -301,10 +297,6 @@ func (lhs *VsdAclEntry) IsEqual(rhs *VsdAclEntry) bool {
 
 func (lhs *VsdAclEntry) BuildFilter() string {
 	filter := ""
-	if lhs.DSCP != "" {
-		dscpClause := `DSCP == "` + lhs.DSCP + `"`
-		filter = dscpClause
-	}
 	if lhs.Action != "" {
 		actionClause := `action == "` + lhs.Action + `"`
 		if filter != "" {

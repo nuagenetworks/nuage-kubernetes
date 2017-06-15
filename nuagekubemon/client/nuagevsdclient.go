@@ -589,24 +589,24 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 
 func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress bool, priority int) (string, error) {
 	result := make([]api.VsdAclTemplate, 1)
-	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
 
 	restpath := "/ingressacltemplates"
 	if !ingress {
 		restpath = "/egressacltemplates"
 	}
-	reqUrl := nvsdc.url+"domains/"+domainID+restpath
+	reqUrl := nvsdc.url + "domains/" + domainID + restpath
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
 	logGETResponse(resp, &e)
-	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting ACL template ID %s", err)
 		return "", err
 	}
+
+	glog.Infoln("Result for ACL template obtained from VSD when getting ACL template ID: ", result)
+
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL template ID")
 	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
@@ -614,9 +614,12 @@ func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress boo
 		// return), the result object will just be empty.
 		for index := range result {
 			if result[index].Name == name && result[index].Priority == priority && result[index].Active == true {
+				glog.Infof("Found active VSD ACL template with priority %d and name %s", priority, name)
+				glog.Infof("Active VSD ACL template ID is %s", result[index].ID)
 				return result[index].ID, nil
 			}
 		}
+		glog.Errorf("Could not find already existing VSD ACL active template with priority %d and name %s", priority, name)
 		return "", errors.New("Active ACL template not found")
 	} else {
 		return "", VsdErrorResponse(resp, &e)
