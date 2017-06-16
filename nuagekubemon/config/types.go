@@ -26,21 +26,20 @@ import (
 )
 
 type NuageKubeMonConfig struct {
-	KubeConfigFile          string           `yaml:"kubeConfig"`
-	MasterConfigFile        string           `yaml:"masterConfig"`
-	NuageVsdApiUrl          string           `yaml:"vsdApiUrl"`
-	NuageVspVersion         string           `yaml:"vspVersion"`
-	LicenseFile             string           `yaml:"licenseFile"`
-	EnterpriseName          string           `yaml:"enterpriseName"`
-	DomainName              string           `yaml:"domainName"`
-	RestServer              RestServerConfig `yaml:"nuageMonServer"`
-	CSPAdminPassword        string           `yaml:"cspAdminPassword"`
-	EnterpriseAdminUserName string           `yaml:"enterpriseAdminUser"`
-	EnterpriseAdminPassword string           `yaml:"enterpriseAdminPassword"`
-	PrivilegedProject       string           `yaml:"privilegedProject"`
-	PrivilegedNamespace     string           `yaml:"privilegedNamespace"`
-	ConfigFile              string           `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
-	MasterConfig            MasterConfig     `yaml:"-"`
+	KubeConfigFile      string           `yaml:"kubeConfig"`
+	MasterConfigFile    string           `yaml:"masterConfig"`
+	NuageVsdApiUrl      string           `yaml:"vsdApiUrl"`
+	NuageVspVersion     string           `yaml:"vspVersion"`
+	LicenseFile         string           `yaml:"licenseFile"`
+	EnterpriseName      string           `yaml:"enterpriseName"`
+	DomainName          string           `yaml:"domainName"`
+	RestServer          RestServerConfig `yaml:"nuageMonServer"`
+	UserCertificateFile string           `yaml:"userCertificateFile"`
+	UserKeyFile         string           `yaml:"userKeyFile"`
+	PrivilegedProject   string           `yaml:"privilegedProject"`
+	PrivilegedNamespace string           `yaml:"privilegedNamespace"`
+	ConfigFile          string           `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
+	MasterConfig        MasterConfig     `yaml:"-"`
 }
 
 type RestServerConfig struct {
@@ -110,18 +109,6 @@ func (conf *NuageKubeMonConfig) Parse(data []byte) error {
 
 	if conf.DomainName == "" {
 		conf.DomainName = DefaultDomain()
-	}
-
-	if conf.CSPAdminPassword == "" {
-		conf.CSPAdminPassword = "csproot"
-	}
-
-	if conf.EnterpriseAdminUserName == "" {
-		conf.EnterpriseAdminUserName = "admin"
-	}
-
-	if conf.EnterpriseAdminPassword == "" {
-		conf.EnterpriseAdminPassword = "admin"
 	}
 
 	if conf.PrivilegedNamespace == "" {

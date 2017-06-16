@@ -28,17 +28,21 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
-var _currentSession Storer
+var currentSession Storer
 
 // CurrentSession returns the current active and authenticated Session.
 func CurrentSession() Storer {
 
-	return _currentSession
+	return currentSession
 }
 
 // Storer is the interface that must be implemented by object that can
@@ -59,9 +63,10 @@ type Storer interface {
 
 // Session represents a user session. It provides the entire
 // communication layer with the backend. It must implement the Operationable interface.
+// A session can be authenticated via 1) TLS certificates or 2) user + password (different API endpoints)
 type Session struct {
 	root         Rootable
-	Certificate  string
+	Certificate  *tls.Certificate
 	Username     string
 	Password     string
 	Organization string
@@ -72,7 +77,16 @@ type Session struct {
 // NewSession returns a new *Session
 // You need to provide a Rootable object that will be used to contain
 // the results of the authentication process, like the api key for instance.
+// Authentication using user + password
 func NewSession(username, password, organization, url string, root Rootable) *Session {
+
+	tr := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 
 	return &Session{
 		Username:     username,
@@ -80,36 +94,49 @@ func NewSession(username, password, organization, url string, root Rootable) *Se
 		Organization: organization,
 		URL:          url,
 		root:         root,
-		client:       &http.Client{},
+		client:       &http.Client{Transport: tr},
 	}
 }
 
-// SetInsecureSkipVerify sets if the internal HTTP client should allow to connect
-// to insecure API endpoints.
-func (s *Session) SetInsecureSkipVerify(skip bool) *Error {
+func NewX509Session(cert *tls.Certificate, url string, root Rootable) *Session {
 
-	if CurrentSession() != nil {
-		return NewError(ErrorCodeSessionAlreadyStarted, "The session is already started. Stop it first")
+	tr := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			Certificates:       []tls.Certificate{*cert},
+			InsecureSkipVerify: true,
+		},
 	}
 
-	s.client = &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skip}}}
+	return &Session{
+		Certificate: cert,
+		URL:         url,
+		root:        root,
+		client:      &http.Client{Transport: tr},
+	}
+}
+
+// Dummy function avail for backwards compat. Logic moved to the new session methods
+func (s *Session) SetInsecureSkipVerify(skip bool) *Error {
 
 	return nil
 }
 
+// Used for user & password based authentication
 func (s *Session) makeAuthorizationHeaders() (string, *Error) {
 
 	if s.Username == "" {
-		return "", NewError(ErrorCodeSessionUsernameNotSet, "Error while creating headers: User must be set")
+		return "", NewBambouError("Invalid Credentials", "No username given")
 	}
 
 	if s.root == nil {
-		return "", NewError(ErrorCodeSessionCannotForgeAuthToken, "Error while creating headers: no root user set")
+		return "", NewBambouError("Invalid Credentials", "No root user set")
 	}
 
 	key := s.root.APIKey()
 	if s.Password == "" && key == "" {
-		return "", NewError(ErrorCodeSessionCannotForgeAuthToken, "Error while creating headers: Password or APIKey must be set")
+		return "", NewBambouError("Invalid Credentials", "No password or authentication token given")
 	}
 
 	if key == "" {
@@ -121,14 +148,18 @@ func (s *Session) makeAuthorizationHeaders() (string, *Error) {
 
 func (s *Session) prepareHeaders(request *http.Request, info *FetchingInfo) *Error {
 
-	authString, berr := s.makeAuthorizationHeaders()
-	if berr != nil {
-		return berr
+	if s.Certificate == nil { // We're using user & password based authentication
+
+		authString, err := s.makeAuthorizationHeaders()
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Authorization", authString)
+		request.Header.Set("X-Nuage-Organization", s.Organization)
 	}
 
-	request.Header.Set("Authorization", authString)
+	// Common headers
 	request.Header.Set("X-Nuage-PageSize", "50")
-	request.Header.Set("X-Nuage-Organization", s.Organization)
 	request.Header.Set("Content-Type", "application/json")
 
 	if info == nil {
@@ -182,8 +213,11 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 	response, err := s.client.Do(request)
 
 	if err != nil {
-		return response, NewError(ErrorCodeSessionCannotProcessRequest, err.Error())
+		return response, NewBambouError("HTTP client error", err.Error())
 	}
+
+	log.Debugf("Response Status: %s", response.Status)
+	log.Debugf("Response Headers: %s", response.Header)
 
 	switch response.StatusCode {
 
@@ -192,19 +226,31 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 		return response, nil
 
 	case http.StatusMultipleChoices:
+		defer response.Body.Close()
 		newURL := request.URL.String() + "?responseChoice=1"
 		request, _ = http.NewRequest(request.Method, newURL, request.Body)
 		return s.send(request, info)
 
-	case http.StatusConflict:
-		berr := NewError(response.StatusCode, "")
-		if err := json.NewDecoder(response.Body).Decode(&berr); err != nil {
-			return nil, NewError(ErrorCodeJSONCannotDecode, err.Error())
+	case http.StatusConflict, http.StatusNotFound:
+		var vsdresp VsdErrorList
+		defer response.Body.Close()
+
+		body, _ := ioutil.ReadAll(response.Body)
+		log.Debugf("Response Body: %s", string(body))
+
+		if err := json.Unmarshal(body, &vsdresp); err != nil {
+			return nil, NewBambouError("JSON unmarshalling error", err.Error())
 		}
-		return nil, berr
+		// Check if there is an _actual_ VSD response -- we may get a bogus 40x from e.g. tests
+		if len(vsdresp.VsdErrors) == 0 {
+			return nil, NewBambouError("Non-VSD server HTTP error", response.Status)
+		} else { // Valid VSD response
+			return nil, NewBambouError(vsdresp.VsdErrors[0].Descriptions[0].Title, vsdresp.VsdErrors[0].Descriptions[0].Description)
+		}
 
 	default:
-		return nil, NewError(response.StatusCode, response.Status)
+		defer response.Body.Close()
+		return nil, NewBambouError("HTTP error", response.Status)
 	}
 }
 
@@ -220,7 +266,7 @@ func (s *Session) getPersonalURL(o Identifiable) (string, *Error) {
 	}
 
 	if o.Identifier() == "" {
-		return "", NewError(ErrorCodeSessionIDNotSet, "Cannot GetPersonalURL of an object with no ID set")
+		return "", NewBambouError("VSD error", "Cannot GetPersonalURL of an object with no ID set")
 	}
 
 	return s.getGeneralURL(o) + "/" + o.Identifier(), nil
@@ -232,9 +278,9 @@ func (s *Session) getURLForChildrenIdentity(o Identifiable, childrenIdentity Ide
 		return s.URL + "/" + childrenIdentity.Category, nil
 	}
 
-	url, err := s.getPersonalURL(o)
-	if err != nil {
-		return "", err
+	url, berr := s.getPersonalURL(o)
+	if berr != nil {
+		return "", berr
 	}
 
 	return url + "/" + childrenIdentity.Category, nil
@@ -250,12 +296,12 @@ func (s *Session) Root() Rootable {
 // At that point the authentication will be done.
 func (s *Session) Start() *Error {
 
-	_currentSession = s
+	currentSession = s
 
-	err := s.FetchEntity(s.root)
+	berr := s.FetchEntity(s.root)
 
-	if err != nil {
-		return err
+	if berr != nil {
+		return berr
 	}
 
 	return nil
@@ -266,7 +312,7 @@ func (s *Session) Reset() {
 
 	s.root.SetAPIKey("")
 
-	_currentSession = nil
+	currentSession = nil
 }
 
 // FetchEntity fetchs the given Identifiable from the server.
@@ -279,19 +325,21 @@ func (s *Session) FetchEntity(object Identifiable) *Error {
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
 	response, berr := s.send(request, nil)
 	if berr != nil {
 		return berr
 	}
-
 	defer response.Body.Close()
 
+	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
+
 	arr := IdentifiablesList{object} // trick for weird api..
-	if err := json.NewDecoder(response.Body).Decode(&arr); err != nil {
-		return NewError(ErrorCodeJSONCannotDecode, err.Error())
+	if err := json.Unmarshal(body, &arr); err != nil {
+		return NewBambouError("JSON unmarshalling error", err.Error())
 	}
 
 	return nil
@@ -307,24 +355,27 @@ func (s *Session) SaveEntity(object Identifiable) *Error {
 
 	buffer := &bytes.Buffer{}
 	if err := json.NewEncoder(buffer).Encode(object); err != nil {
-		return NewError(ErrorCodeJSONCannotEncode, err.Error())
+		return NewBambouError("JSON error", err.Error())
 	}
 
+	url = url + "?responseChoice=1"
 	request, err := http.NewRequest("PUT", url, buffer)
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
 	response, berr := s.send(request, nil)
 	if berr != nil {
 		return berr
 	}
-
 	defer response.Body.Close()
 
+	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
+
 	dest := IdentifiablesList{object}
-	if err := json.NewDecoder(response.Body).Decode(&dest); err != nil {
-		return NewError(ErrorCodeJSONCannotDecode, err.Error())
+	if err := json.Unmarshal(body, &dest); err != nil {
+		return NewBambouError("JSON Unmarshaling error", err.Error())
 	}
 
 	return nil
@@ -338,15 +389,18 @@ func (s *Session) DeleteEntity(object Identifiable) *Error {
 		return berr
 	}
 
+	url = url + "?responseChoice=1"
 	request, err := http.NewRequest("DELETE", url, nil)
+
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
-	_, berr = s.send(request, nil)
+	response, berr := s.send(request, nil)
 	if berr != nil {
 		return berr
 	}
+	defer response.Body.Close()
 
 	return nil
 }
@@ -361,22 +415,24 @@ func (s *Session) FetchChildren(parent Identifiable, identity Identity, dest int
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
 	response, berr := s.send(request, info)
 	if berr != nil {
 		return berr
 	}
-
 	defer response.Body.Close()
+
+	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
 
 	if response.StatusCode == http.StatusNoContent || response.ContentLength == 0 {
 		return nil
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&dest); err != nil {
-		return NewError(ErrorCodeJSONCannotDecode, err.Error())
+	if err := json.Unmarshal(body, &dest); err != nil {
+		return NewBambouError("HTTP Unmarshaling error", err.Error())
 	}
 
 	return nil
@@ -392,24 +448,26 @@ func (s *Session) CreateChild(parent Identifiable, child Identifiable) *Error {
 
 	buffer := &bytes.Buffer{}
 	if err := json.NewEncoder(buffer).Encode(child); err != nil {
-		return NewError(ErrorCodeJSONCannotEncode, err.Error())
+		return NewBambouError("JSON error", err.Error())
 	}
 
 	request, err := http.NewRequest("POST", url, buffer)
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
 	response, berr := s.send(request, nil)
 	if berr != nil {
 		return berr
 	}
-
 	defer response.Body.Close()
 
+	body, _ := ioutil.ReadAll(response.Body)
+	log.Debugf("Response Body: %s", string(body))
+
 	dest := IdentifiablesList{child}
-	if err := json.NewDecoder(response.Body).Decode(&dest); err != nil {
-		return NewError(ErrorCodeJSONCannotDecode, err.Error())
+	if err := json.Unmarshal(body, &dest); err != nil {
+		return NewBambouError("JSON Unmarshaling error", err.Error())
 	}
 
 	return nil
@@ -429,7 +487,7 @@ func (s *Session) AssignChildren(parent Identifiable, children []Identifiable, i
 		if i := c.Identifier(); i != "" {
 			ids = append(ids, c.Identifier())
 		} else {
-			return NewError(ErrorCodeSessionIDNotSet, "One of the object to assign has no ID")
+			return NewBambouError("VSD Error", "One of the object to assign has no ID")
 		}
 	}
 
@@ -438,13 +496,14 @@ func (s *Session) AssignChildren(parent Identifiable, children []Identifiable, i
 
 	request, err := http.NewRequest("PUT", url, buffer)
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
-	_, berr = s.send(request, nil)
+	response, berr := s.send(request, nil)
 	if berr != nil {
 		return berr
 	}
+	defer response.Body.Close()
 
 	return nil
 }
@@ -460,17 +519,18 @@ func (s *Session) NextEvent(channel NotificationsChannel, lastEventID string) *E
 
 	request, err := http.NewRequest("GET", currentURL, nil)
 	if err != nil {
-		return NewError(http.StatusBadRequest, err.Error())
+		return NewBambouError("HTTP transaction error", err.Error())
 	}
 
 	response, berr := s.send(request, nil)
 	if berr != nil {
 		return berr
 	}
+	defer response.Body.Close()
 
 	notification := NewNotification()
 	if err := json.NewDecoder(response.Body).Decode(notification); err != nil {
-		return NewError(ErrorCodeJSONCannotDecode, err.Error())
+		return NewBambouError("JSON error", err.Error())
 	}
 
 	if len(notification.Events) > 0 {

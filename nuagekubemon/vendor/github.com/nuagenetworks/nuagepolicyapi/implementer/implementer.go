@@ -1,6 +1,7 @@
 package implementer
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/nuagenetworks/go-bambou/bambou"
 	"github.com/nuagenetworks/vspk-go/vspk"
@@ -8,10 +9,9 @@ import (
 
 // VSDCredentials stores information required to establish session with VSD
 type VSDCredentials struct {
-	Username     string
-	Password     string
-	Organization string
 	URL          string
+	UserCertFile string
+	UserKeyFile  string
 }
 
 // PolicyImplementer is used to implement a Nuage Policy
@@ -27,9 +27,7 @@ type policyTransaction struct {
 // Init initializes the policy implementer and establishes session with VSD
 func (implementer *PolicyImplementer) Init(vsdCredentials *VSDCredentials) error {
 
-	if vsdCredentials == nil || vsdCredentials.Username == "" ||
-		vsdCredentials.Password == "" || vsdCredentials.Organization == "" ||
-		vsdCredentials.URL == "" {
+	if vsdCredentials == nil || vsdCredentials.URL == "" {
 		return fmt.Errorf("Invalid VSD credentials %+v", vsdCredentials)
 	}
 
@@ -37,11 +35,11 @@ func (implementer *PolicyImplementer) Init(vsdCredentials *VSDCredentials) error
 		implementer.vsdSession.Reset()
 	}
 
-	implementer.vsdSession, implementer.vsdRoot =
-		vspk.NewSession(vsdCredentials.Username,
-			vsdCredentials.Password,
-			vsdCredentials.Organization,
-			vsdCredentials.URL)
+	cert, err := tls.LoadX509KeyPair(vsdCredentials.UserCertFile, vsdCredentials.UserKeyFile)
+	if err != nil {
+		return fmt.Errorf("Loading TLS certificate and private key failed")
+	}
+	implementer.vsdSession, implementer.vsdRoot = vspk.NewX509Session(&cert, vsdCredentials.URL)
 
 	if implementer.vsdRoot == nil || implementer.vsdSession == nil {
 		return fmt.Errorf("Unable to establish session to VSD")
