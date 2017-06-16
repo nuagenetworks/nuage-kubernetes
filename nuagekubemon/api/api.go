@@ -244,9 +244,6 @@ func (acl *VsdAclEntry) TryNextAclPriority() {
 }
 
 func (lhs *VsdAclEntry) IsEqual(rhs *VsdAclEntry) bool {
-	if lhs.DSCP != "" && lhs.DSCP != rhs.DSCP {
-		return false
-	}
 	if lhs.Action != "" && lhs.Action != rhs.Action {
 		return false
 	}
@@ -279,10 +276,6 @@ func (lhs *VsdAclEntry) IsEqual(rhs *VsdAclEntry) bool {
 
 func (lhs *VsdAclEntry) BuildFilter() string {
 	filter := ""
-	if lhs.DSCP != "" {
-		dscpClause := `DSCP == "` + lhs.DSCP + `"`
-		filter = dscpClause
-	}
 	if lhs.Action != "" {
 		actionClause := `action == "` + lhs.Action + `"`
 		if filter != "" {
