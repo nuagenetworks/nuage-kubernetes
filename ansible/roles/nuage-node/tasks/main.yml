@@ -36,6 +36,10 @@
   become: yes
   lineinfile: dest={{ vrs_config }} regexp=^K8S_SERVICE_IPV4_SUBNET line='K8S_SERVICE_IPV4_SUBNET={{ kube_service_addresses }}'
 
+- name: Remove stale plugin rpm package
+  shell: rpm -e nuage-cni-k8s
+  ignore_errors: true
+
 - name: Install plugin rpm
   become: yes
   yum: name={{ plugin_rpm }} state=present
@@ -69,3 +73,14 @@
   command: /bin/true
   notify:
     - restart daemons
+
+- name: Remove unwanted tmp log files
+  shell: rm -irf /tmp/nuage-cni*
+  ignore_errors: true
+
+- name: Install K8S CNI loopback plugin
+  become: yes
+  copy:
+    src: "{{ k8s_cni_loopback_plugin }}"
+    dest: "/usr/bin/{{ k8s_cni_loopback_plugin | basename }}"
+    mode: 0755

@@ -149,11 +149,12 @@ func (a *IPv4Subnet) Compare(b *IPv4Subnet) int {
 	if n := b.CIDRMask - a.CIDRMask; n != 0 {
 		return n
 	}
-	netmask := a.Netmask().ToUint()
+	aNetmask := a.Netmask().ToUint()
+	bNetmask :=b.Netmask().ToUint()
 	aAddr := a.Address.ToUint()
 	bAddr := b.Address.ToUint()
 	// Compare only significant bits by &-ing the addresses with the netmask
-	return int((aAddr & netmask) - (bAddr & netmask))
+	return int((aAddr & aNetmask) - (bAddr & bNetmask))
 }
 
 func (a *IPv4Subnet) Contains(b *IPv4Subnet) bool {
@@ -209,7 +210,7 @@ type IPv4SubnetPool [33]*IPv4SubnetNode
  */
 func (pool *IPv4SubnetPool) Alloc(size int) (*IPv4Subnet, error) {
 	if size < 0 || size > 32 {
-		return nil, errors.New("Invalid subnet size.  Expected between /0 and /32")
+		return nil, errors.New("Invalid subnet size. Expected between /0 and /32")
 	}
 	// If there's already at least 1 subnet of the intended size, remove it
 	// from the list and return it.

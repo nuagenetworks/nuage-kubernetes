@@ -20,7 +20,6 @@ package client
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/golang/glog"
@@ -34,16 +33,13 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
+	"net/url"
 )
 
 type NuageVsdClient struct {
 	url                                string
 	version                            string
-	username                           string
-	password                           string
-	enterprise                         string
 	session                            napping.Session
 	enterpriseID                       string
 	domainID                           string
@@ -89,193 +85,21 @@ func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *a
 	return nvsdc
 }
 
-func (nvsdc *NuageVsdClient) GetAuthorizationToken() error {
-	h := nvsdc.session.Header
-	// Add the organization header if it's not present
-	if h.Get("X-Nuage-Organization") == "" {
-		h.Add("X-Nuage-Organization", nvsdc.enterprise)
-	}
-	if h.Get("Authorization") == "" {
-		h.Add("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
-	} else {
-		h.Set("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+nvsdc.password)))
-	}
-	var result [1]api.VsdAuthToken
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"me", nil, &result, &e)
-	if err != nil {
-		glog.Error("Error when requesting authorization token", err)
-		return err
-	}
-	glog.Infoln("Got a reponse status", resp.Status())
-	if resp.Status() == http.StatusOK {
-		// Launch a separate go routine to get the new token 3 minutes before
-		// this one expires
-		// APIKeyExpiry is in milliseconds, while Unix time is in seconds.
-		delay := time.Duration(result[0].APIKeyExpiry-(time.Now().Unix()*1000))*time.Millisecond - 3*time.Minute
-		// If there's less than 3 minutes until expiration, get the new key when
-		// the old one expires.
-		if delay < 0 {
-			delay = time.Duration(result[0].APIKeyExpiry-(time.Now().Unix()*1000)) * time.Millisecond
-		}
-		time.AfterFunc(delay, func() { nvsdc.GetAuthorizationToken() })
-		h.Set("Authorization", "XREST "+base64.StdEncoding.EncodeToString([]byte(nvsdc.username+":"+result[0].APIKey)))
-		return nil
-	} else {
-		return VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) CreateEnterprise(enterpriseName string) (string, error) {
-	payload := api.VsdEnterprise{
-		Name:        enterpriseName,
-		Description: "Auto-generated enterprise",
-	}
-	result := make([]api.VsdEnterprise, 1)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when creating enterprise", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when creating the enterprise")
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Created the enterprise: ", result[0].ID)
-		return result[0].ID, nil
-	case http.StatusConflict:
-		glog.Infoln("Error from VSD:\n", e)
-		//Enterprise already exists, call Get to retrieve the ID
-		id, err := nvsdc.GetEnterpriseID(enterpriseName)
-		if err != nil {
-			glog.Errorf("Error when getting enterprise ID: %s", err)
-			return "", err
-		} else {
-			return id, nil
-		}
-	default:
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) CreateAdminUser(enterpriseID, user, passwd string) (string, error) {
-	payload := api.VsdUser{
-		UserName:  user,
-		Password:  passwd,
-		FirstName: "Admin",
-		LastName:  "Admin",
-		Email:     "admin@localhost",
-	}
-	result := make([]api.VsdUser, 1)
-	e := api.RESTError{}
-	//Get admin ID after creating the admin user
-	var adminId string
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/users", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when creating admin user", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when creating the admin user")
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Created the admin user: ", result[0].ID)
-		adminId = result[0].ID
-	case http.StatusConflict:
-		glog.Infoln("Error from VSD:\n", e)
-		//Enterprise already exists, call Get to retrieve the ID
-		id, erradminID := nvsdc.GetAdminID(enterpriseID, "admin")
-		if erradminID != nil {
-			glog.Errorf("Error when getting admin user's ID: %s", erradminID)
-		} else {
-			adminId = id
-		}
-	default:
-		return "", VsdErrorResponse(resp, &e)
-	}
-	//Get admin group ID and add the admin id to the admin group
-	groupId, err := nvsdc.GetAdminGroupID(enterpriseID)
-	if err != nil {
-		glog.Errorf("Error when getting admin group ID: %s", err)
-		return "", err
-	}
-	err = nvsdc.AddUserToGroup(adminId, groupId)
-	if err != nil {
-		glog.Errorf("Failed to add %s to admin group", user)
-		return "", err
-	}
-	return adminId, nil
-}
-
-func (nvsdc *NuageVsdClient) GetAdminID(enterpriseID, name string) (string, error) {
-	result := make([]api.VsdUser, 1)
-	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `userName == "`+name+`"`)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/users", nil, &result, &e)
-	h.Del("X-Nuage-Filter")
-	if err != nil {
-		glog.Errorf("Error when getting admin user ID %s", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting user ID")
-	if resp.Status() == http.StatusOK {
-		// Status code 200 is returned even if there's no results.  If
-		// the filter didn't match anything (or there was nothing to
-		// return), the result object will just be empty.
-		if result[0].UserName == name {
-			return result[0].ID, nil
-		} else if result[0].UserName == "" {
-			return "", errors.New("User not found")
-		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].UserName, name))
-		}
-	} else {
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
-func (nvsdc *NuageVsdClient) GetAdminGroupID(enterpriseID string) (string, error) {
-	result := make([]api.VsdGroup, 1)
-	h := nvsdc.session.Header
-	h.Add("X-Nuage-Filter", `role == "ORGADMIN"`)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/groups", nil, &result, &e)
-	h.Del("X-Nuage-Filter")
-	if err != nil {
-		glog.Errorf("Error when getting admin group ID %s", err)
-		return "", err
-	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting ID of group ORGADMIN")
-	if resp.Status() == http.StatusOK {
-		// Status code 200 is returned even if there's no results.  If
-		// the filter didn't match anything (or there was nothing to
-		// return), the result object will just be empty.
-		if result[0].Role == "ORGADMIN" {
-			return result[0].ID, nil
-		} else if result[0].ID == "" {
-			return "", errors.New("Admin Group not found")
-		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of \"ORGADMIN\"", result[0].Role))
-		}
-	} else {
-		return "", VsdErrorResponse(resp, &e)
-	}
-}
-
 func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises", nil, &result, &e)
+	reqUrl := nvsdc.url+"enterprises"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting enterprise ID %s", err)
 		return "", err
 	}
-	glog.Infoln("Got a reponse status", resp.Status(), "when getting enterprise ID")
 	if resp.Status() == http.StatusOK {
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
@@ -293,29 +117,33 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateSession() {
+func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile string) {
+
+	cert, err := tls.LoadX509KeyPair(userCertFile, userKeyFile)
+	if err != nil {
+		glog.Errorf("Error loading VSD generated certificates to authenticate with VSD %s", err)
+	}
+
+	// Setup HTTPS client
+	tlsConfig := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		InsecureSkipVerify: true,
+	}
+	tlsConfig.BuildNameToCertificate()
+
 	nvsdc.session = napping.Session{
 		Client: &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: tlsConfig,
 			},
 		},
 		Header: &http.Header{},
 	}
+
 	nvsdc.session.Header.Add("Content-Type", "application/json")
 	// Request that the TCP connection is closed when the transaction is
 	// complete
 	nvsdc.session.Header.Add("Connection", "close")
-}
-
-func (nvsdc *NuageVsdClient) LoginAsAdmin(user, password, enterpriseName string) error {
-	nvsdc.username = user
-	nvsdc.password = password
-	nvsdc.enterprise = enterpriseName
-	h := nvsdc.session.Header
-	h.Del("X-Nuage-Organization")
-	h.Del("Authorization")
-	return nvsdc.GetAuthorizationToken()
 }
 
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) {
@@ -328,9 +156,6 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	var err error
 	nvsdc.version = nkmConfig.NuageVspVersion
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	nvsdc.username = "csproot"
-	nvsdc.password = nkmConfig.CSPAdminPassword
-	nvsdc.enterprise = "csp"
 	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
@@ -367,10 +192,9 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	vsdMeta := make(policy.VsdMetaData)
 	vsdMeta["domainName"] = nkmConfig.DomainName
 	vsdMeta["enterpriseName"] = nkmConfig.EnterpriseName
-	vsdMeta["organization"] = nvsdc.enterprise
-	vsdMeta["username"] = nvsdc.username
-	vsdMeta["password"] = nvsdc.password
 	vsdMeta["vsdUrl"] = nkmConfig.NuageVsdApiUrl
+	vsdMeta["usercertfile"] = nkmConfig.UserCertificateFile
+	vsdMeta["userkeyfile"] = nkmConfig.UserKeyFile
 	rm, err := policy.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
 	if err != nil {
 		glog.Error("Failed to initialize the resource manager properly")
@@ -379,29 +203,20 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	}
 
 	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue, nvsdc.resourceManager.GetPolicyGroupsForPod)
-	nvsdc.CreateSession()
+
+	nvsdc.CreateSession(nkmConfig.UserCertificateFile, nkmConfig.UserKeyFile)
 	nvsdc.nextAvailablePriority = 0
 
-	err = nvsdc.GetAuthorizationToken()
-	if err != nil {
-		glog.Fatal(err)
+	for {
+		nvsdc.enterpriseID, err = nvsdc.GetEnterpriseID(nkmConfig.EnterpriseName)
+		if err != nil {
+			glog.Errorf("Received error %v while trying to get Enterprise ID. Will retry in 10 seconds", err)
+		} else {
+			break
+		}
+		time.Sleep(time.Duration(10) * time.Second)
 	}
-	nvsdc.enterpriseID, err = nvsdc.CreateEnterprise(nkmConfig.EnterpriseName)
-	if err != nil {
-		glog.Fatal(err)
-	}
-	_, err = nvsdc.CreateAdminUser(nvsdc.enterpriseID, nkmConfig.EnterpriseAdminUserName, nkmConfig.EnterpriseAdminPassword)
-	if err != nil {
-		glog.Fatal(err)
-	}
-	err = nvsdc.InstallLicense(nkmConfig.LicenseFile)
-	if err != nil {
-		glog.Fatal(err)
-	}
-	err = nvsdc.LoginAsAdmin(nkmConfig.EnterpriseAdminUserName, nkmConfig.EnterpriseAdminPassword, nkmConfig.EnterpriseName)
-	if err != nil {
-		glog.Fatal(err)
-	}
+
 	domainTemplateID, err := nvsdc.CreateDomainTemplate(nvsdc.enterpriseID,
 		nkmConfig.DomainName+"-Template")
 	if err != nil {
@@ -511,60 +326,6 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) InstallLicense(licensePath string) error {
-	if licensePath == "" {
-		glog.Info("No license file specified")
-		//check if a license already exists.
-		// if it does then its not an error
-		return nvsdc.GetLicense()
-	}
-	//try installing the license file
-	license, err := ioutil.ReadFile(licensePath)
-	if err != nil {
-		glog.Error("Failed to read license file", err)
-		return err
-	}
-	licenseString := strings.TrimSpace(string(license))
-	payload := api.VsdLicense{
-		License: licenseString,
-	}
-	result := make([]api.VsdLicense, 1)
-	e := api.RESTError{}
-	glog.Info("Attempting to install license file", licensePath)
-	resp, err := nvsdc.session.Post(nvsdc.url+"licenses", &payload, &result, &e)
-	if err != nil {
-		glog.Error("Error when installing license", err)
-		return err
-	}
-	glog.Infoln("License Install: reponse status", resp.Status())
-	switch resp.Status() {
-	case http.StatusCreated:
-		glog.Infoln("Installed the license: ", result[0].LicenseId)
-	case http.StatusConflict:
-		//TODO: license already exists, call Get to retrieve the ID? Do we need to delete the existing license?
-		glog.Info("License already exists")
-	default:
-		return VsdErrorResponse(resp, &e)
-	}
-	return nil
-}
-
-func (nvsdc *NuageVsdClient) GetLicense() error {
-	result := make([]api.VsdLicense, 1)
-	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"licenses", nil, &result, &e)
-	if err != nil {
-		glog.Error("Error when requesting license", err)
-		return err
-	}
-	glog.Infoln("GetLicense() got a reponse status", resp.Status())
-	if resp.Status() == http.StatusOK {
-		return nil
-	} else {
-		return VsdErrorResponse(resp, &e)
-	}
-}
-
 func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateName string) (string, error) {
 	result := make([]api.VsdObject, 1)
 	payload := api.VsdObject{
@@ -572,7 +333,10 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 		Description: "Auto-generated default domain template",
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates", &payload, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates"
+	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+	logPOSTRequest(reqUrl, payload)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating domain template", err)
 		return "", err
@@ -600,7 +364,11 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates", nil, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting domain template ID %s", err)
@@ -629,7 +397,11 @@ func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+domainID+"/ingressacltemplates", nil, &result, &e)
+	reqUrl := nvsdc.url+"domains/"+domainID+"/ingressacltemplates"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting ingress ACL template ID %s", err)
@@ -656,11 +428,17 @@ func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.
 func (nvsdc *NuageVsdClient) GetAclTemplateByID(templateID string, ingress bool) (*api.VsdAclTemplate, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	e := api.RESTError{}
-	url := nvsdc.url + "egressacltemplates/" + templateID
+	reqUrl := nvsdc.url + "egressacltemplates/" + templateID
+	var params *url.Values
 	if ingress {
-		url = nvsdc.url + "ingressacltemplates/" + templateID
+		reqUrl = nvsdc.url + "ingressacltemplates/" + templateID
 	}
-	resp, err := nvsdc.session.Get(url, nil, &result, &e)
+
+	glog.Infof("Getting ACL template by ID %s using URL: %s", templateID, reqUrl)
+
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	if err != nil {
 		glog.Errorf("Error when getting ACL template with ID %s: %s", templateID, err)
 		return nil, err
@@ -681,7 +459,11 @@ func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.V
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+domainID+"/egressacltemplates", nil, &result, &e)
+	reqUrl := nvsdc.url+"domains/"+domainID+"/egressacltemplates"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting egress ACL template ID %s", err)
@@ -805,6 +587,45 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	return nil
 }
 
+func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress bool, priority int) (string, error) {
+	result := make([]api.VsdAclTemplate, 1)
+	e := api.RESTError{}
+
+	restpath := "/ingressacltemplates"
+	if !ingress {
+		restpath = "/egressacltemplates"
+	}
+	reqUrl := nvsdc.url + "domains/" + domainID + restpath
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
+	if err != nil {
+		glog.Errorf("Error when getting ACL template ID %s", err)
+		return "", err
+	}
+
+	glog.Infoln("Result for ACL template obtained from VSD when getting ACL template ID: ", result)
+
+	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL template ID")
+	if resp.Status() == http.StatusOK {
+		// Status code 200 is returned even if there's no results.  If
+		// the filter didn't match anything (or there was nothing to
+		// return), the result object will just be empty.
+		for index := range result {
+			if result[index].Name == name && result[index].Priority == priority && result[index].Active == true {
+				glog.Infof("Found active VSD ACL template with priority %d and name %s", priority, name)
+				glog.Infof("Active VSD ACL template ID is %s", result[index].ID)
+				return result[index].ID, nil
+			}
+		}
+		glog.Errorf("Could not find already existing VSD ACL active template with priority %d and name %s", priority, name)
+		return "", errors.New("Active ACL template not found")
+	} else {
+		return "", VsdErrorResponse(resp, &e)
+	}
+}
+
 func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, priority int, ingress bool) (string, error) {
 	result := make([]api.VsdAclTemplate, 1)
 	payload := api.VsdAclTemplate{
@@ -822,9 +643,16 @@ func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, pri
 	}
 
 	for {
-		resp, err := nvsdc.session.Post(
-			nvsdc.url+"domains/"+domainID+restpath,
-			&payload, &result, &e)
+		id, err := nvsdc.GetAclTemplateID(domainID, name, ingress, priority)
+		if err != nil {
+			glog.Errorf("Error when ACL template domain ID: %s", err)
+		} else {
+			return id, nil
+		}
+		reqUrl := nvsdc.url+"domains/"+domainID+restpath
+		resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+		logPOSTRequest(reqUrl, payload)
+		logPOSTResponse(resp, &e)
 		if err != nil {
 			glog.Errorf("Error %s when creating ACL template %s", err, name)
 			return "", err
@@ -915,11 +743,17 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriorit
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `priority == `+fmt.Sprintf("%v", aclEntryPriority))
 	e := api.RESTError{}
-	url := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
+	reqUrl := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
+	var params *url.Values
 	if ingress {
-		url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
+		reqUrl = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 	}
-	resp, err := nvsdc.session.Get(url, nil, &result, &e)
+
+	glog.Infof("Getting ACL entry by priority %d", aclEntryPriority)
+
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting ACL entry with Priority %s: %d", err, aclEntryPriority)
@@ -927,6 +761,8 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriorit
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry with priority", aclEntryPriority)
 	if resp.Status() == http.StatusOK {
+		glog.Infoln("Result for ACL entry obtained from VSD for priority ACL: ", result)
+		glog.Infoln("Result first element for ACL entry obtained from VSD for priority ACL: ", result[0])
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -949,11 +785,15 @@ func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry
 	h.Add("X-Nuage-Filter", aclEntry.BuildFilter())
 	glog.Infoln("Build filter is set to", aclEntry.BuildFilter())
 	e := api.RESTError{}
-	url := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
+	reqUrl := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
+	var params *url.Values
 	if ingress {
-		url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
+		reqUrl = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 	}
-	resp, err := nvsdc.session.Get(url, nil, &result, &e)
+
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting ACL entry %v: %s", aclEntry, err)
@@ -961,6 +801,8 @@ func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry
 	}
 	glog.Infoln("Got a reponse status", resp.Status(), "when getting ACL entry: ", aclEntry)
 	if resp.Status() == http.StatusOK {
+		glog.Infoln("Result for ACL entry obtained from VSD: ", result)
+		glog.Infoln("Result first element for ACL entry obtained from VSD: ", result[0])
 		// Status code 200 is returned even if there's no results.  If
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
@@ -1005,11 +847,14 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(ingress bool, aclEntry *api.VsdAclEn
 	} else {
 		result := make([]api.VsdObject, 1)
 		e := api.RESTError{}
-		url := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
+		reqUrl := nvsdc.url + "egressacltemplates/" + nvsdc.egressAclTemplateID + "/egressaclentrytemplates"
 		if ingress {
-			url = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
+			reqUrl = nvsdc.url + "ingressacltemplates/" + nvsdc.ingressAclTemplateID + "/ingressaclentrytemplates"
 		}
-		resp, err := nvsdc.session.Post(url+"?responseChoice=1", &aclEntry, &result, &e)
+		reqUrl = reqUrl + "?responseChoice=1"
+		resp, err := nvsdc.session.Post(reqUrl, &aclEntry, &result, &e)
+		logPOSTRequest(reqUrl, aclEntry)
+		logPOSTResponse(resp, &e)
 		if err != nil {
 			glog.Error("Error when adding acl template entry", err)
 			return "", err
@@ -1086,7 +931,11 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+domainID+"/zones", nil, &result, &e)
+	reqUrl := nvsdc.url+"domains/"+domainID+"/zones"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting zone ID %s", err)
@@ -1119,7 +968,10 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		PATEnabled:  api.PATDisabled,
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/domains", &payload, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domains"
+	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+	logPOSTRequest(reqUrl, payload)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating domain", err)
 		return "", err
@@ -1167,7 +1019,10 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 		Description: "Auto-generated zone for project \"" + name + "\"",
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"domains/"+domainID+"/zones", &payload, &result, &e)
+	reqUrl := nvsdc.url+"domains/"+domainID+"/zones"
+	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+	logPOSTRequest(reqUrl, payload)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating zone", err)
 		return "", err
@@ -1220,7 +1075,10 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 		PATEnabled:  api.PATInherited,
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"zones/"+zoneID+"/subnets", &payload, &result, &e)
+	reqUrl := nvsdc.url+"zones/"+zoneID+"/subnets"
+	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+	logPOSTRequest(reqUrl, payload)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating subnet", err)
 		return "", err
@@ -1269,7 +1127,11 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+subnetName+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"zones/"+zoneID+"/subnets", nil, &result, &e)
+	reqUrl := nvsdc.url+"zones/"+zoneID+"/subnets"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting subnet ID %s", err)
@@ -1300,7 +1162,11 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/domains", nil, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domains"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting domain ID %s", err)
@@ -1340,8 +1206,11 @@ func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.Container
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	for {
 		nvsdc.session.Header.Add("X-Nuage-Filter", `name == "`+podName+`"`)
-		resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+nvsdc.domainID+"/containers",
-			nil, &result, &e)
+		reqUrl := nvsdc.url+"domains/"+nvsdc.domainID+"/containers"
+		var params *url.Values
+		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+		logGETRequest(reqUrl, params)
+		logGETResponse(resp, &e)
 		nvsdc.session.Header.Del("X-Nuage-Filter")
 		if err != nil {
 			glog.Errorf("Error when getting containers matching %s: %s", podName, err)
@@ -1399,8 +1268,11 @@ func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.Containe
 	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"containers/"+containerId+"/containerinterfaces",
-			nil, &result, &e)
+		reqUrl := nvsdc.url+"containers/"+containerId+"/containerinterfaces"
+		var params *url.Values
+		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+		logGETRequest(reqUrl, params)
+		logGETResponse(resp, &e)
 		if err != nil {
 			glog.Errorf("Error when getting container interfaces matching %s: %s", containerId, err)
 			return nil, err
@@ -1465,8 +1337,11 @@ func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgId string, podsList []string
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	glog.Infof("Got the following vports %s to add to the policy group", vportsList)
 	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"policygroups/"+pgId+"/vports",
-			nil, &result, &e)
+		reqUrl := nvsdc.url+"policygroups/"+pgId+"/vports"
+		var params *url.Values
+		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+		logGETRequest(reqUrl, params)
+		logGETResponse(resp, &e)
 		if err != nil {
 			glog.Errorf("Error when fetching vports for pg id %s : %s", pgId, err)
 			return err
@@ -1549,7 +1424,11 @@ func (nvsdc *NuageVsdClient) GetPolicyGroup(name string) (string, error) {
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups", nil, &result, &e)
+	reqUrl := nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting policy group ID %s", err)
@@ -1575,7 +1454,10 @@ func (nvsdc *NuageVsdClient) CreatePolicyGroup(name string, description string) 
 		Type:        "SOFTWARE",
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups", &payload, &result, &e)
+	reqUrl := nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups"
+	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+	logPOSTRequest(reqUrl, payload)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating policy group", err)
 		return "", "", err
@@ -1820,98 +1702,149 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	case api.Added:
 		fallthrough
 	case api.Modified:
-		namespace, exists := nvsdc.namespaces[nsEvent.Name]
-		if !exists {
+		var namespace NamespaceData
+		var namespaceExists bool
+		namespace, namespaceExists = nvsdc.namespaces[nsEvent.Name]
+		if !namespaceExists {
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
 			}
-			namespace := NamespaceData{
+			namespace = NamespaceData{
 				ZoneID:        zoneID,
 				Name:          nsEvent.Name,
 				NetworkMacros: make(map[string]string),
 			}
 			nvsdc.namespaces[nsEvent.Name] = namespace
-			var subnetID string
-			var subnet *IPv4Subnet
-			// Check if subnet already exists
-			subnetName := nsEvent.Name + "-0"
-			vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName)
+		}
+		var subnetID string
+		var subnet *IPv4Subnet
+		var deletedSubnet *IPv4Subnet
+		subnetSize := nvsdc.subnetSize
+		if nsSubnetSize, labelExists := nsEvent.Labels["nuage.io/ns_subnet_size"]; labelExists {
+			glog.Infoln("Subnet size label present: ", nsSubnetSize);
+			size, err := strconv.Atoi(nsSubnetSize)
+			if err == nil && size > 0 && size < 32 {
+				subnetSize = size
+			} else {
+				return errors.New("Invalid subnet size. Expected between /0 and /32")
+			}
+		}
+		// Check if subnet already exists
+		subnetName := nsEvent.Name + "-0"
+		vsdSubnet, err := nvsdc.GetSubnet(namespace.ZoneID, subnetName)
+		var currentSubnetSize int
+		var needToCreateSubnet bool
+		if err != nil {
+			if err.Error() == "Subnet not found" {
+				needToCreateSubnet = true
+				glog.Infoln("Subnet ", subnetName, " not found.");
+			} else {
+				// There was an error, but it wasn't "Subnet not found".
+				// Abort with that error.
+				glog.Errorf("Received error %v when trying to get subnet %s", err, subnetName)
+				return err
+			}
+		} else {
+			subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
+				vsdSubnet.Netmask)
 			if err != nil {
-				// If it didn't exist, allocate an appropriate subnet, then
-				// create it
-				if err.Error() == "Subnet not found" {
-					// subnetSize is guaranteed to be between 0 and 32
-					// (inclusive) by the Init() function defined above, so
-					// (32 - subnetSize) will also produce a number between 0
-					// and 32 (inclusive)
-					subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+				glog.Errorf("Received error %v", err)
+				return err
+			}
+			// If current subnet size is not same as the size given in labels
+			currentSubnetSize = 32 - subnet.CIDRMask
+			if currentSubnetSize != subnetSize {
+				if err = nvsdc.DeleteSubnet(vsdSubnet.ID); err != nil {
+					glog.Warningf("Failed to delete subnet %q in zone %q",
+						vsdSubnet.ID, nsEvent.Name)
+					return err
+				}
+				deletedSubnet = subnet
+				err = nvsdc.pool.Free(subnet)
+				if err != nil {
+					glog.Warningf("Failed to free subnet %q from zone %q with error %v",
+						subnet.String(), nsEvent.Name, err)
+				}
+				needToCreateSubnet = true
+			}
+		}
+		if needToCreateSubnet {
+			// If it didn't exist, allocate an appropriate subnet, then
+			// create it
+			// subnetSize is guaranteed to be between 0 and 32
+			// (inclusive) by the Init() function defined above, so
+			// (32 - subnetSize) will also produce a number between 0
+			// and 32 (inclusive)
+			subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
+			if err != nil {
+				glog.Errorf("Received error %v while trying to allocate Subnet space", err)
+				if deletedSubnet == nil {
+					return err
+				}
+				subnet = deletedSubnet
+
+			}
+			for {
+				subnetID, err = nvsdc.CreateSubnet(subnetName, namespace.ZoneID,
+					subnet)
+				if err == nil {
+					break
+				} else if err.Error() == "Overlapping Subnet" {
+					// If the error was "Overlapping Subnet," get a new
+					// subnet and retry
+					subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
 					if err != nil {
-						return err
-					}
-					for {
-						subnetID, err = nvsdc.CreateSubnet(subnetName, zoneID,
-							subnet)
-						if err == nil {
-							break
-						} else if err.Error() == "Overlapping Subnet" {
-							// If the error was "Overlapping Subnet," get a new
-							// subnet and retry
-							subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
-							if err != nil {
-								return errors.New(
-									"Error getting subnet for allocation: " +
-										err.Error())
-							}
-						} else {
-							// Only free the subnet if it wasn't overlapping so
-							// that overlapping subnets are not retried
-							nvsdc.pool.Free(subnet)
-							return err
-						}
+						return errors.New(
+							"Error getting subnet for allocation: " +
+								err.Error())
 					}
 				} else {
-					// There was an error, but it wasn't "Subnet not found".
-					// Abort with that error.
-					return err
-				}
-			} else {
-				// If it exists, remove the subnet allocated to it from the pool
-				subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
-					vsdSubnet.Netmask)
-				if err != nil {
-					return err
-				}
-				err = nvsdc.pool.AllocSpecific(subnet)
-				if err != nil {
-					if !nvsdc.clusterNetwork.Contains(subnet) {
-						glog.Error(subnet.String(),
-							" is not a member of clusterNetworkCIDR ",
-							nvsdc.clusterNetwork.String())
+					// Only free the subnet if it wasn't overlapping so
+					// that overlapping subnets are not retried
+					err = nvsdc.pool.Free(subnet)
+					if err != nil {
+						glog.Warningf("Failed to free subnet %q from zone %q with error %v",
+							subnet.String(), nsEvent.Name, err)
 					}
+					if(deletedSubnet == subnet) {
+						return err
+					}
+					subnet = deletedSubnet
 				}
-				subnetID = vsdSubnet.ID
 			}
-			namespace.Subnets = &SubnetNode{
-				SubnetID:   subnetID,
-				SubnetName: subnetName,
-				Subnet:     subnet,
-				Next:       nil,
+
+		} else {
+			// If it exists, remove the subnet allocated to it from the pool
+			err = nvsdc.pool.AllocSpecific(subnet)
+			if err != nil {
+				if !nvsdc.clusterNetwork.Contains(subnet) {
+					glog.Error(subnet.String(),
+						" is not a member of clusterNetworkCIDR ",
+						nvsdc.clusterNetwork.String())
+				}
 			}
-			namespace.numSubnets++
-			nvsdc.namespaces[nsEvent.Name] = namespace
-			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err = nvsdc.CreatePrivilegedZoneAcls(zoneID)
-				if err != nil {
-					glog.Error("Got an error when creating default zone's ACL entries")
-					return err
-				}
-			} else {
-				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, zoneID)
-				if err != nil {
-					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
-					return err
-				}
+			subnetID = vsdSubnet.ID
+		}
+		namespace.Subnets = &SubnetNode{
+			SubnetID:   subnetID,
+			SubnetName: subnetName,
+			Subnet:     subnet,
+			Next:       nil,
+		}
+		namespace.numSubnets++
+		nvsdc.namespaces[nsEvent.Name] = namespace
+		if nsEvent.Name == nvsdc.privilegedProjectName {
+			err = nvsdc.CreatePrivilegedZoneAcls(namespace.ZoneID)
+			if err != nil {
+				glog.Error("Got an error when creating default zone's ACL entries")
+				return err
+			}
+		} else {
+			err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, namespace.ZoneID)
+			if err != nil {
+				glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
+				return err
 			}
 			return nil
 		}
@@ -1945,7 +1878,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			return nil
 		}
 	case api.Deleted:
-		if zone, exists := nvsdc.namespaces[nsEvent.Name]; exists {
+		if zone, zoneExists := nvsdc.namespaces[nsEvent.Name]; zoneExists {
 			// Delete subnets that we've created, and free them back into the pool
 			if nsEvent.Name == nvsdc.privilegedProjectName {
 				err := nvsdc.DeletePrivilegedZoneAcls(zone.ZoneID)
@@ -2148,7 +2081,10 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 		Description: "Auto-generated network macro group for zone - " + zoneName,
 	}
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/networkmacrogroups", &payload, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/networkmacrogroups"
+	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
+	logPOSTRequest(reqUrl, payload)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating network macro group for zone: ", zoneName, err)
 		return "", err
@@ -2175,7 +2111,11 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroGroupID(enterpriseID, nmgName string
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+nmgName+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/networkmacrogroups", nil, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/networkmacrogroups"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting network macro group ID with name: %s - %s", nmgName, err)
@@ -2326,7 +2266,10 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacro *api.VsdNetworkMacro) (string, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Post(nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks", networkMacro, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks"
+	resp, err := nvsdc.session.Post(reqUrl, networkMacro, &result, &e)
+	logPOSTRequest(reqUrl, networkMacro)
+	logPOSTResponse(resp, &e)
 	if err != nil {
 		glog.Error("Error when creating network macro", networkMacro, err)
 		return "", err
@@ -2364,7 +2307,11 @@ func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroNa
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+networkMacroName+`"`)
 	e := api.RESTError{}
-	resp, err := nvsdc.session.Get(nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks", nil, &result, &e)
+	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks"
+	var params *url.Values
+	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+	logGETRequest(reqUrl, params)
+	logGETResponse(resp, &e)
 	h.Del("X-Nuage-Filter")
 	if err != nil {
 		glog.Errorf("Error when getting network macro ID for network macro: %v - %v", networkMacroName, err)
@@ -2431,79 +2378,6 @@ func (nvsdc *NuageVsdClient) DeleteNetworkMacro(networkMacroID string) error {
 	}
 }
 
-func (nvsdc *NuageVsdClient) AddUserToGroup(userID, groupID string) error {
-	result := make([]api.VsdUser, 0, 100)
-	e := api.RESTError{}
-	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
-	page := 0
-	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
-	// guarantee that the headers are cleared so that we don't change the
-	// behavior of other functions
-	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
-	defer nvsdc.session.Header.Del("X-Nuage-Page")
-	userIDList := []string{userID}
-	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"groups/"+groupID+"/users",
-			nil, &result, &e)
-		if err != nil {
-			glog.Errorf("Error when adding user %s to group %s: %s", userID,
-				groupID, err)
-			return err
-		}
-		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
-			break
-		} else if resp.Status() == http.StatusOK {
-			// Add all the items on this page to the list
-			for _, user := range result {
-				if user.ID == userID {
-					// The user is already a part of the intended group, so no
-					// extra work is necessary.
-					return nil
-				}
-				userIDList = append(userIDList, user.ID)
-			}
-			// If there's less than 100 items in the page, we must've reached
-			// the last page.  Break here instead of getting the next
-			// (guaranteed empty) page.
-			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
-				if count < 100 {
-					break
-				}
-			} else {
-				// Something went wrong with parsing the x-nuage-count header
-				return errors.New("Invalid X-Nuage-Count: " + err.Error())
-			}
-			// Update headers to get the next page
-			page++
-			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
-		} else {
-			// Something went wrong
-			return VsdErrorResponse(resp, &e)
-		}
-	}
-	// Delete headers.  Calling Header.Del(...) on a non-existent header is a
-	// no-op, so the `defer ...Header.Del(...)` calls above are still valid.
-	nvsdc.session.Header.Del("X-Nuage-PageSize")
-	nvsdc.session.Header.Del("X-Nuage-Page")
-	resp, err := nvsdc.session.Put(nvsdc.url+"groups/"+
-		groupID+"/users", &userIDList, nil, &e)
-	if err != nil {
-		glog.Errorf("Error when adding user %s to group %s: %s", userID,
-			groupID, err)
-		return err
-	} else {
-		glog.Infoln("Got a reponse status", resp.Status(),
-			"when adding user to group")
-		switch resp.Status() {
-		case http.StatusNoContent:
-			glog.Infof("Added user %s to group %s", userID, groupID)
-		default:
-			return VsdErrorResponse(resp, &e)
-		}
-	}
-	return nil
-}
-
 func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGroupID string) error {
 	result := make([]api.VsdObject, 0, 100)
 	e := api.RESTError{}
@@ -2516,8 +2390,12 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	networkMacroIDList := []string{networkMacroID}
 	for {
-		resp, err := nvsdc.session.Get(nvsdc.url+"networkmacrogroups/"+
-			networkMacroGroupID+"/enterprisenetworks", nil, &result, &e)
+		reqUrl := nvsdc.url+"networkmacrogroups/"+
+			networkMacroGroupID+"/enterprisenetworks"
+		var params *url.Values
+		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
+		logGETRequest(reqUrl, params)
+		logGETResponse(resp, &e)
 		if err != nil {
 			glog.Errorf("Error when adding network macro with ID %s: %s", networkMacroID, err)
 			return err
@@ -2566,9 +2444,29 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
-	glog.Errorln("Bad response status from VSD Server")
-	glog.Errorf("\t Raw Text:\n%v\n", resp.RawText())
-	glog.Errorf("\t Status:  %v\n", resp.Status())
-	glog.Errorf("\t VSD Error: %v\n", e)
+	glog.Errorln("Bad response from VSD Server");
+	glog.Errorln("Raw Text:\n ", resp.RawText(), "\n")
+	glog.Errorln("Status: ", resp.Status(), "\n")
+	glog.Errorln("VSD Error: ", e, "\n")
 	return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+}
+
+func logGETRequest(reqUrl string, params *url.Values) {
+	glog.Infoln("VSD GET request: [URL: ", reqUrl,"] [Params: ", params, "]")
+}
+
+func logPOSTRequest(reqUrl string, payload interface{}) {
+	glog.Infoln("VSD POST request: [URL: ", reqUrl,"] [Payload: ", payload, "]")
+}
+
+func logGETResponse(resp *napping.Response, e *api.RESTError) {
+	glog.Infoln("VSD GET Reponse status: ", resp.Status())
+	glog.Infof("VSD GET Error: %s\n", e)
+	glog.Infof("VSD GET Raw Text:\n\n%+v\n\n", resp.RawText())
+}
+
+func logPOSTResponse(resp *napping.Response, e *api.RESTError) {
+	glog.Infoln("VSD POST Reponse status: ", resp.Status())
+	glog.Infof("VSD POST Error: %s\n", e)
+	glog.Infof("VSD POST Raw Text:\n\n%+v\n\n", resp.RawText())
 }

@@ -27,66 +27,41 @@ import (
 	"fmt"
 )
 
-const (
-	// ErrorCodeJSONCannotDecode is the code that means it is impossible to
-	// decode json data.
-	ErrorCodeJSONCannotDecode = 10001
-
-	// ErrorCodeJSONCannotEncode is the code that means it is impossible to
-	// encode json data.
-	ErrorCodeJSONCannotEncode = 10002
-
-	// ErrorCodeSessionAlreadyStarted is the error code that means a session
-	// is already stared.
-	ErrorCodeSessionAlreadyStarted = 11001
-
-	// ErrorCodeSessionCannotForgetAuthToken is the code that means no password
-	// or token has been given to the session.
-	ErrorCodeSessionCannotForgeAuthToken = 11002
-
-	// ErrorCodeSessionCannotProcessRequest is the code that means that it was
-	// impossible to process a request.
-	ErrorCodeSessionCannotProcessRequest = 11003
-
-	// ErrorCodeSessionIDNotSet is the code that means the Identifiable is
-	// missing a required ID.
-	ErrorCodeSessionIDNotSet = 11004
-
-	// ErrorCodeSessionUsernameNotSet is the code that means the username
-	// is missing.
-	ErrorCodeSessionUsernameNotSet = 11005
-)
-
-// ErrorDescriptionsList represents a list of *ErrorDescriptions.
-type ErrorDescriptionsList []*ErrorDescription
-
-// ErrorDescription represents an entry in an Error.
-type ErrorDescription struct {
-	Description string `json:"description"`
-	Title       string `json:"title"`
+type VsdErrorList struct {
+	VsdErrors    []VsdError `json:"errors"`
+	VsdErrorCode int        `json:"internalErrorCode"`
 }
 
-// Error represent an connection error.
+type VsdError struct {
+	Property     string  `json:"property"`
+	Descriptions []Error `json:"descriptions"` // XXX -- note
+}
+
+// Errors at this level can be of two types: 1) Connection logic / setup errors (e.g. invalid credentials) 2) VSD error response.
+// We use Bambou Error for both, even if they are conceptually different -- hence the note above
+
 type Error struct {
-	Code         int                   `json:"-"`
-	Property     string                `json:"property"`
-	Message      string                `json:"type"`
-	Descriptions ErrorDescriptionsList `json:"descriptions"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
 }
 
-// NewError returns a new *Error.
-// You can give a message, that will be used, if no additional
-// information is given by the server. Otherwhise Message will be
-// overwritten.
-func NewError(code int, message string) *Error {
+func NewBambouError(title, description string) *Error {
 	return &Error{
-		Code:    code,
-		Message: message,
+		Title:       title,
+		Description: description,
 	}
 }
 
-// Error returns the string representation of the Error.
-func (e *Error) Error() string {
+func NewError(code int, description string) *Error {
+	return &Error{
+		Title:       fmt.Sprintf("Error code: %d", code),
+		Description: description,
+	}
+}
 
-	return fmt.Sprintf("<Error: %d, message: %s>", e.Code, e.Message)
+// Error returns the string representation of a Bambou Error (making it an "error")
+// Valid JSON formatted
+func (be *Error) Error() string {
+	// return fmt.Sprintf("%+v", *be)
+	return fmt.Sprintf("{\"title\": \"%s\", \"description\": \"%s\"}", be.Title, be.Description)
 }
