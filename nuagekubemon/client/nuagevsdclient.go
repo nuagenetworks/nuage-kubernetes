@@ -1630,98 +1630,121 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	case api.Added:
 		fallthrough
 	case api.Modified:
+		var namespace NamespaceData
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
 			}
-			namespace := NamespaceData{
+			namespace = NamespaceData{
 				ZoneID:        zoneID,
 				Name:          nsEvent.Name,
 				NetworkMacros: make(map[string]string),
 			}
 			nvsdc.namespaces[nsEvent.Name] = namespace
-			var subnetID string
-			var subnet *IPv4Subnet
-			// Check if subnet already exists
-			subnetName := nsEvent.Name + "-0"
-			vsdSubnet, err := nvsdc.GetSubnet(zoneID, subnetName)
+		}
+		var subnetID string
+		var subnet *IPv4Subnet
+		subnetSize := nvsdc.subnetSize
+		if nsSubnetSize, exists := nsEvent.Labels["nuage.io/ns_subnet_size"]; exists {
+			size, err := strconv.Atoi(nsSubnetSize)
+			if err == nil && size > 0 && size < 32 {
+				subnetSize = size
+			} else {
+				return errors.New("Invalid subnet size. Expected between /0 and /32")
+			}
+		}
+		// Check if subnet already exists
+		subnetName := nsEvent.Name + "-0"
+		vsdSubnet, err := nvsdc.GetSubnet(namespace.ZoneID, subnetName)
+		var needToCreateSubnet bool
+		if err != nil {
+			if err.Error() == "Subnet not found" {
+				needToCreateSubnet = true
+			} else {
+				// There was an error, but it wasn't "Subnet not found".
+				// Abort with that error.
+				return err
+			}
+		} else {
+			subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
+				vsdSubnet.Netmask)
 			if err != nil {
-				// If it didn't exist, allocate an appropriate subnet, then
-				// create it
-				if err.Error() == "Subnet not found" {
-					// subnetSize is guaranteed to be between 0 and 32
-					// (inclusive) by the Init() function defined above, so
-					// (32 - subnetSize) will also produce a number between 0
-					// and 32 (inclusive)
-					subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+				return err
+			}
+			// If current subnet size is not same as the size given in labels
+			if (32 - subnet.CIDRMask) != subnetSize {
+				if err = nvsdc.DeleteSubnet(vsdSubnet.ID); err != nil {
+					return err
+				}
+				needToCreateSubnet = true
+			}
+		}
+		if needToCreateSubnet {
+			// If it didn't exist, allocate an appropriate subnet, then
+			// create it
+			// subnetSize is guaranteed to be between 0 and 32
+			// (inclusive) by the Init() function defined above, so
+			// (32 - subnetSize) will also produce a number between 0
+			// and 32 (inclusive)
+			subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
+			if err != nil {
+				return err
+			}
+			for {
+				subnetID, err = nvsdc.CreateSubnet(subnetName, namespace.ZoneID,
+					subnet)
+				if err == nil {
+					break
+				} else if err.Error() == "Overlapping Subnet" {
+					// If the error was "Overlapping Subnet," get a new
+					// subnet and retry
+					subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
 					if err != nil {
-						return err
-					}
-					for {
-						subnetID, err = nvsdc.CreateSubnet(subnetName, zoneID,
-							subnet)
-						if err == nil {
-							break
-						} else if err.Error() == "Overlapping Subnet" {
-							// If the error was "Overlapping Subnet," get a new
-							// subnet and retry
-							subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
-							if err != nil {
-								return errors.New(
-									"Error getting subnet for allocation: " +
-										err.Error())
-							}
-						} else {
-							// Only free the subnet if it wasn't overlapping so
-							// that overlapping subnets are not retried
-							nvsdc.pool.Free(subnet)
-							return err
-						}
+						return errors.New(
+							"Error getting subnet for allocation: " +
+								err.Error())
 					}
 				} else {
-					// There was an error, but it wasn't "Subnet not found".
-					// Abort with that error.
+					// Only free the subnet if it wasn't overlapping so
+					// that overlapping subnets are not retried
+					nvsdc.pool.Free(subnet)
 					return err
 				}
-			} else {
-				// If it exists, remove the subnet allocated to it from the pool
-				subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
-					vsdSubnet.Netmask)
-				if err != nil {
-					return err
-				}
-				err = nvsdc.pool.AllocSpecific(subnet)
-				if err != nil {
-					if !nvsdc.clusterNetwork.Contains(subnet) {
-						glog.Error(subnet.String(),
-							" is not a member of clusterNetworkCIDR ",
-							nvsdc.clusterNetwork.String())
-					}
-				}
-				subnetID = vsdSubnet.ID
 			}
-			namespace.Subnets = &SubnetNode{
-				SubnetID:   subnetID,
-				SubnetName: subnetName,
-				Subnet:     subnet,
-				Next:       nil,
+
+		} else {
+			// If it exists, remove the subnet allocated to it from the pool
+			err = nvsdc.pool.AllocSpecific(subnet)
+			if err != nil {
+				if !nvsdc.clusterNetwork.Contains(subnet) {
+					glog.Error(subnet.String(),
+						" is not a member of clusterNetworkCIDR ",
+						nvsdc.clusterNetwork.String())
+				}
 			}
-			namespace.numSubnets++
-			nvsdc.namespaces[nsEvent.Name] = namespace
-			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err = nvsdc.CreatePrivilegedZoneAcls(zoneID)
-				if err != nil {
-					glog.Error("Got an error when creating default zone's ACL entries")
-					return err
-				}
-			} else {
-				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, zoneID)
-				if err != nil {
-					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
-					return err
-				}
+			subnetID = vsdSubnet.ID
+		}
+		namespace.Subnets = &SubnetNode{
+			SubnetID:   subnetID,
+			SubnetName: subnetName,
+			Subnet:     subnet,
+			Next:       nil,
+		}
+		namespace.numSubnets++
+		nvsdc.namespaces[nsEvent.Name] = namespace
+		if nsEvent.Name == nvsdc.privilegedProjectName {
+			err = nvsdc.CreatePrivilegedZoneAcls(namespace.ZoneID)
+			if err != nil {
+				glog.Error("Got an error when creating default zone's ACL entries")
+				return err
+			}
+		} else {
+			err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, namespace.ZoneID)
+			if err != nil {
+				glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
+				return err
 			}
 			return nil
 		}
