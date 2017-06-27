@@ -68,6 +68,7 @@
 - name: Add kubelet ExecStart
   become: yes
   lineinfile: dest="{{ kubelet_service_file }}" line="{{ kubelet_execstart }}"
+  when: k8s_version != "1.6"
 
 - name: restart daemons
   command: /bin/true
