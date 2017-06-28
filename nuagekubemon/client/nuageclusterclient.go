@@ -138,7 +138,7 @@ func (nosc *NuageClusterClient) GetNamespaces(listOpts *kapi.ListOptions) (*[]*a
 	}
 	namespaceList := make([]*api.NamespaceEvent, 0)
 	for _, obj := range namespaces.Items {
-		namespaceList = append(namespaceList, &api.NamespaceEvent{Type: api.Added, Name: obj.ObjectMeta.Name, Annotations: obj.GetAnnotations()})
+		namespaceList = append(namespaceList, &api.NamespaceEvent{Type: api.Added, Name: obj.ObjectMeta.Name, Labels: obj.ObjectMeta.Labels, Annotations: obj.GetAnnotations()})
 	}
 	return &namespaceList, nil
 }
@@ -165,11 +165,11 @@ func (nosc *NuageClusterClient) WatchNamespaces(receiver chan *api.NamespaceEven
 
 		switch eventType {
 		case watch.Added:
-			receiver <- &api.NamespaceEvent{Type: api.Added, Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
+			receiver <- &api.NamespaceEvent{Type: api.Added, Name: ns.ObjectMeta.Name, Labels: ns.ObjectMeta.Labels, Annotations: ns.GetAnnotations()}
 		case watch.Modified:
-			receiver <- &api.NamespaceEvent{Type: api.Modified, Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
+			receiver <- &api.NamespaceEvent{Type: api.Modified, Name: ns.ObjectMeta.Name, Labels: ns.ObjectMeta.Labels, Annotations: ns.GetAnnotations()}
 		case watch.Deleted:
-			receiver <- &api.NamespaceEvent{Type: api.Deleted, Name: ns.ObjectMeta.Name, Annotations: ns.GetAnnotations()}
+			receiver <- &api.NamespaceEvent{Type: api.Deleted, Name: ns.ObjectMeta.Name, Labels: ns.ObjectMeta.Labels, Annotations: ns.GetAnnotations()}
 		}
 	}
 }
