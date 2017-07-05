@@ -3,7 +3,7 @@
 # with the default addons.
 
 - hosts: all
-  gather_facts: false
+  gather_facts: true
   become: yes
   roles:
     - pre-ansible
@@ -72,6 +72,17 @@
   serial: 1
   roles:
       - { role: nuage-master, when: networking == 'nuage' }
+  tags:
+    - network-service-install
+    - nuage
+
+# install nuage master service 
+- hosts:
+    - lb
+  become: yes
+  serial: 1
+  roles:
+      - { role: lb, when: networking == 'nuage' }
   tags:
     - network-service-install
     - nuage

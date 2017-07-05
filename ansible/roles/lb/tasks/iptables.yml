@@ -1,0 +1,41 @@
+---
+- name: Install iptables packages
+  package: name={{ item }} state=present
+  with_items:
+    - iptables
+    - iptables-services
+
+- name: Start and enable iptables service
+  systemd:
+    name: iptables
+    state: started
+    enabled: yes
+    masked: no
+    daemon_reload: yes
+  register: result
+
+- name: need to pause here, otherwise the iptables service starting can sometimes cause ssh to fail
+  pause: seconds=10
+  when: result | changed
+
+
+- name: IPtables | Get iptables rules
+  command: iptables -L --wait
+  register: iptablesrules
+  always_run: yes
+
+- name: Allow listen on port for stats
+  command: /sbin/iptables -w -I INPUT 1 -p tcp --dport 9000 -j ACCEPT -m comment --comment "loadbalancer-stats"
+  when: "'loadbalancer-stats' not in iptablesrules.stdout"
+  notify: save iptables rules
+
+- name: Allow traffic to Nuage K8S Monitor
+  command: /sbin/iptables -w -I INPUT 1 -p tcp --dport {{ nuage_mon_rest_server_port | default(9443) }} -j ACCEPT -m comment --comment "nuage-monitor"
+  when: "'nuage-monitor' not in iptablesrules.stdout"
+  notify: save iptables rules
+
+- name: Allow traffic to kube API server 
+  command: /sbin/iptables -w -I INPUT 1 -p tcp --dport {{ k8s_api_port | default(6443) }} -j ACCEPT -m comment --comment "api-server-allow"
+  when: "'api-server-allow' not in iptablesrules.stdout"
+  notify: save iptables rules
+
