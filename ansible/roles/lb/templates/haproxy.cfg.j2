@@ -1,0 +1,66 @@
+# Global settings
+#---------------------------------------------------------------------
+global
+    maxconn     20000
+    log         /dev/log local0 info
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    user        haproxy
+    group       haproxy
+    daemon
+
+    # turn on stats unix socket
+    stats socket /var/lib/haproxy/stats
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+#    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          300s
+    timeout server          300s
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 20000
+
+listen stats :9000
+    mode http
+    stats enable
+    stats uri /
+
+frontend  k8s-api-server-frontend
+    bind *:{{ k8s_api_port | default(6443) }}
+    default_backend k8s-api-server-backend
+    mode tcp
+    option tcplog
+
+backend k8s-api-server-backend
+    balance source
+    mode tcp
+{% for host in groups['masters'] %}
+   server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ k8s_api_port | default(6443) }} check
+{% endfor %}
+
+frontend nuage-k8s-monitor-frontend
+    bind *:{{ nuage_mon_rest_server_port | default(9443) }}
+    default_backend nuage-k8s-monitor-backend
+    mode tcp
+    option tcplog
+
+backend nuage-k8s-monitor-backend
+    balance source
+    mode tcp
+{% for host in groups['masters'] %}
+   server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ nuage_mon_rest_server_port | default(9443) }} check
+{% endfor %}
