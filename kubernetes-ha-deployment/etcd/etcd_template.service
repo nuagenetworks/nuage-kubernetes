@@ -1,0 +1,30 @@
+[Unit]
+Description=etcd3 docker container
+After=docker.service
+Requires=docker.service
+
+[Service]
+TimeoutStartSec=0
+Restart=always
+Environment=ETCD_VERSION=<etcd-version>
+Environment=TOKEN=<etcd-token>
+Environment=CLUSTER_STATE=new
+Environment=NAME_1=<etcd-name-1>
+Environment=NAME_2=<etcd-name-2>
+Environment=NAME_3=<etcd-name-3>
+Environment=HOST_1=<etcd-IP-1>
+Environment=HOST_2=<etcd-IP-2>
+Environment=HOST_3=<etcd-IP-3>
+Environment=CLUSTER=${NAME_1}=http://${HOST_1}:2380,${NAME_2}=http://${HOST_2}:2380,${NAME_3}=http://${HOST_3}:2380
+Environment=THIS_NAME=<etcd-this-name>
+Environment=THIS_IP=<etcd-this-IP>
+ExecStart=/bin/bash -c 'docker run --rm --net=host -v /var/lib/etcd:/var/lib/etcd:Z \
+      quay.io/coreos/etcd:${ETCD_VERSION} /usr/local/bin/etcd \
+  --data-dir=/var/lib/etcd --name ${THIS_NAME} \
+  --initial-advertise-peer-urls http://${THIS_IP}:2380 --listen-peer-urls http://0.0.0.0:2380 \
+  --advertise-client-urls http://${THIS_IP}:2379 --listen-client-urls http://0.0.0.0:2379 \
+  --initial-cluster ${CLUSTER} \
+  --initial-cluster-state ${CLUSTER_STATE} --initial-cluster-token ${TOKEN}'
+
+[Install]
+WantedBy=multi-user.target
