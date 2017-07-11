@@ -91,7 +91,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 Installation for Multi Master kubernetes cluster
 ------------------------------------------------
 
-Create a inventory file for Ansible configuration in the Kubernetes-ansible/ansible/inventory directory with the contents shown below.
+Create a inventory file for Ansible configuration in the nuage-kubernetes/ansible/inventory directory with the contents shown below.
 
     # Create an k8s group that contains the masters and nodes groups
     [k8s:children]
