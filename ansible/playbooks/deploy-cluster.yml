@@ -97,3 +97,25 @@
   tags:
     - network-service-install
     - nuage
+
+# install Nuage CNI daemon set service
+- hosts:
+    - masters
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage-daemonset, when: networking == 'nuage' }
+  tags:
+    - network-service-install
+    - nuage
+
+# vrs restart on nuage node post daemon set CNI install
+- hosts:
+    - nodes
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage-node-vrs-restart, when: networking == 'nuage' }
+  tags:
+    - network-service-install
+    - nuage
