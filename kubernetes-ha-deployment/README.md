@@ -82,8 +82,8 @@ chmod +x setup-worker.sh
 
 2. Under the "kubernetes" Enterprise, create a user "k8s-admin" and add the user to the "Administrators" group.
 
-   .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide". Also, Installation of Nuage VSP components is beyond the scope of this guide.
-
+   .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide".
+   
 3. Login to the VSD node using the CLI and execute the following command:
 
 
@@ -104,8 +104,8 @@ chmod +x setup-worker.sh
 
 # Installing Nuage Kubernetes components
 
-Install Git Repository
------------------------
+Clone the Nuage Ansible Git Repository
+---------------------------------------
 
 You need to have Git installed on your Ansible host machine. Perform the following tasks:
 
@@ -122,8 +122,8 @@ You need to have Git installed on your Ansible host machine. Perform the followi
         git checkout origin/<vsp-version> -b <vsp-version>
         cd nuage-kubernetes/ansible
 
-Installation for Multi Master Kubernetes cluster
-------------------------------------------------
+Create the configuration for Ansible
+-------------------------------------
 
 Create a inventory file for Ansible configuration in the nuage-kubernetes/ansible/inventory directory with the contents shown below.
 
@@ -205,8 +205,16 @@ Modify the kube_service_addresses in the  nuage-kubernetes/ansible/inventory/gro
     # kube_service_addresses: 192.168.0.0/16
 
 
-Installing the VSP Components for the Multi Master cluster
-----------------------------------------------------------
+Installing the VSP Components 
+------------------------------
+
+This will install the following Nuage components:
+
+ - Nuage Kubernetes Monitor (nuagekubemon) on the Kubernetes Masters
+ - VRS on the Kubernetes Nodes
+ - Nuage CNI plugin on the Kubernetes Nodes
+
+This will also generate the certificates required for communication between the CNI plugin and nuagekubemon.
 
 1. Make sure you are in the nuage-kubernetes/ansible directory. 
 2. Run the following command to install the VSP components:
@@ -218,8 +226,6 @@ Installing the VSP Components for the Multi Master cluster
    ```
  
   A successful installation displays the following output:
-  
-  
    
        2017-07-11 22:01:49,891 p=16545 u=root |  PLAY RECAP *********************************************************************
        2017-07-11 22:01:49,892 p=16545 u=root |  localhost : ok=20   changed=0   unreachable=0  failed=0
