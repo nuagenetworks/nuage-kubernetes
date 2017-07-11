@@ -1,0 +1,62 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          nuage-openshift-monitor
+# Required-Start:    $local_fs $network $named $time $syslog atomic-openshift-master
+# Required-Stop:     $local_fs $network $named $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Description:       Nuage OpenShift Monitor
+### END INIT INFO
+
+BIN=/usr/bin/nuage-openshift-monitor
+RUNAS=root
+
+PIDFILE=/var/run/nuage-openshift-monitor.pid
+
+start() {
+  if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE"); then
+    echo 'service nuage-openshift-monitor already running' >&2
+    return 1
+  fi
+  echo 'Starting service nuage-openshift-monitor…' >&2
+  local CMD="$BIN --config=/usr/share/nuage-openshift-monitor/nuage-openshift-monitor.yaml &>/dev/null & echo \$!"
+  su -c "$CMD" $RUNAS > "$PIDFILE"
+  echo 'service nuage-openshift-monitor started' >&2
+}
+
+stop() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo 'service nuage-openshift-monitor not running' >&2
+    return 1
+  fi
+  echo 'Stopping service nuage-openshift-monitor…' >&2
+  kill -15 $(cat "$PIDFILE") && rm -f "$PIDFILE"
+  echo 'service nuage-openshift-monitor stopped' >&2
+}
+
+status() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo 'service nuage-openshift-monitor not running' >&2
+  else
+    echo 'service nuage-openshift-monitor is running' >&2
+    tail /var/log/nuage-openshift-monitor/nuage-openshift-monitor.INFO
+  fi
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status}"
+esac

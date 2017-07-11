@@ -1,0 +1,8 @@
+---
+- name: restart haproxy
+  systemd:
+    name: haproxy
+    state: restarted
+
+- name: save iptables rules
+  command: service iptables save

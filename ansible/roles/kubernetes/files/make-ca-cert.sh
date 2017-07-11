@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2014 The Kubernetes Authors All rights reserved.
+# Copyright 2014 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,6 @@ if ! (./easyrsa --batch init-pki
       # Since the length of CN is limited to 64 bytes, here we cut too long ${cert_ip}
       ./easyrsa --batch "--req-cn=$(echo ${cert_ip} | cut -b 1-$(expr 64 - $(echo @$(date +%s) | wc -c)))@$(date +%s)" build-ca nopass
       ./easyrsa --batch --subject-alt-name="${sans}" build-server-full "${master_name}" nopass
-      ./easyrsa --batch build-client-full nuage nopass
       ./easyrsa --batch build-client-full kubelet nopass
       ./easyrsa --batch build-client-full kubecfg nopass) >/dev/null 2>&1; then
     echo "=== Failed to generate certificates: Aborting ===" 1>&2
@@ -117,14 +116,12 @@ mkdir -p "$cert_dir"
 cp -p pki/ca.crt "${cert_dir}/ca.crt"
 cp -p "pki/issued/${master_name}.crt" "${cert_dir}/server.crt"
 cp -p "pki/private/${master_name}.key" "${cert_dir}/server.key"
-cp -p pki/issued/nuage.crt "${cert_dir}/nuage.crt"
-cp -p pki/private/nuage.key "${cert_dir}/nuage.key"
 cp -p pki/issued/kubecfg.crt "${cert_dir}/kubecfg.crt"
 cp -p pki/private/kubecfg.key "${cert_dir}/kubecfg.key"
 cp -p pki/issued/kubelet.crt "${cert_dir}/kubelet.crt"
 cp -p pki/private/kubelet.key "${cert_dir}/kubelet.key"
 
-CERTS=("ca.crt" "server.key" "server.crt" "kubelet.key" "kubelet.crt" "kubecfg.key" "kubecfg.crt" "nuage.key" "nuage.crt")
+CERTS=("ca.crt" "server.key" "server.crt" "kubelet.key" "kubelet.crt" "kubecfg.key" "kubecfg.crt")
 for cert in "${CERTS[@]}"; do
   chgrp "${cert_group}" "${cert_dir}/${cert}"
   chmod 660 "${cert_dir}/${cert}"

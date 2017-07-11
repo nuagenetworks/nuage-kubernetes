@@ -1,0 +1,5 @@
+kubeConfig: "admin.kubeconfig"
+masterConfig: "master-config.yaml"
+vsdApiUrl: "https://xmpp.example.com:8443"
+vspVersion: "v3_2"
+licenseFile: "base_vsp_license.txt"

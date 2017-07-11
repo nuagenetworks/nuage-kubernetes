@@ -1,0 +1,31 @@
+# The client certificate for 'system:nodes:<node-name>', where <node-name> is
+# the hostname of the local system
+clientCert: /usr/share/vsp-k8s/client.crt
+# The key to the certificate in clientCert above
+clientKey: /usr/share/vsp-k8s/client.key
+# The certificate authority's certificate for the local kubelet.  Usually the
+# same as the CA cert used to create the client Cert/Key pair.
+CACert: /usr/share/vsp-k8s/ca.crt
+# Name of the enterprise in which pods will reside
+enterpriseName: "K8S-Enterprise"
+# Name of the domain in which pods will reside
+domainName: "K8S-Domain"
+# IP address and port number of master API server
+masterApiServer: "https://127.0.0.1:8443"
+# Host name and port of the kubemon REST API
+nuageMonRestServer: "https://localhost:9443"
+# Bridge name for the docker bridge
+dockerBridgeName: "docker0"
+# Network MTU
+interfaceMTU: 1460
+# Service CIDR
+serviceCIDR: 0.0.0.0
+# Certificate for connecting to the kubemon REST API
+nuageMonClientCert: /usr/share/vsp-k8s/nuageMonClient.crt
+# Key to the certificate in nuageMonClientCert
+nuageMonClientKey: /usr/share/vsp-k8s/nuageMonClient.key
+# CA certificate for verifying the master's nuageMon server
+nuageMonCA: /usr/share/vsp-k8s/nuageMonCA.crt
+# Logging level for the plugin
+# allowed options are: "dbg", "info", "warn", "err", "emer", "off"
+logLevel: "err"

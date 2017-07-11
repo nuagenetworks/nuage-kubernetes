@@ -5,30 +5,39 @@ nodes
 [k8s:vars]
 ansible_ssh_user=root
 
-vsd_api_url=https://192.168.103.200:8443
+vsd_api_url=https://192.168.103.200:7443
 vsp_version=v4_0
 enterprise=nuage
 domain=openshift
 
 vsc_active_ip=192.168.103.201
-uplink_interface=eth1
+uplink_interface=eth0
+plugin_log_level=dbg
 
-vrs_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuage-openvswitch-4.0.2-11.el7.x86_64.rpm
-#plugin_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuage-k8s-plugin-4.0-2.9.el7.centos.x86_64.rpm
-plugin_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuage-k8s-plugin-0.0-PR93.el7.centos.x86_64.rpm
-nuage_monitor_rpm=http://172.22.61.12/openshift/RPMS/4.0/nuagekubemon-4.0-2.9.el7.centos.x86_64.rpm
+vrs_rpm=http://10.10.10.10/nuage-openvswitch-0.0.7-2161.el7.x86_64.rpm
+nuage_monitor_rpm=http://10.10.10.10/nuagekubemon-0.0-7.2161.el7.centos.x86_64.rpm
+# Link to Nuage K8S CNI plugin rpm
+plugin_rpm=http://10.10.10.10/nuage-cni-k8s-0.0-7.2161.el7.centos.x86_64.rpm
+# Location of the K8S loopback CNI plugin on local host
+k8s_cni_loopback_plugin=/tmp/loopback
+# VSD user in the admin group
+vsd_user=k8s-admin
+# Complete local path to the VSD user certificate file
+vsd_user_cert_file=/usr/local/vsd-user.pem
+# Complete local path to the VSD user key file
+vsd_user_key_file=/usr/local/vsd-user-Key.pem
 
 [masters]
-master.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.101 
+master1.nuageopenshift.com ansible_ssh_user=root 
 
 [etcd]
-master.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.101 
+master1.nuageopenshift.com ansible_ssh_user=root
 
 [nodes:vars]
 http_proxy="http://global.proxy.alcatel-lucent.com:8000/"
 https_proxy="https://global.proxy.alcatel-lucent.com:8000/"
-no_proxy="localhost,192.168.103.200,127.0.0.1,localaddress,.localdomain.com"
+no_proxy="localhost,172.22.62.94,172.22.62.95,127.0.0.1,localaddress,.localdomain.com,.openstack.local"
 
 [nodes]
-node1.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.102 
-node2.nuageopenshift.com ansible_ssh_user=root ansible_ssh_host=192.168.103.103
+node1.nuageopenshift.com ansible_ssh_user=root
+node2.nuageopenshift.com ansible_ssh_user=root

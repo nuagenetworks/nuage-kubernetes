@@ -18,10 +18,6 @@ KUBELET_API_SERVER="--api-servers=https://{{ groups['masters'][0] }}:{{ kube_mas
 {{ kubelet_options.append('--cluster-dns=' + dns_server)|default('', true) -}}
 {{ kubelet_options.append('--cluster-domain=' + dns_domain)|default('', true) -}}
 {% endif -%}
-{% if networking == "nuage" -%}
-{{ kubelet_options.append('--network-plugin=vsp-k8s')|default('', true) -}}
-{{ kubelet_options.append('--network-plugin-dir=/usr/libexec/kubernetes/kubelet-plugins/net/exec/')|default('', true) -}}
-{% endif -%}
 {% if networking == "opencontrail" -%}
 {{ kubelet_options.append('--network-plugin=opencontrail')|default('', true) -}}
 {% endif -%}
