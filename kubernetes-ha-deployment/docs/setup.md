@@ -197,8 +197,8 @@ Modify the kube_service_addresses in the  nuage-kubernetes/ansible/inventory/gro
     # kube_service_addresses: 192.168.0.0/16
 
 
-Installing the VSP Components for the Single Master
-----------------------------------------------------
+Installing the VSP Components for the Multi Master cluster
+----------------------------------------------------------
 
 1. Make sure you are in the nuage-kubernetes/ansible directory. 
 2. Run the following command to install the VSP components:
