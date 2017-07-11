@@ -67,8 +67,34 @@ chmod +x setup-worker.sh
 ./setup-worker.sh
 
 ```
-# Installing Nuage components
 
+# Pre-Installation Steps in VSD
+
+1. Login to VSD UI as csproot and create an Enterprise "kubernetes".
+
+2. Under the "kubernetes" Enterprise, create a user "k8s-admin" and add the user to the "Administrators" group.
+
+   .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide". Also, Installation of Nuage VSP components is beyond the scope of this guide.
+
+3. Login to the VSD node using the CLI and execute the following command:
+
+
+         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u k8s-admin -c k8s-admin -o kubernetes -f pem -t client -s root@<k8s-master-IP>:/usr/local/
+         
+         Where:
+         -a <action>         Action [generate|revoke|delete|renew|bscopy]
+         -u <username>       End-entity Username
+         -c <commonName>     Common Name. Needs to match VSD Username
+         -o <organization>   Organization. Needs to match VSD Organization
+         -f <format>         Certificate Format [pem|jks|p12]
+         -t <type>           Certificate Type [client|server|vsc|vrs]
+         -s <scpUrl>         The remote scp url. (eg. root@myhost://home/certs/)
+
+
+	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /usr/local/ or any specified directory of the k8s node where Ansible is run. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
+
+
+# Installing Nuage components
 
 Install Git Repository
 -----------------------
