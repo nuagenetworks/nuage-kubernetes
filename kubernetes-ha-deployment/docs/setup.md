@@ -84,7 +84,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 
 .. Note:: For the required versions, see the `Requirements <kubernetes-1-overview.html#requirements>`_ section in the "Overview" chapter of this guide.
 
-   ::
+   
    
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
         git checkout origin/<vsp-version> -b <vsp-version>
@@ -98,7 +98,7 @@ Installation for Multi Master kubernetes cluster
 
 Create a inventory file for Ansible configuration in the Kubernetes-ansible/ansible/inventory directory with the contents shown below.
 
-::
+
 
     # Create an k8s group that contains the masters and nodes groups
     [k8s:children]
@@ -171,8 +171,6 @@ Create a inventory file for Ansible configuration in the Kubernetes-ansible/ansi
 Modify the kube_service_addresses in the  nuage-kubernetes/ansible/inventory/group_vars/all.yml file to the service CIDR used to initialize the cluster.If any service CIDR is not specified during install, then kube_service_addresses should be updated to 10.96.0.0/12 which is the default service CIDR used by kubeadm. Also, configure the LB node as decribed in the section above
 
 
-::
-
     # Kubernetes internal network for services.
     # Kubernetes services will get fake IP addresses from this range.
     # This range must not conflict with anything in your infrastructure. These
@@ -186,31 +184,31 @@ Installing the VSP Components for the Single Master
 1. Make sure you are in the nuage-kubernetes/ansible directory. 
 2. Run the following command to install the VSP components:
 
-   ::
    
+   ```
       cd nuage-kubernetes/ansible/scripts
       ./deploy-cluster.sh --tags=nuage
+   ```
  
   A successful installation displays the following output:
-   ::
+  
+  
    
        2017-07-11 22:01:49,891 p=16545 u=root |  PLAY RECAP *********************************************************************
        2017-07-11 22:01:49,892 p=16545 u=root |  localhost : ok=20   changed=0   unreachable=0  failed=0
        2017-07-11 22:01:49,892 p=16545 u=root |  master1.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
-	      2017-07-11 22:01:49,893 p=16545 u=root |  master2.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
+       2017-07-11 22:01:49,893 p=16545 u=root |  master2.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
        2017-07-11 22:01:49,894 p=16545 u=root |  master3.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
        2017-07-11 22:01:49,895 p=16545 u=root |  node1.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
        2017-07-11 22:01:49,896 p=16545 u=root |  node2.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-	      2017-07-11 22:01:49,897 p=16545 u=root |  node3.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-	      2017-07-11 22:01:49,895 p=16545 u=root |  etcd1.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
+       2017-07-11 22:01:49,897 p=16545 u=root |  node3.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
+       2017-07-11 22:01:49,895 p=16545 u=root |  etcd1.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
        2017-07-11 22:01:49,896 p=16545 u=root |  etcd2.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-	      2017-07-11 22:01:49,897 p=16545 u=root |  etcd3.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
+       2017-07-11 22:01:49,897 p=16545 u=root |  etcd3.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
        
 3. Verify that the Master-Node connectivity is up and all nodes are running using the following command on the master:
 
-   ::
-   
-      kubectl get nodes       
+      `kubectl get nodes`       
       
 
 
