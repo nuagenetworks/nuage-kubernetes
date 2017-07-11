@@ -1,9 +1,12 @@
 # Setup etcd
-cp etcd_template.env etcd.env
-_Fill in node/cluster specific configuration_
-vim etcd.env
-chmod +x setup-etcd.sh
-./setup-etcd.sh
+
+  ::
+
+    cp etcd_template.env etcd.env
+    _Fill in node/cluster specific configuration_
+    vim etcd.env
+    chmod +x setup-etcd.sh
+    ./setup-etcd.sh
 
 # Setup base for master servers
 cp master_template.env master.env
