@@ -1,4 +1,8 @@
- # Setup etcd
+
+# Multi Master Kubernetes Setup
+
+Setup etcd
+-----------
 
  1. Copy the contents of the etcd folder from this repository to all the etcd nodes in the cluster ( Recommended etcd cluster of 3 nodes)
  2. Fill in the etcd cluster specific information in the etcd.env file
@@ -14,13 +18,15 @@
  chmod +x setup-etcd.sh
  ./setup-etcd.sh
 ```
-# Setup the Load balancer for the Master
+Setup the Load balancer for the Kubernetes Masters
+--------------------------------------------------
 
 1. Install haproxy on the node acting as the Load balancer
 2. Modify the haproxy.cfg to balance the 3 masters with the config shown in masters directory
 3. Restart the haproxy service for the configuration to take effect
 
-# Setup base for the first master
+Setup base for the first Kubernetes Master
+--------------------------------------------
 
 1. Copy the contents from the master directory in this repository to the first master
 2. Fill in the contents in the master.env file
@@ -37,10 +43,11 @@ chmod +x init-master.sh
 ./init-master.sh
 ```
 
-# Configure other master servers
+Configure other Kubernetes Master servers
+------------------------------------------
 
-1. Create /etc/kubernetes directory on 2nd & 3rd master
-2. Copy the contents from the first master in /etc/kubernetes directory to this master in /etc/kubernetes directory
+1. Create /etc/kubernetes directory on the 2nd & 3rd Masters
+2. Copy the contents from the first Master in /etc/kubernetes directory to this Master in /etc/kubernetes directory
 3. Modify the master.env with the proper CURRENT_NODE value
 4. Set the Token value by getting the token from the first master using `kubeadm token list` command 
 5. Run the setup-master.sh script as shown below
@@ -53,7 +60,8 @@ chmod +x setup-master.sh
 ./setup-master.sh
 ```
 
-# Configure the nodes
+Configure the Kubernetes Nodes
+------------------------------
 
 1. Copy the contents from the node directory in this repository on all the nodes
 2. Copy the token from the master.env file and populate it in the worker.env file
@@ -68,7 +76,7 @@ chmod +x setup-worker.sh
 
 ```
 
-# Pre-Installation Steps in VSD
+# Pre-Installation Steps on VSD
 
 1. Login to VSD UI as csproot and create an Enterprise "kubernetes".
 
@@ -94,7 +102,7 @@ chmod +x setup-worker.sh
 	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /usr/local/ or any specified directory of the k8s node where Ansible is run. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
 
 
-# Installing Nuage components
+# Installing Nuage Kubernetes components
 
 Install Git Repository
 -----------------------
@@ -114,7 +122,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
         git checkout origin/<vsp-version> -b <vsp-version>
         cd nuage-kubernetes/ansible
 
-Installation for Multi Master kubernetes cluster
+Installation for Multi Master Kubernetes cluster
 ------------------------------------------------
 
 Create a inventory file for Ansible configuration in the nuage-kubernetes/ansible/inventory directory with the contents shown below.
