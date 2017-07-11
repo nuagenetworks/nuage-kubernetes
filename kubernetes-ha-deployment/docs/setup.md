@@ -1,6 +1,6 @@
  # Setup etcd
 
- 1. Copy the contents of the etcd folder to all the etcd nodes
+ 1. Copy the contents of the etcd folder from this repository to all the etcd nodes
  2. Fill in the etcd cluster specific information in the etcd.env file
  3. For the first node, generate the token manually using the link in the etcd.env file
  4. For the 2nd & 3rd node in the cluster, set the CURRENT_NODE accordingly
@@ -22,7 +22,7 @@
 
 # Setup base for the first master
 
-1. Copy the contents from the master directory to the first master
+1. Copy the contents from the master directory in this repository to the first master
 2. Fill in the contents in the master.env file
 3. The Token field will be set to blank for the first master
 4. Run init-master.sh script as shown below
@@ -55,7 +55,7 @@ chmod +x setup-master.sh
 
 # Configure the nodes
 
-1. Copy the contents from the node directory on all the nodes
+1. Copy the contents from the node directory in this repository on all the nodes
 2. Copy the token from the master.env file and populate it in the worker.env file
 3. Set the correct SERVICE_SUBNET CIDR & POD_SUBNET CIDR
 4. Run the setup-worker.sh script as shown below
