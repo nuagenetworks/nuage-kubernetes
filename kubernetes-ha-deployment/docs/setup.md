@@ -82,23 +82,16 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 
 3. Clone the Ansible git repository, by entering the **git clone** command as shown in the example below and checkout the branch corresponding to the VSP version. 
 
-.. Note:: For the required versions, see the `Requirements <kubernetes-1-overview.html#requirements>`_ section in the "Overview" chapter of this guide.
-
-   
+.. Note:: kubernetes HA install is supported in VSP version 5.0 & above  
    
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
         git checkout origin/<vsp-version> -b <vsp-version>
         cd nuage-kubernetes/ansible
 
-
-.. Note:: kubernetes HA install is supported in VSP version 5.0 & above
-
 Installation for Multi Master kubernetes cluster
 ------------------------------------------------
 
 Create a inventory file for Ansible configuration in the Kubernetes-ansible/ansible/inventory directory with the contents shown below.
-
-
 
     # Create an k8s group that contains the masters and nodes groups
     [k8s:children]
