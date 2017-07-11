@@ -1,6 +1,6 @@
  # Setup etcd
 
- 1. Copy the contents of the etcd folder from this repository to all the etcd nodes
+ 1. Copy the contents of the etcd folder from this repository to all the etcd nodes in the cluster ( Recommended etcd cluster of 3 nodes)
  2. Fill in the etcd cluster specific information in the etcd.env file
  3. For the first node, generate the token manually using the link in the etcd.env file
  4. For the 2nd & 3rd node in the cluster, set the CURRENT_NODE accordingly
