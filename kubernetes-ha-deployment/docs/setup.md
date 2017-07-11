@@ -42,7 +42,7 @@ chmod +x init-master.sh
 1. Create /etc/kubernetes directory on 2nd & 3rd master
 2. Copy the contents from the first master in /etc/kubernetes directory to this master in /etc/kubernetes directory
 3. Modify the master.env with the proper CURRENT_NODE value
-4. Set the Token value by getting the token from the first master `using kubeadm token list` command 
+4. Set the Token value by getting the token from the first master using `kubeadm token list` command 
 5. Run the setup-master.sh script as shown below
 
 ```
