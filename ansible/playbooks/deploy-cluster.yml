@@ -86,3 +86,14 @@
   tags:
     - network-service-install
     - nuage
+
+# install Nuage CNI and VRS as containers using daemon sets
+- hosts:
+    - masters
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage-daemonset, when: networking == 'nuage' }
+  tags:
+    - network-service-install
+    - nuage

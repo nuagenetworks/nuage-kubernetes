@@ -15,6 +15,14 @@
   become: yes
   file: path={{ nuage_mon_rest_server_logdir }} state=directory
 
+- name: Create the Nuage CNI binary directory
+  become: yes
+  file: path={{ nuage_cni_bin_dir }} state=directory
+
+- name: Create the Nuage CNI netconfig directory
+  become: yes
+  file: path={{ nuage_cni_netconf_dir }} state=directory
+
 - name: Install Nuage k8s monitor 
   become: yes
   yum: name={{ nuage_monitor_rpm }} state=present
