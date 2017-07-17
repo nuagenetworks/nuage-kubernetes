@@ -1,6 +1,8 @@
 vrs_config: /etc/default/openvswitch
 vsp_k8s_dir: /usr/share/vsp-k8s
 nuage_plugin_crt_dir : /usr/share/vsp-k8s
+nuage_cni_bin_dir: /opt/cni/bin
+nuage_cni_netconf_dir: /etc/cni/net.d
 vsp_k8s_yaml: "{{ vsp_k8s_dir }}/vsp-k8s.yaml"
 nuage_master_cluster_hostname: "{{ kubernetes_master_cluster_hostname | default(groups['masters'][0]) }}"
 nuage_mon_rest_server_port: "{{ nuage_monitor_rest_server_port | default('9443') }}"
@@ -17,5 +19,5 @@ nuage_plugin_rest_client_crt_dir: "{{ nuage_ca_master_crt_dir }}/{{ ansible_node
 nuage_ca_master_plugin_key: "{{ nuage_plugin_rest_client_crt_dir }}/nuageMonClient.key"
 nuage_ca_master_plugin_crt: "{{ nuage_plugin_rest_client_crt_dir }}/nuageMonClient.crt" 
 kubelet_service_file: "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
-nuage_plugin_kubelet_args: "Environment=\"KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-bin-dir=/usr/bin/ --make-iptables-util-chains=false\""
+nuage_plugin_kubelet_args: "Environment=\"KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-bin-dir=/opt/cni/bin/ --make-iptables-util-chains=false\""
 kubelet_execstart: "ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_SYSTEM_PODS_ARGS $KUBELET_NETWORK_ARGS $KUBELET_DNS_ARGS $KUBELET_EXTRA_ARGS $KUBELET_CGROUP_ARGS"

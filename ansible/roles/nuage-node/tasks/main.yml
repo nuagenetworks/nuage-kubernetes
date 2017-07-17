@@ -7,6 +7,18 @@
   become: yes
   yum: name=python-pip state=present
 
+- name: Create the Nuage CNI binary directory
+  become: yes
+  file: path={{ nuage_cni_bin_dir }} state=directory
+
+- name: Create the Nuage CNI netconfig directory
+  become: yes
+  file: path={{ nuage_cni_netconf_dir }} state=directory
+
+- name: Create the Nuage vsp-k8s config directory
+  become: yes
+  file: path={{ vsp_k8s_dir }} state=directory
+
 - name: Start iptables-service 
   become: yes
   service: name=iptables state=started
@@ -31,14 +43,6 @@
 - name: Set the K8S service IP
   become: yes
   lineinfile: dest={{ vrs_config }} regexp=^K8S_SERVICE_IPV4_SUBNET line='K8S_SERVICE_IPV4_SUBNET={{ kube_service_addresses }}'
-
-- name: Remove stale plugin rpm package
-  shell: rpm -e nuage-cni-k8s
-  ignore_errors: true
-
-- name: Install plugin rpm
-  become: yes
-  yum: name={{ plugin_rpm }} state=present
 
 - include: certificates.yml
 
@@ -73,10 +77,3 @@
 - name: Remove unwanted tmp log files
   shell: rm -irf /tmp/nuage-cni*
   ignore_errors: true
-
-- name: Install K8S CNI loopback plugin
-  become: yes
-  copy:
-    src: "{{ k8s_cni_loopback_plugin }}"
-    dest: "/usr/bin/{{ k8s_cni_loopback_plugin | basename }}"
-    mode: 0755
