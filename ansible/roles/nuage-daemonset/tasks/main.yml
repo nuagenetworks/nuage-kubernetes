@@ -1,0 +1,21 @@
+- name: Copy Nuage Master monitor daemon sets yaml to master node
+  become: yes
+  copy:
+    src: nuage-master-config-daemonset.yaml
+    dest: /etc/nuage-master-config-daemonset.yaml
+    mode: 0755
+
+- name: Spawn Nuage Master monitor daemon sets pod
+  shell: kubectl create -f /etc/nuage-master-config-daemonset.yaml
+  ignore_errors: true
+
+- name: Copy Nuage CNI K8S daemon sets yaml to master node
+  become: yes
+  copy:
+    src: nuage-cni-k8s-daemonset.yaml
+    dest: /etc/nuage-cni-k8s-daemonset.yaml
+    mode: 0755
+
+- name: Spawn Nuage CNI daemon sets pod
+  shell: kubectl create -f /etc/nuage-cni-k8s-daemonset.yaml
+  ignore_errors: true
