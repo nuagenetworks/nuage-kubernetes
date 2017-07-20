@@ -9,4 +9,5 @@ nuage_mon_rest_server_host: "{{ ansible_nodename }}"
 nuage_mon_rest_server_url: "0.0.0.0:{{ nuage_mon_rest_server_port }}"
 nuage_ca_master_rest_server_key: "{{ nuage_mon_rest_server_crt_dir }}/nuageMonServer.key"
 nuage_ca_master_rest_server_crt: "{{ nuage_mon_rest_server_crt_dir }}/nuageMonServer.crt"
-
+cni_bin_dir: /opt/cni/bin
+cni_netconf_dir: /etc/cni/net.d

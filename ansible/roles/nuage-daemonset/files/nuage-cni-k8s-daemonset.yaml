@@ -1,0 +1,155 @@
+# This ConfigMap is used to configure Nuage VSP configuration
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nuage-config
+  namespace: kube-system
+data:
+  # This will generate the required Nuage vsp-k8s.yaml
+  # config on each slave node
+  plugin_yaml_config: |
+      # Path to Nuage kubeconfig
+      kubeConfig: /usr/share/vsp-k8s/nuage.kubeconfig
+      # Name of the enterprise in which pods will reside
+      enterpriseName: nuage-k8s
+      # Name of the domain in which pods will reside
+      domainName: K8S
+      # Name of the VSD user in admin group
+      vsdUser: admin
+      # REST server URL
+      nuageMonRestServer: https://172.22.63.82:9443
+      # Bridge name for the docker bridge
+      dockerBridgeName: docker0
+      # Certificate for connecting to the kubemon REST API
+      nuageMonClientCert: /usr/share/vsp-k8s/nuageMonClient.crt
+      # Key to the certificate in restClientCert
+      nuageMonClientKey: /usr/share/vsp-k8s/nuageMonClient.key
+      # CA certificate for verifying the master's rest server
+      nuageMonServerCA: /usr/share/vsp-k8s/nuageMonCA.crt
+      # Nuage vport mtu size
+      interfaceMTU: 1460
+      # Service CIDR
+      serviceCIDR: 192.168.0.0/16
+      # Logging level for the plugin
+      # allowed options are: "dbg", "info", "warn", "err", "emer", "off"
+      logLevel: info
+
+---
+
+# This manifest installs Nuage CNI plugins and network config on
+# each worker node in a Kubernetes cluster.
+kind: DaemonSet
+apiVersion: extensions/v1beta1
+metadata:
+  name: nuage-node-ds
+  namespace: kube-system
+  labels:
+    k8s-app: nuage-node-ds
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nuage-node-ds
+  template:
+    metadata:
+      labels:
+        k8s-app: nuage-node-ds
+    spec:
+      hostNetwork: true
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+          operator: Exists
+      containers:
+        # This container installs Nuage VRS running as a 
+        # container on each worker node
+        - name: install-nuage-vrs
+          image: nuage/vrs:v5.0.2
+          securityContext:
+            privileged: true
+          env:
+            # Configure parameters for VRS openvswitch file
+            - name: NUAGE_ACTIVE_CONTROLLER
+              value: "172.22.63.28"
+            - name: NUAGE_STANDBY_CONTROLLER
+              value: "0.0.0.0"
+            - name: NUAGE_PLATFORM
+              value: '"kvm, k8s"'
+            - name: NUAGE_K8S_SERVICE_IPV4_SUBNET
+              value: '192.168.0.0\/16'
+            - name: NUAGE_NETWORK_UPLINK_INTF
+              value: "eth0"
+          volumeMounts:
+            - mountPath: /var/run
+              name: vrs-run-dir
+            - mountPath: /var/log
+              name: vrs-log-dir
+            - mountPath: /sys/module
+              name: sys-mod-dir
+              readOnly: true
+            - mountPath: /lib/modules
+              name: lib-mod-dir
+              readOnly: true
+        # This container installs Nuage CNI binaries
+        # and CNI network config file on each node.
+        - name: install-nuage-cni
+          image: nuage/cni:v5.0.2
+          command: ["/install-cni.sh"]
+          args: ["nuage-cni-k8s"]
+          securityContext:
+            privileged: true
+          env:
+            # Set the hostname based on the k8s node name.
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # Nuage vsp-k8s.yaml config to install on each slave node.
+            - name: NUAGE_VSP_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-config
+                  key: plugin_yaml_config
+          volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+            - mountPath: /etc/default
+              name: cni-yaml-dir
+            - mountPath: /var/run
+              name: var-run-dir
+            - mountPath: /var/log
+              name: cni-log-dir
+            - mountPath: /usr/share
+              name: usr-share-dir
+      volumes:
+        - name: vrs-run-dir
+          hostPath:
+            path: /var/run
+        - name: vrs-log-dir
+          hostPath:
+            path: /var/log
+        - name: sys-mod-dir
+          hostPath:
+            path: /sys/module
+        - name: lib-mod-dir
+          hostPath:
+            path: /lib/modules
+        - name: cni-bin-dir
+          hostPath:
+            path: /opt/cni/bin
+        - name: cni-net-dir
+          hostPath:
+            path: /etc/cni/net.d
+        - name: cni-yaml-dir
+          hostPath:
+            path: /etc/default
+        - name: var-run-dir
+          hostPath:
+            path: /var/run
+        - name: cni-log-dir
+          hostPath:
+            path: /var/log
+        - name: usr-share-dir
+          hostPath:
+            path: /usr/share
