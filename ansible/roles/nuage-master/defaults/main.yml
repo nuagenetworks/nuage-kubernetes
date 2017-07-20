@@ -1,3 +1,2 @@
 ---
 nuage_mon_log_level: "{{ nuage_monitor_log_level | default('3') }}"
-nuage_host_subnet_len: "{{ nuage_host_subnet_length | default('8')}}"
