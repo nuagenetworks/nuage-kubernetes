@@ -32,7 +32,7 @@ type KV interface {
 	// Put puts a key-value pair into etcd.
 	// Note that key,value can be plain bytes array and string is
 	// an immutable representation of that bytes array.
-	// To get a string of bytes, do string([]byte(0x10, 0x20)).
+	// To get a string of bytes, do string([]byte{0x10, 0x20}).
 	Put(ctx context.Context, key, val string, opts ...OpOption) (*PutResponse, error)
 
 	// Get retrieves keys.
@@ -52,11 +52,6 @@ type KV interface {
 	Compact(ctx context.Context, rev int64, opts ...CompactOption) (*CompactResponse, error)
 
 	// Do applies a single Op on KV without a transaction.
-	// Do is useful when declaring operations to be issued at a later time
-	// whereas Get/Put/Delete are for better suited for when the operation
-	// should be immediately issued at time of declaration.
-
-	// Do applies a single Op on KV without a transaction.
 	// Do is useful when creating arbitrary operations to be issued at a
 	// later time; the user can range over the operations, calling Do to
 	// execute them. Get/Put/Delete, on the other hand, are best suited
@@ -71,11 +66,13 @@ type OpResponse struct {
 	put *PutResponse
 	get *GetResponse
 	del *DeleteResponse
+	txn *TxnResponse
 }
 
 func (op OpResponse) Put() *PutResponse    { return op.put }
 func (op OpResponse) Get() *GetResponse    { return op.get }
 func (op OpResponse) Del() *DeleteResponse { return op.del }
+func (op OpResponse) Txn() *TxnResponse    { return op.txn }
 
 type kv struct {
 	remote pb.KVClient
@@ -105,7 +102,7 @@ func (kv *kv) Delete(ctx context.Context, key string, opts ...OpOption) (*Delete
 }
 
 func (kv *kv) Compact(ctx context.Context, rev int64, opts ...CompactOption) (*CompactResponse, error) {
-	resp, err := kv.remote.Compact(ctx, OpCompact(rev, opts...).toRequest(), grpc.FailFast(false))
+	resp, err := kv.remote.Compact(ctx, OpCompact(rev, opts...).toRequest())
 	if err != nil {
 		return nil, toErr(ctx, err)
 	}
@@ -125,6 +122,7 @@ func (kv *kv) Do(ctx context.Context, op Op) (OpResponse, error) {
 		if err == nil {
 			return resp, nil
 		}
+
 		if isHaltErr(ctx, err) {
 			return resp, toErr(ctx, err)
 		}
@@ -138,7 +136,6 @@ func (kv *kv) Do(ctx context.Context, op Op) (OpResponse, error) {
 func (kv *kv) do(ctx context.Context, op Op) (OpResponse, error) {
 	var err error
 	switch op.t {
-	// TODO: handle other ops
 	case tRange:
 		var resp *pb.RangeResponse
 		resp, err = kv.remote.Range(ctx, op.toRangeRequest(), grpc.FailFast(false))
@@ -147,7 +144,7 @@ func (kv *kv) do(ctx context.Context, op Op) (OpResponse, error) {
 		}
 	case tPut:
 		var resp *pb.PutResponse
-		r := &pb.PutRequest{Key: op.key, Value: op.val, Lease: int64(op.leaseID), PrevKv: op.prevKV}
+		r := &pb.PutRequest{Key: op.key, Value: op.val, Lease: int64(op.leaseID), PrevKv: op.prevKV, IgnoreValue: op.ignoreValue, IgnoreLease: op.ignoreLease}
 		resp, err = kv.remote.Put(ctx, r)
 		if err == nil {
 			return OpResponse{put: (*PutResponse)(resp)}, nil
@@ -158,6 +155,12 @@ func (kv *kv) do(ctx context.Context, op Op) (OpResponse, error) {
 		resp, err = kv.remote.DeleteRange(ctx, r)
 		if err == nil {
 			return OpResponse{del: (*DeleteResponse)(resp)}, nil
+		}
+	case tTxn:
+		var resp *pb.TxnResponse
+		resp, err = kv.remote.Txn(ctx, op.toTxnRequest())
+		if err == nil {
+			return OpResponse{txn: (*TxnResponse)(resp)}, nil
 		}
 	default:
 		panic("Unknown op")

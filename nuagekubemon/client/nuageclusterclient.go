@@ -78,7 +78,7 @@ func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	nosc.kubeClient = kubeClient
 }
 
-func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, podChannel chan *api.PodEvent, policyEventChannel chan *api.NetworkPolicyEvent) {
+func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, policyEventChannel chan *api.NetworkPolicyEvent) {
 	//we will use the kube client APIs than interfacing with the REST API
 	listOpts := kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}
 	nsList, err := nosc.GetNamespaces(&listOpts)
@@ -98,14 +98,6 @@ func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceE
 	for _, service := range *serviceList {
 		serviceChannel <- service
 	}
-	//get pods
-	// podsList, err := nosc.GetPods(&listOpts)
-	// if err != nil {
-	// 	glog.Infof("Got an error: %s while getting pods list from kube client", err)
-	// }
-	// for _, pod := range *podsList {
-	// 	podChannel <- pod
-	// }
 	//get policies
 	policiesList, err := nosc.GetNetworkPolicies(&listOpts)
 	if err != nil {
@@ -114,9 +106,6 @@ func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceE
 	for _, policy := range *policiesList {
 		policyEventChannel <- policy
 	}
-}
-func (nosc *NuageClusterClient) RunPodWatcher(podChannel chan *api.PodEvent, stop chan bool) {
-	nosc.WatchPods(podChannel, stop)
 }
 
 func (nosc *NuageClusterClient) RunNetworkPolicyWatcher(policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
