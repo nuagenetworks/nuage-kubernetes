@@ -61,7 +61,3 @@ cp /etc/kubernetes/admin.conf ~/.kube/config
 chown "$(id -nu)": ~/.kube/config
 
 sleep 20
-
-# Setup cluster networking
-#kubectl create -f kube-flannel.yml
-#kubectl create -f kube-flannel-rbac.yml
