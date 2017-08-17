@@ -15,5 +15,6 @@ fi
 cd $GOPATH/src/github.com/nuagenetworks/nuage-kubernetes/nuagekubemon
 go build -o nuagekubemon
 go build -o nuage-openshift-monitor
+
 sudo docker build -t nuage/master:${version} .
-docker save nuage/master:${version} > nuage-master-docker.tar
+docker save nuage/master:${version} > nuage-master-docker-${version}.tar
