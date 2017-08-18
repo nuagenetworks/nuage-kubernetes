@@ -17,9 +17,9 @@ master1.nuageopenshift.com ansible_ssh_user=root
 master1.nuageopenshift.com ansible_ssh_user=root
 
 [nodes:vars]
-http_proxy="http://global.proxy.alcatel-lucent.com:8000/"
-https_proxy="https://global.proxy.alcatel-lucent.com:8000/"
-no_proxy="localhost,172.22.62.94,172.22.62.95,127.0.0.1,localaddress,.localdomain.com,.openstack.local"
+http_proxy="http://proxy.com:8000/"
+https_proxy="https://proxy.com:8000/"
+no_proxy="localhost,127.0.0.1,localaddress,.localdomain.com"
 
 [nodes]
 node1.nuageopenshift.com ansible_ssh_user=root
