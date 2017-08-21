@@ -34,6 +34,19 @@ data:
       # allowed options are: "dbg", "info", "warn", "err", "emer", "off"
       logLevel: dbg
 
+  # This will generate the required Nuage CNI yaml configuration
+  cni_yaml_config: |
+      vrsendpoint: "/var/run/openvswitch/db.sock"
+      vrsbridge: "alubr0"
+      monitorinterval: 60
+      cniversion: 0.2.0
+      loglevel: "info"
+      portresolvetimer: 60
+      logfilesize: 1
+      vrsconnectionchecktimer: 180
+      mtu: 1450
+      staleentrytimeout: 600
+
 ---
 
 # This manifest installs Nuage CNI plugins and network config on
@@ -82,6 +95,12 @@ spec:
                 configMapKeyRef:
                   name: nuage-node-config
                   key: plugin_yaml_config
+            # Nuage nuage-cni.yaml config to install on each slave node.
+            - name: NUAGE_CNI_YAML_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-node-config
+                  key: cni_yaml_config
             # Nuage cluster network CIDR for iptables configuration
             - name: NUAGE_CLUSTER_NW_CIDR
               value: "80.80.0.0/16"
