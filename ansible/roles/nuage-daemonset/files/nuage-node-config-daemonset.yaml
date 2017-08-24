@@ -103,7 +103,7 @@ spec:
                   key: cni_yaml_config
             # Nuage cluster network CIDR for iptables configuration
             - name: NUAGE_CLUSTER_NW_CIDR
-              value: "80.80.0.0/16"
+              value: "70.70.0.0/16"
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
