@@ -26,13 +26,8 @@ data:
       nuageMonClientKey: /usr/share/vsp-k8s/nuageMonClient.key
       # CA certificate for verifying the master's rest server
       nuageMonServerCA: /usr/share/vsp-k8s/nuageMonCA.crt
-      # Nuage vport mtu size
-      interfaceMTU: 1460
       # Service CIDR
       serviceCIDR: 192.168.0.0/16
-      # Logging level for the plugin
-      # allowed options are: "dbg", "info", "warn", "err", "emer", "off"
-      logLevel: dbg
 
   # This will generate the required Nuage CNI yaml configuration
   cni_yaml_config: |
