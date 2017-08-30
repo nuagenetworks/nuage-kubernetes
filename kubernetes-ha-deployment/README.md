@@ -1,6 +1,8 @@
 
 # Multi Master Kubernetes Setup
 
+.. Note:: The steps documented to install the Multi Master Kubernetes Setup work with Kubernetes v1.6.6 or below. Adding 
+
 Setup etcd
 -----------
 
