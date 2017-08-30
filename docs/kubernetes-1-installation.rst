@@ -124,13 +124,14 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 2. Setup SSH and access the master and the minion nodes, using the **ssh** command.
 3. Clone the Ansible git repository, by entering the **git clone** command as shown in the example below and checkout the tag **nuage-kubernetes-<version>** corresponding to the VSP version. 
 
-.. Note:: For the required versions, see the `Requirements <kubernetes-1-overview.html#requirements>`_ section in the "Overview" chapter of this guide.
-
    ::
    
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
-        git checkout tags/nuage-kubernetes-5.1.1-1
+        git checkout tags/v5.1.1-1
         cd nuage-kubernetes/ansible
+	
+  .. Note:: With new tag v5.1.1-1, rpm based install is not supported using ansible. Daemonsets is the recommended mode of installing Nuage components 
+
 
 4. Load the following docker images on your master node:
 
