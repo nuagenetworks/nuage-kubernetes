@@ -126,6 +126,42 @@ The nuagekubemon process crashes on the master node after the Ansible Installati
 
 2. The iptable rules need to be added on the master and slave nodes to permit the access to the VXLAN port (4789) and nuagekubemon port (9443).
 
+
+Verifying if Nuage CNI, nuagekubemon & VRS pods got deployed correctly
+======================================================================
+
+::
+ 
+      		[root@ovs-10 ~]# kubectl get ds -n kube-system
+               NAME                      DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE    NODE-SELECTOR          AGE
+		kube-proxy                4         4         4         4            4           <none>                 2d
+		nuage-cni-ds              4         4         4         4            4           <none>                 1d
+		nuage-master-monitor-ds   1         1         1         1            1           install-monitor=true   1d
+		nuage-vrs-ds              4         4         4         4            4           <none>                 1d
+
+		[root@ovs-10 ~]# kubectl get pods -n kube-system -o wide
+		NAME                                                             READY     STATUS    RESTARTS   AGE       IP            NODE
+		etcd-ovs-10.k8s.test.com                                         1/1       Running   0          2d        10.100.100.42   ovs-10.k8s.test.com
+		kube-apiserver-ovs-10.k8s.test.com                               1/1       Running   0          2d        10.100.100.42   ovs-10.k8s.test.com
+		kube-controller-manager-ovs-10.k8s.test.com                      1/1       Running   1          2d        10.100.100.42   ovs-10.k8s.test.com
+		kube-dns-2425271678-hxb7k                                        3/3       Running   0          1d        70.70.10.68     ovs-1.k8s.test.com
+		kube-proxy-1nlgq                                                 1/1       Running   0          2d        10.100.100.36   ovs-2.k8s.test.com
+		kube-proxy-2vm4p                                                 1/1       Running   0          2d        10.100.100.39   ovs-3.k8s.test.com
+		kube-proxy-2zbx0                                                 1/1       Running   0          2d        10.100.100.42   ovs-10.k8s.test.com
+		kube-proxy-76g24                                                 1/1       Running   0          2d        10.100.100.34   ovs-1.k8s.test.com
+		kube-scheduler-ovs-10.k8s.test.com                               1/1       Running   1          2d        10.100.100.42   ovs-10.k8s.test.com
+		nuage-cni-ds-1tmcr                                               1/1       Running   0          1d        10.100.100.36   ovs-2.k8s.test.com
+		nuage-cni-ds-g40gk                                               1/1       Running   0          1d        10.100.100.39   ovs-3.k8s.test.com
+		nuage-cni-ds-vz8h8                                               1/1       Running   0          1d        10.100.100.42   ovs-10.k8s.test.com
+		nuage-cni-ds-w2ml8                                               1/1       Running   0          1d        10.100.100.34   ovs-1.k8s.test.com
+		nuage-master-monitor-ds-vvh1p                                    1/1       Running   0          1d        10.100.100.42   ovs-10.k8s.test.com
+		nuage-vrs-ds-g4csq                                               1/1       Running   0          1d        10.100.100.36   ovs-2.k8s.test.com
+		nuage-vrs-ds-hhdpq                                               1/1       Running   0          1d        10.100.100.34   ovs-1.k8s.test.com
+		nuage-vrs-ds-l1n6r                                               1/1       Running   0          1d        10.100.100.42   ovs-10.k8s.test.com
+		nuage-vrs-ds-qbl3g                                               1/1       Running   0          1d        10.100.100.39   ovs-3.k8s.test.com
+
+
+
 Nuage CNI Logs
 ===============
 
@@ -133,3 +169,67 @@ Nuage CNI Logs
 
 * Detailed logs for Nuage CNI audit daemon can be found at /var/log/cni/nuage-daemon.log
 
+Nuage VRS access
+=================
+
+* With Nuage VRS running as a pod, in order to execute ovs commands inside the container, follow the steps given below:
+
+::
+    
+    
+      root@ovs-8 ~]# docker ps
+      CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS               NAMES
+      7f8a90a4da8f        nuage/vrs:5.1.1-3             "/usr/bin/supervisord"   5 hours ago         Up 5 hours                              k8s_install-nuage-vrs.3ad682e4_nuage-vrs-ds-hwf64_kube-system_5c2fdb7c-8da8-11e7-a9f8-faaca6105000_f5eda7f1
+      9b15cbc5321f        nuage/cni:0.0.1-PR12_5ea4f6   "/install-cni.sh nuag"   5 hours ago         Up 5 hours                              k8s_install-nuage-cni.c496599_nuage-cni-ds-m2qvh_kube-system_5c2f6734-8da8-11e7-a9f8-faaca6105000_01c2a1bd
+      cf7659038bbc        openshift3/ose-pod:v3.5.5.5   "/pod"                   5 hours ago         Up 5 hours                              k8s_POD.ef3fdbfd_nuage-vrs-ds-hwf64_kube-system_5c2fdb7c-8da8-11e7-a9f8-faaca6105000_2c72e720
+      c6528662250a        openshift3/ose-pod:v3.5.5.5   "/pod"                   5 hours ago         Up 5 hours                              k8s_POD.ef3fdbfd_nuage-cni-ds-m2qvh_kube-system_5c2f6734-8da8-11e7-a9f8-faaca6105000_a0d9c7d6
+ 
+      
+      [root@ovs-8 ~]# docker exec -it 7f8a90a4da8f /bin/bash
+      [root@ovs-8 /]# ovs-vsctl show
+      338bac29-a82a-450a-b98f-c80945ef3ecd
+         Bridge "alubr0"
+            Controller "ctrl2"
+                  target: "tcp:10.100.100.102:6633"
+                  role: master
+                  is_connected: true
+            Controller "ctrl1"
+                  target: "tcp:10.100.100.101:6633"
+                  role: slave
+                  is_connected: true
+            Port "svc-rl-tap2"
+                  Interface "svc-rl-tap2"
+            Port "alubr0"
+                  Interface "alubr0"
+                     type: internal
+            Port "svc-rl-tap1"
+                  Interface "svc-rl-tap1"
+            Port svc-spat-tap
+                  Interface svc-spat-tap
+                     type: internal
+            Port svc-pat-tap
+                  Interface svc-pat-tap
+                     type: internal
+            ovs_version: "5.1.1-3-nuage"
+     
+      [root@ovs-8 /]# ovs-appctl container/port-show
+      Name: my-nginx-3147148373-j8mls	UUID: 5ac67fbb6c72850d236e378dd495934d13b386931f9d4e12942df653be4e5b18
+	      port-UUID: e1dcd5ef-bed2-4aee-8e51-a841aa9b9d57	Name: 07db556744f4c70	MAC: 7a:66:fc:89:e4:d0
+	      Bridge: alubr0	port: 23	flags: 0x0	stats-interval: 60
+	      vrf_id: 2134951344	evpn_id: 1206200683	flow_flags: 0x21e64004	flood_gen_id: 0x1
+	      IP: 70.70.2.145	 subnet: 255.255.252.0	 GW: 70.70.0.1
+	      rate: 4294967295 kbit/s	burst:4294967295 kB	class:0	mac_count: 1
+	      BUM rate: 4294967295 kbit/s	BUM peak: 4294967295 kbit/s	BUM burst: 4294967295 kB
+	      FIP rate: 4294967295 kbit/s	FIP peak: 4294967295 kbit/s	FIP burst: 4294967295 kB
+	      FIP Egress rate: 4294967295 kbit/s	FIP Egress peak: 4294967295 kbit/s	FIP Egress burst: 4294967295 kB
+	      Trusted: false	Rewrite: false
+	      RX packets:8 errors:0 dropped:4 rl_dropped:0 
+	      TX packets:11 errors:0 dropped:0
+	      RX bytes:648      TX bytes:882
+	      anti-spoof: Enabled
+	      policy group tags: 0x177877e8 0x65df994a 0x5b5ac7d0 0x4000
+	      policy group domain_id: 0xcefe3
+	      route_id: 0x30
+	      class_id: 13(0xd)
+         
+*  Detailed logs for Nuage VRS can be found at /var/log/openvswitch/ovs-vswitchd.log
