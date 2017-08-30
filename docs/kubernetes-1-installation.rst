@@ -213,7 +213,7 @@ Make sure the **image** parameter is correctly set to the Nuagekubemon docker im
             # Name of the VSD user in admin group
             vsdUser: k8s-admin
             # REST server URL
-            nuageMonRestServer: https://10.31.45.147:9443
+            nuageMonRestServer: https://<Master-Node-IP or hostname>:9443
             # Bridge name for the docker bridge
             dockerBridgeName: docker0
             # Certificate for connecting to the kubemon REST API
