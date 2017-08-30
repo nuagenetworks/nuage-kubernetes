@@ -354,6 +354,6 @@ Installing the VSP Components for the Single Master
       kubectl get nodes       
       
 
-.. Note:: To troubleshoot any installation issues, see the `Troubleshooting <kubernetes-8-troubleshooting.html>`_ section of this document.
+.. Note:: To troubleshoot any installation issues, see the `Troubleshooting <kubernetes-4-troubleshooting.html>`_ section of this document.
 
 
