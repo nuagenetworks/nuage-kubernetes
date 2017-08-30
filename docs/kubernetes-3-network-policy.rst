@@ -47,7 +47,7 @@ The above commands spawns ngnix and busybox pods in the default namespace and if
    ::  
 
       kind: NetworkPolicy
-      apiVersion: extensions/v1beta1
+      apiVersion: networking.k8s.io/v1
       metadata:
         name: allow-tcp-80
         namespace: default
@@ -95,7 +95,7 @@ By default Nuage blocks all of the communication between pods across namespaces.
 
       ---
       kind: NetworkPolicy
-      apiVersion: extensions/v1beta1
+      apiVersion: networking.k8s.io/v1
       metadata:
         name: allow-inter-ns-web-access
         namespace: web-ns
