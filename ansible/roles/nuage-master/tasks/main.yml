@@ -15,9 +15,13 @@
   become: yes
   file: path={{ nuage_mon_rest_server_logdir }} state=directory
 
-- name: Install Nuage k8s monitor 
+- name: Create the Nuage CNI binary directory
   become: yes
-  yum: name={{ nuage_monitor_rpm }} state=present
+  file: path={{ cni_bin_dir }} state=directory
+
+- name: Create the Nuage CNI netconfig directory
+  become: yes
+  file: path={{ cni_netconf_dir }} state=directory
 
 - include: serviceaccount.yml
 
@@ -46,14 +50,6 @@
   become: yes
   fetch: src={{ nuage_kubeconfig }} dest=/tmp/nuage.kubeconfig flat=yes
 
-- name: Create nuagekubemon.yaml
-  become: yes
-  template: src=nuagekubemon.yaml.j2 dest={{ nuage_mon_yaml_path }} owner=root mode=0644
-
-- name: Create net-config.yaml
-  become: yes
-  template: src=net-config.yaml.j2 dest={{ nuage_net_config_yaml_path }} owner=root mode=0644
-
 - include: iptables.yml
 
 - name: Install jq
@@ -67,6 +63,10 @@
 - name: Install Nuage VSD user key
   become: yes
   copy: src="{{ vsd_user_key_file }}" dest="{{ cert_output_dir }}/{{ vsd_user_key_file | basename }}"
+
+- name: Label master nodes for monitor daemon set install
+  shell: kubectl label nodes {{ ansible_nodename }} install-monitor="true"
+  ignore_errors: true
 
 - name: restart daemons
   command: /bin/true

@@ -103,12 +103,13 @@ chmod +x setup-worker.sh
 
 	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /usr/local/ or any specified directory of the k8s node where Ansible is run. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
 
-
 # Installing Nuage Kubernetes components using Daemonsets
 
 As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage components. DaemonSet will be responsible for installation & maintenance of containerized monitor (nuagekubemon) and containerized CNI plugin with containerized Nuage VRS on master and slave nodes respectively.
 
 .. Note:: All Nuage services like nuagekubemon, CNI plugin and VRS will be operating as DaemonSet pods on master and slave nodes. This is the recommended method of installing Nuage components with Kubernetes.
+
+# Installing Nuage Kubernetes components
 
 Clone the Nuage Ansible Git Repository
 ---------------------------------------
@@ -127,6 +128,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
         git checkout origin/<vsp-version> -b <vsp-version>
         cd nuage-kubernetes/ansible
+
 
 4. Load the following docker images on your master node:
 
@@ -279,7 +281,6 @@ Make sure the **image** parameter is correctly set to the Nuage VRS and CNI dock
           image: nuage/cni:5.1.1
 
 
-
 Create the configuration for Ansible
 -------------------------------------
 
@@ -296,6 +297,27 @@ Create a inventory file for Ansible configuration in the nuage-kubernetes/ansibl
     ansible_ssh_user=root
 
     nuage_cluster_network_CIDR=70.70.0.0/16
+
+    vsd_api_url=https://192.168.103.200:7443
+    vsp_version=v5_0
+    enterprise=kubernetes
+    domain=Kubernetes
+    
+    vsc_active_ip=10.168.103.201
+    vsc_standby_ip=10.168.103.202
+    uplink_interface=eth0
+    nuage_host_subnet_length=10
+    nuage_cluster_network_CIDR=70.70.0.0/16
+
+    nuage_monitor_rpm=http://172.22.61.12/Kubernetes/RPMS/x86_64/nuagekubemon-5.0.x.el7.centos.x86_64.rpm
+    vrs_rpm=http://172.22.61.12/Kubernetes/RPMS/x86_64/nuage-openvswitch-5.0.x.x86_64.rpm
+    plugin_rpm=http://172.22.61.12/Kubernetes/RPMS/x86_64/nuage-cni-k8s-5.0.x.el7.centos.x86_64.rpm
+    
+    # Complete local host path to the k8S loopback CNI plugin
+    k8s_cni_loopback_plugin=/tmp/loopback
+    
+    # VSD user in the admin group
+    vsd_user=k8s-admin
     
     # Complete local host path to the VSD user certificate file
     vsd_user_cert_file=/usr/local/k8s-admin.pem
@@ -335,6 +357,15 @@ Create a inventory file for Ansible configuration in the nuage-kubernetes/ansibl
     [lb]
     lb.k8s.test.com
 
+
+Modify the kube_service_addresses in the  nuage-kubernetes/ansible/inventory/group_vars/all.yml file to the service CIDR used to initialize the cluster.If any service CIDR is not specified during install, then kube_service_addresses should be updated to 10.96.0.0/12 which is the default service CIDR used by kubeadm. Also, configure the LB node as decribed in the section above
+
+
+    # Kubernetes internal network for services.
+    # Kubernetes services will get fake IP addresses from this range.
+    # This range must not conflict with anything in your infrastructure. These
+    # addresses do not need to be routable and must just be an unused block of space.
+    # kube_service_addresses: 192.168.0.0/16
 
 Installing the VSP Components 
 ------------------------------

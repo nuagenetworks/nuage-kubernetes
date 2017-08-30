@@ -7,50 +7,27 @@
   become: yes
   yum: name=python-pip state=present
 
-- name: Start iptables-service 
+- name: Create the Nuage CNI binary directory
+  become: yes
+  file: path={{ nuage_cni_bin_dir }} state=directory
+
+- name: Create the Nuage CNI netconfig directory
+  become: yes
+  file: path={{ nuage_cni_netconf_dir }} state=directory
+
+- name: Create the Nuage vsp-k8s config directory
+  become: yes
+  file: path={{ vsp_k8s_dir }} state=directory
+
+- name: Start iptables-service
   become: yes
   service: name=iptables state=started
- 
-- name: Install Nuage VRS
-  become: yes
-  yum: name={{ vrs_rpm }} state=present
-  
-- name: Set the uplink interface 
-  become: yes
-  lineinfile: dest={{ vrs_config }} regexp=^NETWORK_UPLINK_INTF line='NETWORK_UPLINK_INTF={{ uplink_interface }}'
-
-- name: Set the Active Controller 
-  become: yes
-  lineinfile: dest={{ vrs_config }} regexp=^ACTIVE_CONTROLLER line='ACTIVE_CONTROLLER={{ vsc_active_ip }}'
-
-- name: Set the Standby Controller 
-  become: yes
-  lineinfile: dest={{ vrs_config }} regexp=^STANDBY_CONTROLLER line='STANDBY_CONTROLLER={{ vsc_standby_ip }}'
-  when: vsc_standby_ip is defined
-  
-- name: Set the K8S service IP
-  become: yes
-  lineinfile: dest={{ vrs_config }} regexp=^K8S_SERVICE_IPV4_SUBNET line='K8S_SERVICE_IPV4_SUBNET={{ kube_service_addresses }}'
-
-- name: Remove stale plugin rpm package
-  shell: rpm -e nuage-cni-k8s
-  ignore_errors: true
-
-- name: Install plugin rpm
-  become: yes
-  yum: name={{ plugin_rpm }} state=present
 
 - include: certificates.yml
 
 - name: Copy the kubeconfig
   become: yes
   copy: src=/tmp/nuage.kubeconfig  dest={{ nuage_node_kubeconfig }}
-
-- name: Set the vsp-k8s.yaml 
-  become: yes
-  template: src=vsp-k8s.j2 dest={{ vsp_k8s_yaml }} owner=root mode=0644
-
-- include: network-settings.yml
 
 - name: Remove existing kubelet network args
   become: yes
@@ -69,14 +46,3 @@
   command: /bin/true
   notify:
     - restart daemons
-
-- name: Remove unwanted tmp log files
-  shell: rm -irf /tmp/nuage-cni*
-  ignore_errors: true
-
-- name: Install K8S CNI loopback plugin
-  become: yes
-  copy:
-    src: "{{ k8s_cni_loopback_plugin }}"
-    dest: "/usr/bin/{{ k8s_cni_loopback_plugin | basename }}"
-    mode: 0755
