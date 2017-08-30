@@ -9,32 +9,22 @@ Kubernetes Installation
 .. contents::
    :local:
    :depth: 3
-   
-
-Supported Platforms
-====================
-
-The VSP integration with Kubernetes works for both virtual machines (VMs) and bare metal installations of Kubernetes.
-
-.. Note:: For information on other supported platforms and distributions, see the *Nuage VSP Release Notes*.
 
 Kubernetes Ansible Installation
 ====================================
 
-The following sections provide instructions for installing Kubernetes using Kubeadm followed by insertion of Nuage VSP components. 
+The following sections provide instructions for installing Kubernetes using Kubeadm followed by insertion of Nuage VSP components.
 
 .. Note:: If you have already setup the Kubernetes cluster using Kubeadm, you can skip the Pre-Installation steps and go to the `Install Git Repository`_ section.
 
 You only need to install Ansible once on a machine and it can manage the master and all the other remote nodes. Ansible manages nodes using the SSH protocol, therefore it is required that SSH is setup so that the master and nodes are accessible from the host running the Ansible scripts.
 
-.. Note:: SSH Protocol does not require a password.
-
 Kubernetes DaemonSet for Nuage installation
 ===========================================
 
-As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage containerized services. DaemonSet will be responsible for installation of containerized monitor (nuagekubemon) and containerized CNI plugin with Nuage VRS on master and slave nodes respectively.
+As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage components. DaemonSet will be responsible for installation & maintenance of containerized monitor (nuagekubemon) and containerized CNI plugin with containerized Nuage VRS on master and slave nodes respectively.
 
-.. Note:: All Nuage services like nuagekubemon, CNI plugin and VRS will be operating as DaemonSet pods on master and slave nodes.
+.. Note:: All Nuage services like nuagekubemon, CNI plugin and VRS will be operating as DaemonSet pods on master and slave nodes. This is the recommended method of installing Nuage components with Kubernetes.
 
 Pre-Installation Steps in VSD
 -----------------------------
@@ -62,16 +52,7 @@ Pre-Installation Steps in VSD
 
 	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /usr/local/ or any specified directory of the k8s node where Ansible is run. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
 
-4. Copy the CNI loopback plugin provided with the nuage-cni-k8s plugin to any specific directory on the k8s node where Ansible is run.
-
-	::
-
-         To be specified in the nodes file in later section:
-         k8s_cni_loopback_plugin=/tmp/loopback
-
-.. Note:: Kubernetes requires CNI default plugins (loopback) installed. This is the reason we need to use loopback plugin while using Nuage k8S CNI plugin. CNI loopback plugin is available as part of the Nuage k8S CNI plugin package.
-
-5. To complete the steps provided in the Kubeadm installer guide, go `here <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_. 
+4. To complete the steps provided in the Kubeadm installer guide, go `here <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_. 
 
   .. Note:: Kubectl needs the kube config to be copied to a specific location after the master is initialized using kubeadm init. Ansible scripts used to install Nuage components also rely on kubectl being available to the ansible user. In order to achieve that, execute the following commands on the master node after kubeadm init:
     ::
@@ -79,7 +60,7 @@ Pre-Installation Steps in VSD
           cp /etc/kubernetes/admin.conf ~/.kube/config
           chown "$(id -nu)": ~/.kube/config
   
-6. Follow the steps 1, 2 & 4 of the document provided in the above link. For the pod network, install Nuage using the Ansible installer mentioned below. 
+5. Follow the steps 1, 2 & 4 of the document provided in the above link. For the pod network, install Nuage using the Ansible installer mentioned below. 
 
   .. Note:: By default, Kubeadm uses 10.96.0.0/12 as the service CIDR. Make sure this service CIDR does not overlap with your existing underlay network CIDR. If it does then, please run step 2 from the above guide as follows so as to change the service CIDR:
          kubeadm init --service-cidr=192.168.0.0/16 --kubernetes-version <k8s-version>
@@ -97,7 +78,7 @@ Pre-Installation Steps in VSD
           ovs-4.test.nuagenetworks.com    NotReady   3h        v1.7.0
           ovs-5.test.nuagenetworks.com    NotReady   3h        v1.7.0
  
-7. Update the CIDR in the 10-kubeadm.conf file on all nodes and master as follows:
+6. Update the cluster-dns in the 10-kubeadm.conf file on all nodes and master as follows:
   
     On the Node:
     
@@ -130,7 +111,7 @@ Pre-Installation Steps in VSD
         Environment="KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-bin-dir=/usr/bin/ --make-iptables-util-chains=false"
         ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_SYSTEM_PODS_ARGS $KUBELET_NETWORK_ARGS $KUBELET_DNS_ARGS $KUBELET_EXTRA_ARGS $KUBELET_CGROUP_ARGS
 
-  .. Note:: With new version of Kubernetes, KUBELET_CGROUP_ARGS are required to be added to ExecStart or else it will cause the kubelet to fail. The cgroup-driver can be set to cgroupfs or systemd depending on the driver used for docker installation. BY default, its set to systemd
+  .. Note:: With new version of Kubernetes, KUBELET_CGROUP_ARGS are required to be added to ExecStart or else it will cause the kubelet to fail. The cgroup-driver can be set to cgroupfs or systemd depending on the driver used for docker installation. By default, its set to systemd
     
    This service CIDR also gets updated in another file as explained in the "Installation for a Single Master" section.
 
@@ -141,10 +122,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 
 1. Access Git 
 2. Setup SSH and access the master and the minion nodes, using the **ssh** command.
-
-   .. Note:: You do not need a password to use **ssh**.
-
-3. Clone the Ansible git repository, by entering the **git clone** command as shown in the example below and checkout the tag **nuage-kubernetes-5.1.1-1** corresponding to the VSP version. 
+3. Clone the Ansible git repository, by entering the **git clone** command as shown in the example below and checkout the tag **nuage-kubernetes-<version>** corresponding to the VSP version. 
 
 .. Note:: For the required versions, see the `Requirements <kubernetes-1-overview.html#requirements>`_ section in the "Overview" chapter of this guide.
 
@@ -158,16 +136,16 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 
 ::
 
-    nuage-master-docker.tar
-    nuage-cni-docker.tar
-    nuage-vrs-docker.tar
+    docker load -i nuage-master-docker.tar
+    docker load -i nuage-cni-docker.tar
+    docker load -i nuage-vrs-docker.tar
 
 5. Load the following docker images on your slave nodes:
 
 ::
 
-    nuage-cni-docker.tar
-    nuage-vrs-docker.tar
+    docker load -i nuage-cni-docker.tar
+    docker load -i nuage-vrs-docker.tar
 
 6. Update the following parameters in ConfigMap section of **nuage-kubernetes/ansible/roles/nuage-daemonset/files/nuage-master-config-daemonset.yaml** file as per your environment configuration:
 
@@ -210,14 +188,14 @@ You need to have Git installed on your Ansible host machine. Perform the followi
             serviceNetworkCIDR: 192.168.0.0/16
             hostSubnetLength: 8
 
-Make sure the **image** parameter is correctly set to the Nuage kubemon docker images version pre-loaded on master nodes:
+Make sure the **image** parameter is correctly set to the Nuagekubemon docker images version pre-loaded on master nodes:
 
 ::
 
       containers:
         # This container configures Nuage Master node
         - name: install-nuage-master-config
-          image: nuage/master:v5.1.1
+          image: nuage/master:5.1.1
 
 7. Update the following parameters in **nuage-kubernetes/ansible/roles/nuage-daemonset/files/nuage-node-config-daemonset.yaml** file as per your environment configuration:
 
@@ -251,8 +229,28 @@ Make sure the **image** parameter is correctly set to the Nuage kubemon docker i
             # Logging level for the plugin
             # allowed options are: "dbg", "info", "warn", "err", "emer", "off"
             logLevel: dbg
+	    
+	# This will generate the required Nuage CNI yaml configuration
+        cni_yaml_config: |
+            vrsendpoint: "/var/run/openvswitch/db.sock"
+            vrsbridge: "alubr0"
+            monitorinterval: 60
+            cniversion: 0.2.0
+            loglevel: "debug"
+            portresolvetimer: 60
+            logfilesize: 1
+            vrsconnectionchecktimer: 180
+            mtu: 1460
+            staleentrytimeout: 600
 
-Update the following environment variables in DaemonSet section for **nuage-vrs-ds** with Active and Standby Nuage VSC IP addresses for containerized Nuage VRS
+Update the following environment variables in the DaemonSet section for **nuage-cni-ds** with the value set in clusterNetworkCIDR in the nuage-master-config-daemonset.yaml above    
+
+         # Nuage cluster network CIDR for iptables configuration
+            - name: NUAGE_CLUSTER_NW_CIDR
+              value: "70.70.0.0/16"
+
+
+Update the following environment variables in DaemonSet section for **nuage-vrs-ds** with Active and Standby Nuage VSC IP addresses for containerized Nuage VRS and NUAGE_K8S_SERVICE_IPV4_SUBNET with the value for serviceNetworkCIDR set in nuage-master-config-daemonset.yaml above
 
 ::
 
@@ -262,6 +260,11 @@ Update the following environment variables in DaemonSet section for **nuage-vrs-
           value: "10.100.100.100"
         - name: NUAGE_STANDBY_CONTROLLER
           value: "10.100.100.101"
+        - name: NUAGE_PLATFORM
+          value: '"kvm, k8s"'
+        - name: NUAGE_K8S_SERVICE_IPV4_SUBNET
+          value: '192.168.0.0\/16'
+
 
 Make sure the **image** parameter is correctly set to the Nuage VRS and CNI docker images version pre-loaded on slave nodes:
 
@@ -271,13 +274,13 @@ Make sure the **image** parameter is correctly set to the Nuage VRS and CNI dock
         # This container installs Nuage VRS running as a
         # container on each worker node
         - name: install-nuage-vrs
-          image: nuage/vrs:v5.1.1
+          image: nuage/vrs:5.1.1
 
       containers:
         # This container installs Nuage CNI binaries
         # and CNI network config file on each node.
         - name: install-nuage-cni
-          image: nuage/cni:v5.1.1
+          image: nuage/cni:5.1.1
 
 
 Installation for a Single Master 
