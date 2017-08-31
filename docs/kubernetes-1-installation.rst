@@ -59,7 +59,7 @@ Pre-Installation Steps in VSD
           sudo mkdir -p ~/.kube
           sudo cp /etc/kubernetes/admin.conf ~/.kube/config
           sudo chown $(id -u):$(id -g) $HOME/.kube/config
-  
+
 5. Follow the steps 1, 2 & 4 of the document provided in the above link. For the pod network, install Nuage using the Ansible installer mentioned below. 
 
   .. Note:: By default, Kubeadm uses 10.96.0.0/12 as the service CIDR. Make sure this service CIDR does not overlap with your existing underlay network CIDR. If it does then, please run step 2 from the above guide as follows so as to change the service CIDR:
@@ -71,13 +71,14 @@ Pre-Installation Steps in VSD
 
           kubectl get nodes
           NAME                            STATUS     AGE       VERSION
+
           ovs-1.test.nuagenetworks.com    NotReady   3h        v1.7.4
           ovs-10.test.nuagenetworks.com   NotReady   3h        v1.7.4
           ovs-2.test.nuagenetworks.com    NotReady   3h        v1.7.4
           ovs-3.test.nuagenetworks.com    NotReady   3h        v1.7.4
           ovs-4.test.nuagenetworks.com    NotReady   3h        v1.7.4
           ovs-5.test.nuagenetworks.com    NotReady   3h        v1.7.4
- 
+
 6. Update the cluster-dns in the 10-kubeadm.conf file on all nodes and master as follows:
   
     On the Node:
