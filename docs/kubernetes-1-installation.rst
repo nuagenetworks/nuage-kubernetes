@@ -1,93 +1,42 @@
+.. _Kubernetes-4-installation:
 
-# Multi Master Kubernetes Setup
+.. include:: ../lib/doc-includes/VSDA-icons.inc
 
-.. Note:: The steps documented to install the Multi Master Kubernetes Setup work with Kubernetes v1.6.6 or below
+===========================
+Kubernetes Installation
+===========================
 
-Setup etcd
------------
+.. contents::
+   :local:
+   :depth: 3
 
- 1. Copy the contents of the etcd folder from this repository to all the etcd nodes in the cluster ( Recommended etcd cluster of 3 nodes)
- 2. Fill in the etcd cluster specific information in the etcd.env file
- 3. For the first node, generate the token manually using the link in the etcd.env file
- 4. For the 2nd & 3rd node in the cluster, set the CURRENT_NODE accordingly
- 5. Once etcd.env is populated correctl, run the setup-etcd.sh script as shown below.
- 6. Status of the etcd service can be checked using `service etcd status` command
- 
- ```
- cp etcd_template.env etcd.env
- _Fill in node/cluster specific configuration_
- vim etcd.env
- chmod +x setup-etcd.sh
- ./setup-etcd.sh
-```
-Setup the Load balancer for the Kubernetes Masters
---------------------------------------------------
+Kubernetes Ansible Installation
+====================================
 
-1. Install haproxy on the node acting as the Load balancer
-2. Modify the haproxy.cfg to balance the 3 masters with the config shown in masters directory
-3. Restart the haproxy service for the configuration to take effect
+The following sections provide instructions for installing Kubernetes using Kubeadm followed by insertion of Nuage VSP components.
 
-Setup base for the first Kubernetes Master
---------------------------------------------
+.. Note:: If you have already setup the Kubernetes cluster using Kubeadm, you can skip the Pre-Installation steps and go to the `Install Git Repository`_ section.
 
-1. Copy the contents from the master directory in this repository to the first master
-2. Fill in the contents in the master.env file
-3. The Token field will be set to blank for the first master
-4. Run init-master.sh script as shown below
+You only need to install Ansible once on a machine and it can manage the master and all the other remote nodes. Ansible manages nodes using the SSH protocol, therefore it is required that SSH is setup so that the master and nodes are accessible from the host running the Ansible scripts.
 
-```
-cp master_template.env master.env
-_Fill in node/cluster specific configuration_
-vim master.env
-chmod +x setup-master.sh
-_only needed on first master server and on first configuration_
-chmod +x init-master.sh
-./init-master.sh
-```
+Kubernetes DaemonSet for Nuage installation
+===========================================
 
-Configure other Kubernetes Master servers
-------------------------------------------
+As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage components. DaemonSet will be responsible for installation & maintenance of containerized monitor (nuagekubemon) and containerized CNI plugin with containerized Nuage VRS on master and slave nodes respectively.
 
-1. Create /etc/kubernetes directory on the 2nd & 3rd Masters
-2. Copy the contents from the first Master in /etc/kubernetes directory to this Master in /etc/kubernetes directory
-3. Modify the master.env with the proper CURRENT_NODE value
-4. Set the Token value by getting the token from the first master using `kubeadm token list` command 
-5. Run the setup-master.sh script as shown below
+.. Note:: All Nuage services like nuagekubemon, CNI plugin and VRS will be operating as DaemonSet pods on master and slave nodes. This is the recommended method of installing Nuage components with Kubernetes.
 
-```
-_copy needed files from first master_
-_copy /etc/kubernetes/*_
-vim master.env
-chmod +x setup-master.sh
-./setup-master.sh
-```
-
-Configure the Kubernetes Nodes
-------------------------------
-
-1. Copy the contents from the node directory in this repository on all the nodes
-2. Copy the token from the master.env file and populate it in the worker.env file
-3. Set the correct SERVICE_SUBNET CIDR & POD_SUBNET CIDR
-4. Run the setup-worker.sh script as shown below
-
-```
-_Fill in node/cluster specific configuration_
-vim worker.env
-chmod +x setup-worker.sh
-./setup-worker.sh
-
-```
-
-# Pre-Installation Steps on VSD
-
+Pre-Installation Steps in VSD
+-----------------------------
 1. Login to VSD UI as csproot and create an Enterprise "kubernetes".
 
 2. Under the "kubernetes" Enterprise, create a user "k8s-admin" and add the user to the "Administrators" group.
 
-   .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide".
-   
+   .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide."
+
 3. Login to the VSD node using the CLI and execute the following command:
 
+    ::
 
          /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u k8s-admin -c k8s-admin -o kubernetes -f pem -t client -s root@<k8s-master-IP>:/usr/local/
          
@@ -103,31 +52,85 @@ chmod +x setup-worker.sh
 
 	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /usr/local/ or any specified directory of the k8s node where Ansible is run. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
 
-# Installing Nuage Kubernetes components using Daemonsets
+4. To complete the steps provided in the Kubeadm installer guide, go `here <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_. 
 
-As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage components. DaemonSet will be responsible for installation & maintenance of containerized monitor (nuagekubemon) and containerized CNI plugin with containerized Nuage VRS on master and slave nodes respectively.
+  .. Note:: Kubectl needs the kube config to be copied to a specific location after the master is initialized using kubeadm init. Ansible scripts used to install Nuage components also rely on kubectl being available to the ansible user. In order to achieve that, execute the following commands on the master node after kubeadm init:
+    ::
+          mkdir -p ~/.kube
+          cp /etc/kubernetes/admin.conf ~/.kube/config
+          chown "$(id -nu)": ~/.kube/config
+  
+5. Follow the steps 1, 2 & 4 of the document provided in the above link. For the pod network, install Nuage using the Ansible installer mentioned below. 
 
-.. Note:: All Nuage services like nuagekubemon, CNI plugin and VRS will be operating as DaemonSet pods on master and slave nodes. This is the recommended method of installing Nuage components with Kubernetes.
+  .. Note:: By default, Kubeadm uses 10.96.0.0/12 as the service CIDR. Make sure this service CIDR does not overlap with your existing underlay network CIDR. If it does then, please run step 2 from the above guide as follows so as to change the service CIDR:
+         kubeadm init --service-cidr=192.168.0.0/16 --kubernetes-version <k8s-version>
 
-# Installing Nuage Kubernetes components
+  .. Note:: With new version of Kubernetes, pod network is required by default and nodes won't move to ready state until pod network is installed. So, after kubeadm join is done on all nodes, your kubectl get nodes can be as follows:
 
-Clone the Nuage Ansible Git Repository
----------------------------------------
+  ::
+
+          kubectl get nodes
+          NAME                            STATUS     AGE       VERSION
+          ovs-1.test.nuagenetworks.com    NotReady   3h        v1.7.0
+          ovs-10.test.nuagenetworks.com   NotReady   3h        v1.7.0
+          ovs-2.test.nuagenetworks.com    NotReady   3h        v1.7.0
+          ovs-3.test.nuagenetworks.com    NotReady   3h        v1.7.0
+          ovs-4.test.nuagenetworks.com    NotReady   3h        v1.7.0
+          ovs-5.test.nuagenetworks.com    NotReady   3h        v1.7.0
+ 
+6. Update the cluster-dns in the 10-kubeadm.conf file on all nodes and master as follows:
+  
+    On the Node:
+    
+    ::
+        
+    	cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+    	[Service]
+        Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true"
+        Environment="KUBELET_SYSTEM_PODS_ARGS=--pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true"
+        Environment="KUBELET_DNS_ARGS=--cluster-dns=192.168.0.10 --cluster-domain=cluster.local"
+        Environment="KUBELET_AUTHZ_ARGS=--authorization-mode=Webhook --client-ca-file=/etc/kubernetes/pki/ca.crt"
+        Environment="KUBELET_CGROUP_ARGS=--cgroup-driver=systemd" 
+        ExecStart=
+        Environment="KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-bin-dir=/usr/bin/ --make-iptables-util-chains=false"
+        ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_SYSTEM_PODS_ARGS $KUBELET_NETWORK_ARGS $KUBELET_DNS_ARGS $KUBELET_EXTRA_ARGS $KUBELET_CGROUP_ARGS
+
+    
+    On the Master:
+    
+    ::
+    
+    	cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+        [Service]
+        Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true"
+        Environment="KUBELET_SYSTEM_PODS_ARGS=--pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true"
+        Environment="KUBELET_DNS_ARGS=--cluster-dns=192.168.0.10 --cluster-domain=cluster.local"
+        Environment="KUBELET_AUTHZ_ARGS=--authorization-mode=Webhook --client-ca-file=/etc/kubernetes/pki/ca.crt"
+        Environment="KUBELET_CGROUP_ARGS=--cgroup-driver=systemd" 
+        ExecStart=
+        Environment="KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-bin-dir=/usr/bin/ --make-iptables-util-chains=false"
+        ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_SYSTEM_PODS_ARGS $KUBELET_NETWORK_ARGS $KUBELET_DNS_ARGS $KUBELET_EXTRA_ARGS $KUBELET_CGROUP_ARGS
+
+  .. Note:: With new version of Kubernetes, KUBELET_CGROUP_ARGS are required to be added to ExecStart or else it will cause the kubelet to fail. The cgroup-driver can be set to cgroupfs or systemd depending on the driver used for docker installation. By default, its set to systemd
+    
+   This service CIDR also gets updated in another file as explained in the "Installation for a Single Master" section.
+
+Install Git Repository
+-----------------------
 
 You need to have Git installed on your Ansible host machine. Perform the following tasks:
 
 1. Access Git 
 2. Setup SSH and access the master and the minion nodes, using the **ssh** command.
+3. Clone the Ansible git repository, by entering the **git clone** command as shown in the example below and checkout the tag **nuage-kubernetes-<version>** corresponding to the VSP version. 
 
-   .. Note:: You do not need a password to use **ssh**.
-
-3. Clone the Ansible git repository, by entering the **git clone** command as shown in the example below and checkout the branch corresponding to the VSP version. 
-
-.. Note:: kubernetes HA install is supported in VSP version 5.0 & above  
+   ::
    
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
-        git checkout origin/<vsp-version> -b <vsp-version>
+        git checkout tags/v5.1.1-1
         cd nuage-kubernetes/ansible
+	
+  .. Note:: With new tag v5.1.1-1, rpm based install is not supported using ansible. Daemonsets is the recommended mode of installing Nuage components 
 
 
 4. Load the following docker images on your master node:
@@ -211,7 +214,7 @@ Make sure the **image** parameter is correctly set to the Nuagekubemon docker im
             # Name of the VSD user in admin group
             vsdUser: k8s-admin
             # REST server URL
-            nuageMonRestServer: https://<Load-balancer IP>:9443
+            nuageMonRestServer: https://<Master-Node-IP or hostname>:9443
             # Bridge name for the docker bridge
             dockerBridgeName: docker0
             # Certificate for connecting to the kubemon REST API
@@ -281,10 +284,12 @@ Make sure the **image** parameter is correctly set to the Nuage VRS and CNI dock
           image: nuage/cni:5.1.1
 
 
-Create the configuration for Ansible
--------------------------------------
+Installation for a Single Master 
+-----------------------------------
 
-Create a inventory file for Ansible configuration in the nuage-kubernetes/ansible/inventory directory with the contents shown below.
+Create a inventory file for Ansible configuration for a single master in the nuage-kubernetes/ansible/inventory directory with the contents shown below.
+
+::
 
     # Create an k8s group that contains the masters and nodes groups
     [k8s:children]
@@ -296,29 +301,8 @@ Create a inventory file for Ansible configuration in the nuage-kubernetes/ansibl
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
 
-    nuage_cluster_network_CIDR=70.70.0.0/16
+    nuage_cluster_network_CIDR=80.80.0.0/16
 
-    vsd_api_url=https://192.168.103.200:7443
-    vsp_version=v5_0
-    enterprise=kubernetes
-    domain=Kubernetes
-    
-    vsc_active_ip=10.168.103.201
-    vsc_standby_ip=10.168.103.202
-    uplink_interface=eth0
-    nuage_host_subnet_length=10
-    nuage_cluster_network_CIDR=70.70.0.0/16
-
-    nuage_monitor_rpm=http://172.22.61.12/Kubernetes/RPMS/x86_64/nuagekubemon-5.0.x.el7.centos.x86_64.rpm
-    vrs_rpm=http://172.22.61.12/Kubernetes/RPMS/x86_64/nuage-openvswitch-5.0.x.x86_64.rpm
-    plugin_rpm=http://172.22.61.12/Kubernetes/RPMS/x86_64/nuage-cni-k8s-5.0.x.el7.centos.x86_64.rpm
-    
-    # Complete local host path to the k8S loopback CNI plugin
-    k8s_cni_loopback_plugin=/tmp/loopback
-    
-    # VSD user in the admin group
-    vsd_user=k8s-admin
-    
     # Complete local host path to the VSD user certificate file
     vsd_user_cert_file=/usr/local/k8s-admin.pem
     # Complete local host path to the VSD user key file
@@ -334,77 +318,40 @@ Create a inventory file for Ansible configuration in the nuage-kubernetes/ansibl
     
     # host group for masters
     [masters]
-    master1.k8s.test.com
-    master2.k8s.test.com
-    master3.k8s.test.com
+    master.nuageKubernetes.com
     
     # host group for nodes, includes region info
     [nodes]
-    node1.k8s.test.com
-    node2.k8s.test.com
-    node3.k8s.test.com
-    master1.k8s.test.com
-    master2.k8s.test.com
-    master3.k8s.test.com
-      
-    # host group for etcd cluster
-    [etcd]
-    etcd1.k8s.test.com
-    etcd2.k8s.test.com
-    etcd3.k8s.test.com
-        
-    # host group for LB
-    [lb]
-    lb.k8s.test.com
+    node1.nuageKubernetes.com
+    node2.nuageKubernetes.com
+    master.nuageKubernetes.com
+     
 
-
-Modify the kube_service_addresses in the  nuage-kubernetes/ansible/inventory/group_vars/all.yml file to the service CIDR used to initialize the cluster.If any service CIDR is not specified during install, then kube_service_addresses should be updated to 10.96.0.0/12 which is the default service CIDR used by kubeadm. Also, configure the LB node as decribed in the section above
-
-
-    # Kubernetes internal network for services.
-    # Kubernetes services will get fake IP addresses from this range.
-    # This range must not conflict with anything in your infrastructure. These
-    # addresses do not need to be routable and must just be an unused block of space.
-    # kube_service_addresses: 192.168.0.0/16
-
-Installing the VSP Components 
-------------------------------
-
-This will install the following Nuage components:
-
- - Nuage Kubernetes Monitor (nuagekubemon) on the Kubernetes Masters
- - VRS on the Kubernetes Nodes
- - Nuage CNI plugin on the Kubernetes Nodes
-
-This will also generate the certificates required for communication between the CNI plugin and nuagekubemon.
+Installing the VSP Components for the Single Master
+----------------------------------------------------
 
 1. Make sure you are in the nuage-kubernetes/ansible directory. 
 2. Run the following command to install the VSP components:
 
+   ::
    
-   ```
       cd nuage-kubernetes/ansible/scripts
       ./deploy-cluster.sh --tags=nuage
-   ```
  
   A successful installation displays the following output:
+   ::
    
-       2017-07-11 22:01:49,891 p=16545 u=root |  PLAY RECAP *********************************************************************
-       2017-07-11 22:01:49,892 p=16545 u=root |  localhost : ok=20   changed=0   unreachable=0  failed=0
-       2017-07-11 22:01:49,892 p=16545 u=root |  master1.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
-       2017-07-11 22:01:49,893 p=16545 u=root |  master2.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
-       2017-07-11 22:01:49,894 p=16545 u=root |  master3.k8s.test.com : ok=247  changed=22  unreachable=0  failed=0
-       2017-07-11 22:01:49,895 p=16545 u=root |  node1.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-       2017-07-11 22:01:49,896 p=16545 u=root |  node2.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-       2017-07-11 22:01:49,897 p=16545 u=root |  node3.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-       2017-07-11 22:01:49,895 p=16545 u=root |  etcd1.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-       2017-07-11 22:01:49,896 p=16545 u=root |  etcd2.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
-       2017-07-11 22:01:49,897 p=16545 u=root |  etcd3.k8s.test.com : ok=111  changed=21  unreachable=0  failed=0
        
-3. Verify that the Master-Node connectivity is up and all nodes are running using the following command on the master:
+       2016-02-11 22:01:49,891 p=16545 u=root |  PLAY RECAP *********************************************************************
+       2016-02-11 22:01:49,892 p=16545 u=root |  localhost                : ok=20   changed=0   unreachable=0  failed=0
+       2016-02-11 22:01:49,892 p=16545 u=root |  master.nuageKubernetes.com: ok=247  changed=22  unreachable=0  failed=0
+       2016-02-11 22:01:49,893 p=16545 u=root |  node1.nuageKubernetes.com : ok=111  changed=21  unreachable=0  failed=0
+       2016-02-11 22:01:49,894 p=16545 u=root |  node2.nuageKubernetes.com : ok=111  changed=21  unreachable=0  failed=0
+       
+3. Verify that the Master-Node connectivity is up and all nodes are running:
 
-      `kubectl get nodes`       
-      
-
-
+   ::
+   
+      kubectl get nodes       
+     
 
