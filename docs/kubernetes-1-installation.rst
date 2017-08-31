@@ -56,9 +56,9 @@ Pre-Installation Steps in VSD
 
   .. Note:: Kubectl needs the kube config to be copied to a specific location after the master is initialized using kubeadm init. Ansible scripts used to install Nuage components also rely on kubectl being available to the ansible user. In order to achieve that, execute the following commands on the master node after kubeadm init:
     ::
-          mkdir -p ~/.kube
-          cp /etc/kubernetes/admin.conf ~/.kube/config
-          chown "$(id -nu)": ~/.kube/config
+          sudo mkdir -p ~/.kube
+          sudo cp /etc/kubernetes/admin.conf ~/.kube/config
+          sudo chown $(id -u):$(id -g) $HOME/.kube/config
   
 5. Follow the steps 1, 2 & 4 of the document provided in the above link. For the pod network, install Nuage using the Ansible installer mentioned below. 
 
@@ -71,12 +71,12 @@ Pre-Installation Steps in VSD
 
           kubectl get nodes
           NAME                            STATUS     AGE       VERSION
-          ovs-1.test.nuagenetworks.com    NotReady   3h        v1.7.0
-          ovs-10.test.nuagenetworks.com   NotReady   3h        v1.7.0
-          ovs-2.test.nuagenetworks.com    NotReady   3h        v1.7.0
-          ovs-3.test.nuagenetworks.com    NotReady   3h        v1.7.0
-          ovs-4.test.nuagenetworks.com    NotReady   3h        v1.7.0
-          ovs-5.test.nuagenetworks.com    NotReady   3h        v1.7.0
+          ovs-1.test.nuagenetworks.com    NotReady   3h        v1.7.4
+          ovs-10.test.nuagenetworks.com   NotReady   3h        v1.7.4
+          ovs-2.test.nuagenetworks.com    NotReady   3h        v1.7.4
+          ovs-3.test.nuagenetworks.com    NotReady   3h        v1.7.4
+          ovs-4.test.nuagenetworks.com    NotReady   3h        v1.7.4
+          ovs-5.test.nuagenetworks.com    NotReady   3h        v1.7.4
  
 6. Update the cluster-dns in the 10-kubeadm.conf file on all nodes and master as follows:
   
