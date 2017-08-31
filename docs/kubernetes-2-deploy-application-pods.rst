@@ -30,7 +30,7 @@ The nuagekubemon creates a zone and subnet for each namespace in the Kubernetes 
         kubectl run my-nginx --image=nginx --replicas=2 --port=80
         
 
-2. Deploy the `kubernetes Guestbook app as described in <http://thockin.github.io/kubernetes/v1.0/examples/guestbook-go/README.html>`_. 
+2. Deploy the `kubernetes Guestbook app as described in this link <https://kubernetes.io/docs/tutorials/stateless-application/guestbook/>`_. 
 
     The following example shows how to build a simple multi-tier web application using Kubernetes and Docker. The application consists of a web front-end, Redis master for storage, and replicated set of Redis slaves, all for which you need to create Kubernetes replication controllers, pods, and services.
 
