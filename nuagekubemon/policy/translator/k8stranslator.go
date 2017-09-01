@@ -101,6 +101,9 @@ func CreateNuagePGPolicy(
 				defaultPolicyElements = append(defaultPolicyElements, defaultPolicyElement)
 			} else {
 				for idx, targetPort := range ingressRule.Ports {
+					if targetPort.Port == nil {
+						return nil, fmt.Errorf("Received nil value for port number for non-nil ports section")
+					}
 					port := targetPort.Port.IntValue()
 					targetProtocol := policies.TCP
 					if *targetPort.Protocol == kapi.ProtocolUDP {
