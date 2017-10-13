@@ -35,9 +35,10 @@ import (
 )
 
 type NuageKubeMonitor struct {
-	mConfig    config.NuageKubeMonConfig
-	mVsdClient *client.NuageVsdClient
-	mOsClient  *client.NuageClusterClient
+	mConfig     config.NuageKubeMonConfig
+	mVsdClient  *client.NuageVsdClient
+	mOsClient   *client.NuageClusterClient
+	metcdClient *client.NuageEtcdClient
 	//mOsNodeClient nuageosnodeclient.NuageOsNodeClient
 }
 
@@ -101,6 +102,7 @@ func (nkm *NuageKubeMonitor) LoadConfig() error {
 }
 
 func (nkm *NuageKubeMonitor) Run() {
+	var err error
 	programName := path.Base(os.Args[0])
 	glog.Infof("Starting %s...", programName)
 	defer glog.Flush() //Flush logs when the monitor exits
@@ -116,20 +118,24 @@ func (nkm *NuageKubeMonitor) Run() {
 			programName))
 		return
 	}
+	if nkm.metcdClient, err = client.NewNuageEtcdClient(&nkm.mConfig); err != nil {
+		glog.Errorf("Creating etcd client failed with error: %v", err)
+		return
+	}
+
+	etcdChannel := make(chan *api.EtcdEvent)
+
 	nkm.mOsClient = client.NewNuageOsClient(&(nkm.mConfig))
-	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig), nkm.mOsClient.GetClusterClientCallBacks())
-	//nkm.mOsNodeClient = client.NuageOsNodeClient(nkm.mConfig)
+	nkm.mVsdClient = client.NewNuageVsdClient(&(nkm.mConfig), nkm.mOsClient.GetClusterClientCallBacks(), etcdChannel)
 	stop := make(chan bool)
 	nsEventChannel := make(chan *api.NamespaceEvent)
 	serviceEventChannel := make(chan *api.ServiceEvent)
-	podEventChannel := make(chan *api.PodEvent)
 	policyEventChannel := make(chan *api.NetworkPolicyEvent)
-	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, podEventChannel, policyEventChannel, stop)
-	nkm.mOsClient.GetExistingEvents(nsEventChannel, serviceEventChannel, podEventChannel, policyEventChannel)
+	go nkm.metcdClient.Run(etcdChannel)
+	go nkm.mVsdClient.Run(nsEventChannel, serviceEventChannel, policyEventChannel, stop)
+	nkm.mOsClient.GetExistingEvents(nsEventChannel, serviceEventChannel, policyEventChannel)
 	go nkm.mOsClient.RunNamespaceWatcher(nsEventChannel, stop)
 	go nkm.mOsClient.RunServiceWatcher(serviceEventChannel, stop)
-	//go nkm.mOsClient.RunPodWatcher(podEventChannel, stop)
 	go nkm.mOsClient.RunNetworkPolicyWatcher(policyEventChannel, stop)
-	//go nkm.mOsNodeClient.Run()
 	select {}
 }

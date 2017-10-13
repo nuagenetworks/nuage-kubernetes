@@ -31,10 +31,10 @@ import (
 	"github.com/rfredette/sleepy"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
-	"net/url"
 )
 
 type NuageVsdClient struct {
@@ -44,6 +44,7 @@ type NuageVsdClient struct {
 	enterpriseID                       string
 	domainID                           string
 	namespaces                         map[string]NamespaceData //namespace name -> namespace data
+	services                           map[string]ServiceData   //namespance name -> service data
 	pods                               *PodList                 //<namespace>/<pod-name> -> subnet
 	pool                               IPv4SubnetPool
 	clusterNetwork                     *IPv4Subnet //clusterNetworkCIDR used to generate pool
@@ -56,19 +57,23 @@ type NuageVsdClient struct {
 	subnetSize                         int         //the size in bits of the subnets we allocate (i.e. size 8 produces /24 subnets).
 	restAPI                            *sleepy.API //TODO: split the rest server into its own package
 	restServer                         *http.Server
-	newSubnetQueue                     chan config.NamespaceUpdateRequest //list of namespaces that need new subnets
+	podChannel                         chan *api.PodEvent //list of namespaces that need new subnets
 	privilegedProjectName              string
 	resourceManager                    *policy.ResourceManager
+	etcdChannel                        chan *api.EtcdEvent
 }
 
 type NamespaceData struct {
-	ZoneID              string
-	Name                string
+	ZoneID         string
+	Name           string
+	Subnets        *SubnetNode
+	NeedsNewSubnet bool
+	numSubnets     int //used for naming new subnets (nsname-0, nsname-1, etc.)
+}
+
+type ServiceData struct {
 	NetworkMacroGroupID string
 	NetworkMacros       map[string]string //service name (qualified with the namespace) -> network macro id
-	Subnets             *SubnetNode
-	NeedsNewSubnet      bool
-	numSubnets          int //used for naming new subnets (nsname-0, nsname-1, etc.)
 }
 
 type SubnetNode struct {
@@ -79,9 +84,9 @@ type SubnetNode struct {
 	Next       *SubnetNode
 }
 
-func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) *NuageVsdClient {
+func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdChannel chan *api.EtcdEvent) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
-	nvsdc.Init(nkmConfig, clusterCallBacks)
+	nvsdc.Init(nkmConfig, clusterCallBacks, etcdChannel)
 	return nvsdc
 }
 
@@ -90,7 +95,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises"
+	reqUrl := nvsdc.url + "enterprises"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -146,7 +151,7 @@ func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile stri
 	nvsdc.session.Header.Add("Connection", "close")
 }
 
-func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks) {
+func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdChannel chan *api.EtcdEvent) {
 	cb := &policy.CallBacks{
 		AddPg:             nvsdc.CreatePolicyGroup,
 		DeletePg:          nvsdc.DeletePolicyGroup,
@@ -155,6 +160,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	}
 	var err error
 	nvsdc.version = nkmConfig.NuageVspVersion
+	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
@@ -186,7 +192,8 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	// Free()-ing it.
 	nvsdc.pool.Free(nvsdc.clusterNetwork)
 	nvsdc.namespaces = make(map[string]NamespaceData)
-	nvsdc.newSubnetQueue = make(chan config.NamespaceUpdateRequest)
+	nvsdc.services = make(map[string]ServiceData)
+	nvsdc.podChannel = make(chan *api.PodEvent)
 
 	//initialize the resource manager
 	vsdMeta := make(policy.VsdMetaData)
@@ -202,7 +209,8 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		nvsdc.resourceManager = rm
 	}
 
-	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.newSubnetQueue, nvsdc.resourceManager.GetPolicyGroupsForPod)
+	nvsdc.pods = NewPodList(nvsdc.namespaces, nvsdc.podChannel,
+		nvsdc.resourceManager.GetPolicyGroupsForPod, nkmConfig.AutoScaleSubnets)
 
 	nvsdc.CreateSession(nkmConfig.UserCertificateFile, nkmConfig.UserKeyFile)
 	nvsdc.nextAvailablePriority = 0
@@ -333,7 +341,7 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 		Description: "Auto-generated default domain template",
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domaintemplates"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -364,7 +372,7 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domaintemplates"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domaintemplates"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -397,7 +405,7 @@ func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"domains/"+domainID+"/ingressacltemplates"
+	reqUrl := nvsdc.url + "domains/" + domainID + "/ingressacltemplates"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -458,7 +466,7 @@ func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.V
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"domains/"+domainID+"/egressacltemplates"
+	reqUrl := nvsdc.url + "domains/" + domainID + "/egressacltemplates"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -596,7 +604,7 @@ func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress boo
 	if !ingress {
 		restpath = "/egressacltemplates"
 	}
-	reqUrl := nvsdc.url+"domains/"+domainID+restpath
+	reqUrl := nvsdc.url + "domains/" + domainID + restpath
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -645,7 +653,7 @@ func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, pri
 		} else {
 			return id, nil
 		}
-		reqUrl := nvsdc.url+"domains/"+domainID+restpath
+		reqUrl := nvsdc.url + "domains/" + domainID + restpath
 		resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 		logPOSTRequest(reqUrl, payload)
 		logPOSTResponse(resp, &e)
@@ -925,7 +933,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"domains/"+domainID+"/zones"
+	reqUrl := nvsdc.url + "domains/" + domainID + "/zones"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -962,7 +970,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		PATEnabled:  api.PATDisabled,
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domains"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domains"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -1013,7 +1021,7 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 		Description: "Auto-generated zone for project \"" + name + "\"",
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"domains/"+domainID+"/zones"
+	reqUrl := nvsdc.url + "domains/" + domainID + "/zones"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -1069,7 +1077,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 		PATEnabled:  api.PATInherited,
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"zones/"+zoneID+"/subnets"
+	reqUrl := nvsdc.url + "zones/" + zoneID + "/subnets"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -1121,7 +1129,7 @@ func (nvsdc *NuageVsdClient) GetSubnet(zoneID, subnetName string) (*api.VsdSubne
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+subnetName+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"zones/"+zoneID+"/subnets"
+	reqUrl := nvsdc.url + "zones/" + zoneID + "/subnets"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -1156,7 +1164,7 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/domains"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domains"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -1200,7 +1208,7 @@ func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.Container
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	for {
 		nvsdc.session.Header.Add("X-Nuage-Filter", `name == "`+podName+`"`)
-		reqUrl := nvsdc.url+"domains/"+nvsdc.domainID+"/containers"
+		reqUrl := nvsdc.url + "domains/" + nvsdc.domainID + "/containers"
 		var params *url.Values
 		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 		logGETRequest(reqUrl, params)
@@ -1262,7 +1270,7 @@ func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.Containe
 	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	for {
-		reqUrl := nvsdc.url+"containers/"+containerId+"/containerinterfaces"
+		reqUrl := nvsdc.url + "containers/" + containerId + "/containerinterfaces"
 		var params *url.Values
 		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 		logGETRequest(reqUrl, params)
@@ -1331,7 +1339,7 @@ func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgId string, podsList []string
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	glog.Infof("Got the following vports %s to add to the policy group", vportsList)
 	for {
-		reqUrl := nvsdc.url+"policygroups/"+pgId+"/vports"
+		reqUrl := nvsdc.url + "policygroups/" + pgId + "/vports"
 		var params *url.Values
 		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 		logGETRequest(reqUrl, params)
@@ -1418,7 +1426,7 @@ func (nvsdc *NuageVsdClient) GetPolicyGroup(name string) (string, error) {
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups"
+	reqUrl := nvsdc.url + "domains/" + nvsdc.domainID + "/policygroups"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -1448,7 +1456,7 @@ func (nvsdc *NuageVsdClient) CreatePolicyGroup(name string, description string) 
 		Type:        "SOFTWARE",
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"domains/"+nvsdc.domainID+"/policygroups"
+	reqUrl := nvsdc.url + "domains/" + nvsdc.domainID + "/policygroups"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -1490,7 +1498,7 @@ func (nvsdc *NuageVsdClient) DeletePolicyGroup(id string) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, podChannel chan *api.PodEvent, policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
+func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
 	//we will use the kube client APIs than interfacing with the REST API
 	for {
 		select {
@@ -1498,97 +1506,150 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 			nvsdc.HandleNsEvent(nsEvent)
 		case serviceEvent := <-serviceChannel:
 			nvsdc.HandleServiceEvent(serviceEvent)
-		case podEvent := <-podChannel:
-			nvsdc.HandlePodEvent(podEvent)
 		case policyEvent := <-policyChannel:
 			nvsdc.HandleNetworkPolicyEvent(policyEvent)
-		case nsUpdateReq := <-nvsdc.newSubnetQueue:
-			switch nsUpdateReq.Event {
-			case config.AddSubnet:
-				nvsdc.CreateAdditionalSubnet(nsUpdateReq.NamespaceID)
-			}
+		case podEvent := <-nvsdc.podChannel:
+			subnet, err := nvsdc.HandlePodEvent(podEvent)
+			podEvent.RespChan <- &api.PodEventResp{Data: subnet, Error: err}
 		}
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(namespaceID string) {
-	glog.Infof("Got request to create subnet in namespace %q", namespaceID)
-	nvsdc.pods.editLock.Lock()
-	defer nvsdc.pods.editLock.Unlock()
-	namespace, exists := nvsdc.namespaces[namespaceID]
-	if !exists {
-		glog.Warningf("Got event to update namespace %q, but no namespace "+
-			"found with that name", namespaceID)
-		return
+func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, podEvent *api.PodEvent) error {
+	var subnet *IPv4Subnet
+	var err error
+
+	//create the new subnet
+	namespace, ok := nvsdc.namespaces[podEvent.Namespace]
+	if !ok {
+		return fmt.Errorf("Uknown state. %s ns should be cached by now", podEvent.Namespace)
 	}
-	subnetName := namespace.Name + "-" + strconv.Itoa(namespace.numSubnets)
-	glog.Infof("Creating subnet %q", subnetName)
-	subnet, err := nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
-	if err != nil {
-		glog.Warningf(
-			"Error allocating new subnet for namespace %s: %s",
-			namespace.Name, err.Error())
-		// Even though we failed to allocate a new subnet, remove the
-		// NeedsNewSubnet flag so that a new subnet can be requested again.
-		namespace.NeedsNewSubnet = false
-		nvsdc.namespaces[namespaceID] = namespace
-		return
-	}
+
 	for {
-		// Release the lock while we wait for the VSD response
-		nvsdc.pods.editLock.Unlock()
-		subnetID, err := nvsdc.CreateSubnet(subnetName, namespace.ZoneID, subnet)
-		nvsdc.pods.editLock.Lock()
-		// Reacquire it before we edit the namespace again
-		if err == nil {
-			// Step through the existing list to get to the tail
-			subnetNode := namespace.Subnets
-			for subnetNode.Next != nil {
-				subnetNode = subnetNode.Next
+		subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+		if err != nil {
+			glog.Errorf("Allocating subnet from pool failed: %v", err)
+			return err
+		}
+
+		etcdSubnet := &api.EtcdSubnetMetadata{Name: subnetName, CIDR: subnet.String(), Namespace: podEvent.Namespace}
+		resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAllocSubnetCIDR, etcdSubnet)
+		if resp.Error != nil {
+			nvsdc.pool.Free(subnet)
+			glog.Errorf("Allocating subnet in etcd failed: %v", resp.Error)
+			return resp.Error
+		}
+		if resp.EtcdData.(string) == "" {
+			id, err := nvsdc.CreateSubnet(subnetName, namespace.ZoneID, subnet)
+			if err != nil && err.Error() == "Overlapping Subnet" {
+				continue
+			} else if err != nil {
+				nvsdc.pool.Free(subnet)
+				return err
 			}
-			// Then add the new subnet at the end of the list
-			subnetNode.Next = &SubnetNode{
-				SubnetID:   subnetID,
-				Subnet:     subnet,
-				SubnetName: subnetName,
-				ActiveIPs:  0,
-				Next:       nil,
+			subnetMetadata := &api.EtcdSubnetMetadata{
+				ID:        id,
+				CIDR:      subnet.String(),
+				Namespace: podEvent.Namespace,
+				Name:      subnetName,
 			}
-			namespace.numSubnets++
-			namespace.NeedsNewSubnet = false
-			nvsdc.namespaces[namespaceID] = namespace
-			glog.Infof("Successfully created subnet %q", subnetName)
-			return
-		} else if err.Error() == "Overlapping Subnet" {
-			// If this subnet overlaps with one in the VSD, don't return
-			// it to the pool (since it won't work anyway), but get a
-			// new subnet and retry.
-			subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
-			if err != nil {
-				glog.Warningf(
-					"Error allocating new subnet for namespace %s: %s",
-					namespace.Name, err.Error())
-				return
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateSubnetID, subnetMetadata)
+			if resp.Error != nil {
+				glog.Errorf("Updating subnet id(%s) in etcd failed: %v", id, resp.Error)
+				return resp.Error
 			}
-		} else {
-			glog.Warningf(
-				"Error allocating new subnet for namespace %s: %s",
-				namespace.Name, err.Error())
-			return
+			return nil
 		}
 	}
+	return nil
 }
 
-func (nvsdc *NuageVsdClient) HandlePodEvent(podEvent *api.PodEvent) error {
+func (nvsdc *NuageVsdClient) HandlePodAddEvent(podEvent *api.PodEvent) (string, error) {
+	podMetadata := &api.EtcdPodMetadata{
+		PodName:       podEvent.Name,
+		NamespaceName: podEvent.Namespace,
+	}
+	resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdIncActiveIPCount, podMetadata)
+	if resp.Error != nil {
+		glog.Errorf("incrementing ip count in etcd failed: %v", resp.Error)
+		return "", resp.Error
+	}
+	podSubnet := resp.EtcdData.(*api.EtcdPodSubnet)
+
+	if podSubnet.ToCreate != "" {
+		glog.Infof("received a new subnet(%s) from etcd. creating it on vsd", podSubnet.ToCreate)
+
+		if err := nvsdc.CreateAdditionalSubnet(podSubnet.ToCreate, podEvent); err != nil {
+			glog.Errorf("Creating additional subnet(%s) failed: %v", podSubnet.ToCreate, err)
+
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdDecActiveIPCount, podMetadata)
+			if resp.Error != nil {
+				glog.Errorf("decrementing ip count failed: %v", resp.Error)
+			}
+			return "", err
+		}
+
+	}
+
+	//TODO: we can speed things up if we can maintain local cache for this
+	subnet := &api.EtcdSubnetMetadata{Name: podSubnet.ToUse, Namespace: podEvent.Namespace}
+	resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdGetSubnetID, subnet)
+	if resp.Error != nil {
+		glog.Errorf("fetching subnet id from etcd failed: %v", resp.Error)
+		return "", resp.Error
+	}
+
+	return podSubnet.ToUse, nil
+}
+
+func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
+	podMetadata := &api.EtcdPodMetadata{
+		PodName:       podEvent.Name,
+		NamespaceName: podEvent.Namespace,
+	}
+	resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdDecActiveIPCount, podMetadata)
+	if resp.Error != nil {
+		glog.Errorf("decrementing ip count in etcd failed: %v", resp.Error)
+		return resp.Error
+	}
+	emptySubnets := resp.EtcdData.([]*api.EtcdSubnetMetadata)
+
+	for _, subnetInfo := range emptySubnets {
+		//delete subnet on vsd
+		if err := nvsdc.DeleteSubnet(subnetInfo.ID); err != nil {
+			glog.Errorf("delete subnet(%s) failed: %v", subnetInfo.ID, err)
+		}
+		//release cidr from local pool
+		subnet, err := IPv4SubnetFromString(subnetInfo.CIDR)
+		if err != nil {
+			glog.Errorf("subnet cidr from string(%s) failed: %v", subnetInfo.CIDR, err)
+			continue
+		}
+		if err := nvsdc.pool.Free(subnet); err != nil {
+			glog.Errorf("free subnet cidr(%s) failed: %v", subnet.String(), err)
+		}
+		//release cidr in etcd
+		etcdSubnet := &api.EtcdSubnetMetadata{CIDR: subnetInfo.CIDR}
+		resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdFreeSubnetCIDR, etcdSubnet)
+		if resp.Error != nil {
+			glog.Errorf("etcd free subnet cidr(%s) failed: %v", subnetInfo.CIDR, resp.Error)
+		}
+	}
+
+	return nil
+}
+
+func (nvsdc *NuageVsdClient) HandlePodEvent(podEvent *api.PodEvent) (string, error) {
 	glog.Infoln("Received a pod event: Pod: ", podEvent)
 	switch podEvent.Type {
 	case api.Added:
 		glog.Infof("Pod: %s was added", podEvent.Name)
+		return nvsdc.HandlePodAddEvent(podEvent)
 	case api.Deleted:
 		glog.Infof("Pod: %s was deleted", podEvent.Name)
-
+		return "", nvsdc.HandlePodDelEvent(podEvent)
 	}
-	return nil
+	return "", nil
 }
 
 func (nvsdc *NuageVsdClient) HandleNetworkPolicyEvent(policyEvent *api.NetworkPolicyEvent) error {
@@ -1624,7 +1685,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 			}
 		}
 		if v, exists := serviceEvent.NuageLabels[`zone`]; exists {
-			if _, exists = nvsdc.namespaces[v]; exists {
+			if _, exists = nvsdc.services[v]; exists {
 				if v != serviceEvent.Namespace {
 					//label specified for a zone that is managed by nuagekubemon but for a different namespace
 					glog.Errorf("Not authorized to create a service with zone label %v, in namespace %v", v, serviceEvent.Namespace)
@@ -1638,7 +1699,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		}
 		//default to using the validated zone's network macro group; if no specific labels are present.
 		if nmgID == "" {
-			nmgID = nvsdc.namespaces[zone].NetworkMacroGroupID
+			nmgID = nvsdc.services[zone].NetworkMacroGroupID
 			//if we don't have a cached version, get the ID from the VSD
 			if nmgID == "" {
 				nmgID, err = nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, "Service Group For Zone - "+zone)
@@ -1658,7 +1719,10 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 			glog.Error("Error when creating the network macro for service", serviceEvent)
 		} else {
 			//add the network macro to the cached datastructure and also to the network macro group obtained via labels/default group
-			nvsdc.namespaces[serviceEvent.Namespace].NetworkMacros[serviceEvent.Name] = networkMacroID
+			if _, exists := nvsdc.services[serviceEvent.Namespace]; !exists {
+				nvsdc.services[serviceEvent.Namespace] = ServiceData{NetworkMacros: make(map[string]string)}
+			}
+			nvsdc.services[serviceEvent.Namespace].NetworkMacros[serviceEvent.Name] = networkMacroID
 			if !userSpecifiedZone {
 				err = nvsdc.AddNetworkMacroToNMG(networkMacroID, nmgID)
 				if err != nil {
@@ -1668,14 +1732,14 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 		}
 	case api.Deleted:
 		zone := serviceEvent.Namespace
-		if _, exists := nvsdc.namespaces[zone]; exists {
-			if nmID, exists := nvsdc.namespaces[zone].NetworkMacros[serviceEvent.Name]; exists {
+		if _, exists := nvsdc.services[zone]; exists {
+			if nmID, exists := nvsdc.services[zone].NetworkMacros[serviceEvent.Name]; exists {
 				err := nvsdc.DeleteNetworkMacro(nmID)
 				if err != nil {
 					glog.Error("Error when deleting network macro with ID: ", nmID)
 					return err
 				} else {
-					delete(nvsdc.namespaces[zone].NetworkMacros, nmID)
+					delete(nvsdc.services[zone].NetworkMacros, nmID)
 				}
 			} else {
 				glog.Warning("Could not retrieve network macro ID for the service that is being deleted", serviceEvent)
@@ -1689,156 +1753,90 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
-	//handle annotations
-	nvsdc.resourceManager.HandleNsEvent(nsEvent)
 	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
 		fallthrough
 	case api.Modified:
-		var namespace NamespaceData
-		var namespaceExists bool
-		namespace, namespaceExists = nvsdc.namespaces[nsEvent.Name]
-		if !namespaceExists {
+		namespace, exists := nvsdc.namespaces[nsEvent.Name]
+		if !exists {
+			namespace := NamespaceData{
+				Name: nsEvent.Name,
+			}
+
+			zoneMetadata := &api.EtcdZoneMetadata{Name: nsEvent.Name}
+			resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAddZone, zoneMetadata)
+			if resp.Error != nil {
+				glog.Errorf("creating zone %s in failed: %v", nsEvent.Name, resp.Error)
+				return resp.Error
+			}
+			if resp.EtcdData.(string) != "" {
+				glog.Infof("zone %s is already created in etcd", nsEvent.Name)
+				namespace.ZoneID = resp.EtcdData.(string)
+				nvsdc.namespaces[nsEvent.Name] = namespace
+				return nil
+			}
+			//if it is not present in etcd, that means it is a new namespace
+			//handle annotations
+			nvsdc.resourceManager.HandleNsEvent(nsEvent)
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
 			}
-			namespace = NamespaceData{
-				ZoneID:        zoneID,
-				Name:          nsEvent.Name,
-				NetworkMacros: make(map[string]string),
+			zoneMetadata = &api.EtcdZoneMetadata{Name: nsEvent.Name, ID: zoneID}
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateZone, zoneMetadata)
+			if resp.Error != nil {
+				glog.Errorf("updating zone(%s) with id(%s) failed: %v", nsEvent.Name, zoneID, err)
 			}
+			namespace.ZoneID = zoneID
 			nvsdc.namespaces[nsEvent.Name] = namespace
-		}
-		var subnetID string
-		var subnet *IPv4Subnet
-		var deletedSubnet *IPv4Subnet
-		subnetSize := nvsdc.subnetSize
-		if nsSubnetSize, labelExists := nsEvent.Labels["nuage.io/ns_subnet_size"]; labelExists {
-			glog.Infoln("Subnet size label present: ", nsSubnetSize);
-			size, err := strconv.Atoi(nsSubnetSize)
-			if err == nil && size > 0 && size < 32 {
-				subnetSize = size
-			} else {
-				return errors.New("Invalid subnet size. Expected between /0 and /32")
-			}
-		}
-		// Check if subnet already exists
-		subnetName := nsEvent.Name + "-0"
-		vsdSubnet, err := nvsdc.GetSubnet(namespace.ZoneID, subnetName)
-		var currentSubnetSize int
-		var needToCreateSubnet bool
-		if err != nil {
-			if err.Error() == "Subnet not found" {
-				needToCreateSubnet = true
-				glog.Infoln("Subnet ", subnetName, " not found.");
-			} else {
-				// There was an error, but it wasn't "Subnet not found".
-				// Abort with that error.
-				glog.Errorf("Received error %v when trying to get subnet %s", err, subnetName)
-				return err
-			}
-		} else {
-			subnet, err = IPv4SubnetFromAddrNetmask(vsdSubnet.Address,
-				vsdSubnet.Netmask)
-			if err != nil {
-				glog.Errorf("Received error %v", err)
-				return err
-			}
-			// If current subnet size is not same as the size given in labels
-			currentSubnetSize = 32 - subnet.CIDRMask
-			if currentSubnetSize != subnetSize {
-				if err = nvsdc.DeleteSubnet(vsdSubnet.ID); err != nil {
-					glog.Warningf("Failed to delete subnet %q in zone %q",
-						vsdSubnet.ID, nsEvent.Name)
-					return err
-				}
-				deletedSubnet = subnet
-				err = nvsdc.pool.Free(subnet)
-				if err != nil {
-					glog.Warningf("Failed to free subnet %q from zone %q with error %v",
-						subnet.String(), nsEvent.Name, err)
-				}
-				needToCreateSubnet = true
-			}
-		}
-		if needToCreateSubnet {
-			// If it didn't exist, allocate an appropriate subnet, then
-			// create it
-			// subnetSize is guaranteed to be between 0 and 32
-			// (inclusive) by the Init() function defined above, so
-			// (32 - subnetSize) will also produce a number between 0
-			// and 32 (inclusive)
-			subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
-			if err != nil {
-				glog.Errorf("Received error %v while trying to allocate Subnet space", err)
-				if deletedSubnet == nil {
-					return err
-				}
-				subnet = deletedSubnet
-
-			}
+			var subnet *IPv4Subnet
+			// now create a default sunbet for this zone
+			subnetName := nsEvent.Name + "-0"
 			for {
-				subnetID, err = nvsdc.CreateSubnet(subnetName, namespace.ZoneID,
-					subnet)
-				if err == nil {
-					break
-				} else if err.Error() == "Overlapping Subnet" {
-					// If the error was "Overlapping Subnet," get a new
-					// subnet and retry
-					subnet, err = nvsdc.pool.Alloc(32 - subnetSize)
-					if err != nil {
-						return errors.New(
-							"Error getting subnet for allocation: " +
-								err.Error())
-					}
-				} else {
-					// Only free the subnet if it wasn't overlapping so
-					// that overlapping subnets are not retried
-					err = nvsdc.pool.Free(subnet)
-					if err != nil {
-						glog.Warningf("Failed to free subnet %q from zone %q with error %v",
-							subnet.String(), nsEvent.Name, err)
-					}
-					if(deletedSubnet == subnet) {
+				subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
+				if err != nil {
+					return err
+				}
+				etcdSubnet := &api.EtcdSubnetMetadata{CIDR: subnet.String(), Name: subnetName, Namespace: nsEvent.Name}
+				resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAllocSubnetCIDR, etcdSubnet)
+				if resp.Error != nil {
+					nvsdc.pool.Free(subnet)
+					glog.Errorf("Allocating subnet in etcd failed: %v", resp.Error)
+					return resp.Error
+				}
+
+				if resp.EtcdData.(string) == "" {
+					id, err := nvsdc.CreateSubnet(subnetName, namespace.ZoneID, subnet)
+					if err != nil && err.Error() == "Overlapping Subnet" {
+						continue
+					} else if err != nil {
+						nvsdc.pool.Free(subnet)
 						return err
 					}
-					subnet = deletedSubnet
+					etcdSubnet.ID = id
+					resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAddSubnet, etcdSubnet)
+					if resp.Error != nil {
+						glog.Errorf("Creating first subnet(%s) in etcd failed: %v", etcdSubnet.Name, resp.Error)
+						return resp.Error
+					}
+					break
+				} else if resp.EtcdData.(string) == subnetName {
+					break
 				}
 			}
-
-		} else {
-			// If it exists, remove the subnet allocated to it from the pool
-			err = nvsdc.pool.AllocSpecific(subnet)
-			if err != nil {
-				if !nvsdc.clusterNetwork.Contains(subnet) {
-					glog.Error(subnet.String(),
-						" is not a member of clusterNetworkCIDR ",
-						nvsdc.clusterNetwork.String())
+			if nsEvent.Name == nvsdc.privilegedProjectName {
+				err = nvsdc.CreatePrivilegedZoneAcls(zoneID)
+				if err != nil {
+					glog.Error("Got an error when creating default zone's ACL entries")
+					return err
 				}
-			}
-			subnetID = vsdSubnet.ID
-		}
-		namespace.Subnets = &SubnetNode{
-			SubnetID:   subnetID,
-			SubnetName: subnetName,
-			Subnet:     subnet,
-			Next:       nil,
-		}
-		namespace.numSubnets++
-		nvsdc.namespaces[nsEvent.Name] = namespace
-		if nsEvent.Name == nvsdc.privilegedProjectName {
-			err = nvsdc.CreatePrivilegedZoneAcls(namespace.ZoneID)
-			if err != nil {
-				glog.Error("Got an error when creating default zone's ACL entries")
-				return err
-			}
-		} else {
-			err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, namespace.ZoneID)
-			if err != nil {
-				glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
-				return err
+			} else {
+				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, zoneID)
+				if err != nil {
+					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
+					return err
+				}
 			}
 			return nil
 		}
@@ -1866,13 +1864,48 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				}
 			}
 			namespace.ZoneID = id
-			if namespace.NetworkMacros == nil {
-				namespace.NetworkMacros = make(map[string]string)
-			}
 			return nil
 		}
 	case api.Deleted:
-		if zone, zoneExists := nvsdc.namespaces[nsEvent.Name]; zoneExists {
+		if zone, exists := nvsdc.namespaces[nsEvent.Name]; exists {
+			defer func() {
+				delete(nvsdc.namespaces, nsEvent.Name)
+				delete(nvsdc.services, nsEvent.Name)
+			}()
+
+			subnetInfo := &api.EtcdSubnetMetadata{Namespace: nsEvent.Name}
+			resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdDelSubnet, subnetInfo)
+			if resp.Error != nil {
+				glog.Errorf("deleting last subnet(%s) in etcd failed: %v", subnetInfo.Name, resp.Error)
+			}
+
+			etcdSubnet := resp.EtcdData.(*api.EtcdSubnetMetadata)
+			if etcdSubnet == nil {
+				glog.Infof("maybe another master is deleting this zone(%s)?", nsEvent.Name)
+				return nil
+			}
+			//handle annotations
+			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdFreeSubnetCIDR, etcdSubnet)
+			if resp.Error != nil {
+				glog.Errorf("Creating subnet(%s) in etcd pool tree failed: %v", etcdSubnet.CIDR, resp.Error)
+			}
+
+			zoneInfo := &api.EtcdZoneMetadata{Name: nsEvent.Name}
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdDeleteZone, zoneInfo)
+			if resp.Error != nil {
+				glog.Errorf("deleting zone(%s) in etcd failed: %v", zoneInfo.Name)
+			}
+
+			if ipv4subnet, err := IPv4SubnetFromString(etcdSubnet.CIDR); err != nil {
+				glog.Errorf("converting cidr %s to ipv4 subnet failed: %v", etcdSubnet.CIDR, err)
+			} else {
+				err = nvsdc.pool.Free(ipv4subnet)
+				if err != nil {
+					glog.Warningf("Failed to free subnet %q from zone %q", etcdSubnet.CIDR, nsEvent.Name)
+				}
+			}
+
 			// Delete subnets that we've created, and free them back into the pool
 			if nsEvent.Name == nvsdc.privilegedProjectName {
 				err := nvsdc.DeletePrivilegedZoneAcls(zone.ZoneID)
@@ -1887,28 +1920,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					glog.Error("Got an error when deleting network macro group for zone: ", nsEvent.Name)
 				}
 			}
-			if subnetsHead := zone.Subnets; subnetsHead != nil {
-				subnet := subnetsHead
-				for subnet != nil {
-					err := nvsdc.DeleteSubnet(subnet.SubnetID)
-					if err != nil {
-						glog.Warningf("Failed to delete subnet %q in zone %q",
-							subnet.SubnetID, nsEvent.Name)
-					}
-					err = nvsdc.pool.Free(subnet.Subnet)
-					if err != nil {
-						glog.Warningf("Failed to free subnet %q from zone %q",
-							subnet.Subnet.String(), nsEvent.Name)
-					}
-					subnet = subnet.Next
-				}
-				// Now that all subnets are deleted, remove the list associated
-				// with this zone (remove the reference to the list so it can be
-				// garbage collected)
-				zone.Subnets = nil
-				zone.numSubnets = 0
+			err := nvsdc.DeleteSubnet(etcdSubnet.ID)
+			if err != nil {
+				glog.Warningf("Failed to delete subnet %q in zone %q", etcdSubnet.ID, nsEvent.Name)
 			}
-			delete(nvsdc.namespaces, nsEvent.Name)
+
 			return nvsdc.DeleteZone(zone.ZoneID)
 		}
 		id, err := nvsdc.GetZoneID(nvsdc.domainID, nsEvent.Name)
@@ -1946,15 +1962,19 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 		glog.Error("Error when creating the network macro group for zone", nvsdc.privilegedProjectName)
 		return err
 	} else {
-		if nsd, exists := nvsdc.namespaces[nvsdc.privilegedProjectName]; exists {
-			nsd.NetworkMacroGroupID = nmgid
-			nvsdc.namespaces[nvsdc.privilegedProjectName] = nsd
+		if serviceData, exists := nvsdc.services[nvsdc.privilegedProjectName]; exists {
+			serviceData.NetworkMacroGroupID = nmgid
+			nvsdc.services[nvsdc.privilegedProjectName] = serviceData
 		} else {
-			nvsdc.namespaces[nvsdc.privilegedProjectName] = NamespaceData{
-				ZoneID:              zoneID,
-				Name:                nvsdc.privilegedProjectName,
+			nvsdc.services[nvsdc.privilegedProjectName] = ServiceData{
 				NetworkMacroGroupID: nmgid,
 				NetworkMacros:       make(map[string]string),
+			}
+		}
+		if _, exists := nvsdc.namespaces[nvsdc.privilegedProjectName]; !exists {
+			nvsdc.namespaces[nvsdc.privilegedProjectName] = NamespaceData{
+				ZoneID: zoneID,
+				Name:   nvsdc.privilegedProjectName,
 			}
 		}
 	}
@@ -2010,15 +2030,19 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 		glog.Error("Error when creating the network macro group for zone", zoneName)
 		return err
 	} else {
-		if nsd, exists := nvsdc.namespaces[zoneName]; exists {
-			nsd.NetworkMacroGroupID = nmgid
-			nvsdc.namespaces[zoneName] = nsd
+		if serviceData, exists := nvsdc.services[zoneName]; exists {
+			serviceData.NetworkMacroGroupID = nmgid
+			nvsdc.services[zoneName] = serviceData
 		} else {
-			nvsdc.namespaces[zoneName] = NamespaceData{
-				ZoneID:              zoneID,
-				Name:                zoneName,
+			nvsdc.services[zoneName] = ServiceData{
 				NetworkMacroGroupID: nmgid,
 				NetworkMacros:       make(map[string]string),
+			}
+		}
+		if _, exists := nvsdc.namespaces[zoneName]; !exists {
+			nvsdc.namespaces[zoneName] = NamespaceData{
+				ZoneID: zoneID,
+				Name:   zoneName,
 			}
 		}
 	}
@@ -2075,7 +2099,7 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 		Description: "Auto-generated network macro group for zone - " + zoneName,
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/networkmacrogroups"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/networkmacrogroups"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -2105,7 +2129,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroGroupID(enterpriseID, nmgName string
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+nmgName+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/networkmacrogroups"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/networkmacrogroups"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -2189,17 +2213,17 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	// 	return err
 	// }
 	glog.Info("Looking up zone specific network macro group")
-	if nvsdc.namespaces[zoneName].NetworkMacroGroupID != "" {
-		glog.Infof("Found zone specific network macro group with ID: %s for zone name: %s", nvsdc.namespaces[zoneName].NetworkMacroGroupID, zoneName)
-		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.namespaces[zoneName].NetworkMacroGroupID)
+	if nvsdc.services[zoneName].NetworkMacroGroupID != "" {
+		glog.Infof("Found zone specific network macro group with ID: %s for zone name: %s", nvsdc.services[zoneName].NetworkMacroGroupID, zoneName)
+		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.services[zoneName].NetworkMacroGroupID)
 		if err != nil {
 			glog.Error("Failed to delete network macro group for zone: ", zoneName)
 			return err
 		} else {
-			glog.Infof("Deleted network macro group with ID: %s for zone name: %s", nvsdc.namespaces[zoneName].NetworkMacroGroupID, zoneName)
-			if nsd, exists := nvsdc.namespaces[zoneName]; exists {
+			glog.Infof("Deleted network macro group with ID: %s for zone name: %s", nvsdc.services[zoneName].NetworkMacroGroupID, zoneName)
+			if nsd, exists := nvsdc.services[zoneName]; exists {
 				nsd.NetworkMacroGroupID = ""
-				nvsdc.namespaces[zoneName] = nsd
+				nvsdc.services[zoneName] = nsd
 			}
 		}
 	}
@@ -2242,15 +2266,15 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 	// 	glog.Error("Failed to get egress acl entry to delete", aclEntry)
 	// 	return err
 	// }
-	if nvsdc.namespaces[nvsdc.privilegedProjectName].NetworkMacroGroupID != "" {
-		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.namespaces[nvsdc.privilegedProjectName].NetworkMacroGroupID)
+	if nvsdc.services[nvsdc.privilegedProjectName].NetworkMacroGroupID != "" {
+		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.services[nvsdc.privilegedProjectName].NetworkMacroGroupID)
 		if err != nil {
 			glog.Error("Failed to delete network macro group for default zone")
 			return err
 		} else {
-			if nsd, exists := nvsdc.namespaces[nvsdc.privilegedProjectName]; exists {
+			if nsd, exists := nvsdc.services[nvsdc.privilegedProjectName]; exists {
 				nsd.NetworkMacroGroupID = ""
-				nvsdc.namespaces[nvsdc.privilegedProjectName] = nsd
+				nvsdc.services[nvsdc.privilegedProjectName] = nsd
 			}
 		}
 	}
@@ -2260,7 +2284,7 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacro *api.VsdNetworkMacro) (string, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/enterprisenetworks"
 	resp, err := nvsdc.session.Post(reqUrl, networkMacro, &result, &e)
 	logPOSTRequest(reqUrl, networkMacro)
 	logPOSTResponse(resp, &e)
@@ -2301,7 +2325,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroNa
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+networkMacroName+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url+"enterprises/"+enterpriseID+"/enterprisenetworks"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/enterprisenetworks"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -2384,8 +2408,8 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	networkMacroIDList := []string{networkMacroID}
 	for {
-		reqUrl := nvsdc.url+"networkmacrogroups/"+
-			networkMacroGroupID+"/enterprisenetworks"
+		reqUrl := nvsdc.url + "networkmacrogroups/" +
+			networkMacroGroupID + "/enterprisenetworks"
 		var params *url.Values
 		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 		logGETRequest(reqUrl, params)
@@ -2438,7 +2462,7 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
-	glog.Errorln("Bad response from VSD Server");
+	glog.Errorln("Bad response from VSD Server")
 	glog.Errorln("Raw Text:\n ", resp.RawText(), "\n")
 	glog.Errorln("Status: ", resp.Status(), "\n")
 	glog.Errorln("VSD Error: ", e, "\n")
@@ -2446,11 +2470,11 @@ func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
 }
 
 func logGETRequest(reqUrl string, params *url.Values) {
-	glog.Infoln("VSD GET request: [URL: ", reqUrl,"] [Params: ", params, "]")
+	glog.Infoln("VSD GET request: [URL: ", reqUrl, "] [Params: ", params, "]")
 }
 
 func logPOSTRequest(reqUrl string, payload interface{}) {
-	glog.Infoln("VSD POST request: [URL: ", reqUrl,"] [Payload: ", payload, "]")
+	glog.Infoln("VSD POST request: [URL: ", reqUrl, "] [Payload: ", payload, "]")
 }
 
 func logGETResponse(resp *napping.Response, e *api.RESTError) {
