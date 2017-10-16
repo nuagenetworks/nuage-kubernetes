@@ -117,6 +117,8 @@ spec:
               name: cni-log-dir
             - mountPath: /usr/share
               name: usr-share-dir
+            - mountPath: /etc/kubernetes
+              name: k8s-conf-dir
       volumes:
         - name: cni-bin-dir
           hostPath:
@@ -136,6 +138,9 @@ spec:
         - name: usr-share-dir
           hostPath:
             path: /usr/share
+        - name: k8s-conf-dir
+          hostPath:
+            path: /etc/kubernetes
 
 ---
 
