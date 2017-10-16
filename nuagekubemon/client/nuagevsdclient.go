@@ -1753,6 +1753,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
+	nvsdc.resourceManager.HandleNsEvent(nsEvent)
 	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
@@ -1776,9 +1777,6 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				nvsdc.namespaces[nsEvent.Name] = namespace
 				return nil
 			}
-			//if it is not present in etcd, that means it is a new namespace
-			//handle annotations
-			nvsdc.resourceManager.HandleNsEvent(nsEvent)
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
