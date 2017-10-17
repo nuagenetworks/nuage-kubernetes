@@ -1,6 +1,6 @@
 
 ===============================
-Deployment of Application Pods
+Deploying Application Pods
 ===============================
 
 .. contents::
