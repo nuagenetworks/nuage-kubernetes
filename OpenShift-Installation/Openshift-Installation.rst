@@ -110,7 +110,7 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 Setup
 ----------
 
-1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here<https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_.
+1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_.
 
  .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
 
