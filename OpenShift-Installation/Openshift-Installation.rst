@@ -1,6 +1,3 @@
-.. _openshift-4-installation:
-
-.. include:: ../lib/doc-includes/VSDA-icons.inc
 
 ===========================
 OpenShift Installation
@@ -41,11 +38,11 @@ Pre-Installation Steps in VSD
 
    .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide."
 
-3. Login to the VSD node using the CLI and execute the following command:
+3. Login to the VSD node using the CLI and execute the following command. The certificates must be placed in the /usr/local or any specified directory on the host where ansible is run.
 
     ::
 
-         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u ose-admin -c ose-admin -o openshift -f pem -t client -s root@<ose-master-IP>:/usr/local/
+         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u ose-admin -c ose-admin -o openshift -f pem -t client -s root@<ose-ansible-IP>:/usr/local/
 
          Where:
          -a <action>         Action [generate|revoke|delete|renew|bscopy]
@@ -70,47 +67,54 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
 .. Note:: set-up passwordless **ssh** between Ansible node and cluster nodes.
    
-3. Clone the Ansible git repository, by entering the **git clone** command as shown in the following example:
+3. Copy the nuage-ose-rhel-install-5-1-2.tar.gz file shipped with Nuage 5.1.2 Release to a host machine where Ansible is run.
+
+4. Unzip and Untar the above image
 
    ::
    
-       [root@ansible-mc ~]# git clone https://github.com/openshift/openshift-ansible.git
-       Cloning into 'openshift-ansible'...
-       remote: Counting objects: 65216, done.
-       remote: Total 65216 (delta 0), reused 0 (delta 0), pack-reused 65215
-       Receiving objects: 100% (65216/65216), 16.61 MiB | 1.77 MiB/s, done.
-       Resolving deltas: 100% (40178/40178), done.
-      
+       [root@ovs-10 ~]# tar -xvf nuage-ose-rhel-install.tar 
+       etcd_certificates.yml
+       nuage-openshift-ansible.diff
+       patch-nuage-openshift-ansible.sh
 
       
-4. Checkout tag openshift-ansible-3.7.0-0.116.0, by entering the **git checkout** command as shown in the following example:
+5. Run the patch-nuage-openshift-ansible.sh script to clone the ansible repo and set up Nuage changes.
 
    ::
 
-      [root@ansible-mc ~]# cd openshift-ansible/
-      [root@ansible-mc openshift-ansible]# git checkout tags/openshift-ansible-3.7.0-0.116.0
-      Note: checking out 'tags/openshift-ansible-3.7.0-0.116.0'.
+      [root@ansible-mc ~]# ./patch-nuage-openshift-ansible.sh 
+      Cloning into 'openshift-ansible'...
+      remote: Counting objects: 71319, done.
+      remote: Compressing objects: 100% (24/24), done.
+      remote: Total 71319 (delta 4), reused 13 (delta 0), pack-reused 71293
+      Receiving objects: 100% (71319/71319), 18.18 MiB | 2.86 MiB/s, done.
+      Resolving deltas: 100% (44186/44186), done.
+      Checking out files: 100% (287/287), done.
+      Note: checking out 'tags/openshift-ansible-3.7.0-0.135.0'.
 
       You are in 'detached HEAD' state. You can look around, make experimental
       changes and commit them, and you can discard any commits you make in this
       state without impacting any branches by performing another checkout.
-
+      
       If you want to create a new branch to retain commits you create, you may
       do so (now or later) by using -b with the checkout command again. Example:
 
       git checkout -b new_branch_name
 
-      HEAD is now at cc47755... Automatic commit of package [openshift-ansible] release [3.7.0-0.116.0].
-      [root@ansible-mc openshift-ansible]#
+      HEAD is now at d1e5160... Automatic commit of package [openshift-ansible] release [3.7.0-0.135.0].
+      Successfully patched Nuage ansible changes into openshift-ansible
+      You may now use the openshift-ansible folder for your ansible installation
+
 
 Setup
 ----------
 
-1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
+1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here<https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_.
 
-2. Remove the `Defaults requiretty` from /etc/sudoers on all of the nodes (including master). This is required for accelerated installation mode.
+ .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
 
-3. Load the following docker images on your master node:
+1. Load the following docker images on your master node:
 
    ::
    
@@ -118,7 +122,7 @@ Setup
        nuage-cni-docker.tar
        nuage-vrs-docker.tar
 
-4. Load the following docker images on your slave nodes:
+3. Load the following docker images on your slave nodes:
 
    ::
    
@@ -154,7 +158,8 @@ Installation for a Single Master
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
-  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment.
+  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.6
+  
 ::
 
     # Create an OSEv3 group that contains the masters and nodes groups
@@ -171,22 +176,24 @@ Installation for a Single Master
     osm_cluster_network_cidr=70.70.0.0/16
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
-    openshift_pkg_version=-3.5.5.5
+    openshift_pkg_version=-3.6.173.0.5
 
     # If ansible_ssh_user is not root, ansible_sudo must be set to true
     #ansible_sudo=true 
     
-    deployment_type=openshift-enterprise
+    deployment_type=openshift-enterprise 
+    openshift_disable_check=disk_availability,memory_availability,docker_storage,docker_image_availability,package_version,package_availability
     
     # Nuage specific parameters
     openshift_use_openshift_sdn=False
     openshift_use_nuage=True
+    openshift.common._use_nuage=True
     os_sdn_network_plugin_name=cni
     vsd_api_url=https://<VSD-IP/VSD-Hostname>:7443
     vsp_version=v5_0
-    nuage_monitor_image_version=v5.1.1-1
-    nuage_vrs_image_version=v5.1.1-1
-    nuage_cni_image_version=v5.1.1-1
+    nuage_monitor_image_version=v5.1.2-1
+    nuage_vrs_image_version=v5.1.2-1
+    nuage_cni_image_version=v5.1.2-1
     enterprise=openshift
     domain=openshift
     vsc_active_ip=10.100.100.101
@@ -194,7 +201,10 @@ Installation for a Single Master
     uplink_interface=eth0
     nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
     nuage_interface_mtu=1500
-    
+    # auto scale subnets feature
+    # 0 => disabled(default)
+    # 1 => enabled
+    auto_scale_subnets=0
     
     # VSD user in the admin group
     vsd_user=ose-admin
@@ -210,8 +220,9 @@ Installation for a Single Master
     
     # Required for Nuage Monitor REST server 
     openshift_master_cluster_hostname=master.nuageopenshift.com
+    openshift_master_cluster_public_hostname=master.nuageopenshift.com
     nuage_openshift_monitor_rest_server_port=9443
-    
+      
     # host group for masters
     [masters]
     master.nuageopenshift.com
@@ -222,7 +233,7 @@ Installation for a Single Master
     
     # host group for nodes, includes region info
     [nodes]
-    node1.nuageopenshift.com
+    node1.nuageopenshift.com openshift_schedulable=True openshift_node_labels="{'region': 'infra'}"
     node2.nuageopenshift.com
     master.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
 
@@ -237,7 +248,7 @@ Installing the VSP Components for the Single Master
    ::
    
        cd openshift-ansible
-       ansible-playbook -vvvv -e openshift_disable_check=disk_availability,docker_storage,package_version,memory_availability,package_availability -i nodes playbooks/byo/config.yml
+       ansible-playbook -vvvv -i nodes playbooks/byo/config.yml
  
   A successful installation displays the following output:
    ::
@@ -269,7 +280,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets.
 
-   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment.
+   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.6
 
     ::
     
@@ -288,22 +299,24 @@ Nuage OpenShift only supports HA configuration method described in this section.
         osm_cluster_network_cidr=70.70.0.0/16
         deployment_type=openshift-enterprise
         osm_host_subnet_length=10
-        openshift_pkg_version=-3.5.5.5
+        openshift_pkg_version=-3.6.173.0.5
     
         # If ansible_ssh_user is not root, ansible_sudo must be set to true
         #ansible_sudo=true 
         
         deployment_type=openshift-enterprise
+        openshift_disable_check=disk_availability,memory_availability,package_version,docker_storage,docker_image_availability
         
         # Nuage specific parameters
         openshift_use_openshift_sdn=False
         openshift_use_nuage=True
+        openshift.common._use_nuage=True
         os_sdn_network_plugin_name=cni
         vsd_api_url=https://<VSD-IP/VSD-Hostname>:7443
         vsp_version=v5_0
-        nuage_monitor_image_version=v5.1.1-1
-        nuage_vrs_image_version=v5.1.1-1
-        nuage_cni_image_version=v5.1.1-1
+        nuage_monitor_image_version=v5.1.2-1
+        nuage_vrs_image_version=v5.1.2-1
+        nuage_cni_image_version=v5.1.2-1
         enterprise=openshift
         domain=openshift
         vsc_active_ip=10.100.100.101
@@ -343,7 +356,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         
         # host group for nodes
         [nodes]
-        node1.nuageopenshift.com
+        node1.nuageopenshift.com openshift_schedulable=True openshift_node_labels="{'region': 'infra'}"
         node2.nuageopenshift.com
         master1.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
         master2.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
@@ -360,7 +373,7 @@ Installing the VSP Components for Multiple Masters
    ::
    
        cd openshift-ansible
-       ansible-playbook -vvvv -e openshift_disable_check=disk_availability,docker_storage,package_version,memory_availability,package_availability -i nodes playbooks/byo/config.yml
+       ansible-playbook -vvvv -i nodes playbooks/byo/config.yml
 
   A successful installation displays the following output:
 
@@ -400,9 +413,9 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
        
        [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
-        nuage-cni-ds          10        10        10        <none>                 7m
-        nuage-master-config   1         1         1         install-monitor=true   1h
-        nuage-vrs-ds          10        10        10        <none>                 7m
+        nuage-cni-ds             3        3        3        <none>                 7m
+        nuage-master-config      1        1        1        install-monitor=true   7m
+        nuage-vrs-ds             3        3        3        <none>                 7m
         
 2. Verify that the REST server URL value is correct in the /etc/nuage-node-config-daemonset.yaml file. The 'nuageMonRestServer' should be configured with openshift_master_cluster_hostname value specified in the nodes files during Ansible installation. Modify the value and save the file if this field has incorrect values. Delete and re-deploy the node daemonset as shown in the following steps. 
 
@@ -441,9 +454,9 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         
         [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
-        nuage-cni-ds          10        10        10        <none>                 7m
-        nuage-master-config   1         1         1         install-monitor=true   1h
-        nuage-vrs-ds          10        10        10        <none>                 7m
+        nuage-cni-ds            3        3        3        <none>                 7m
+        nuage-master-config     1        1        1        install-monitor=true   7m
+        nuage-vrs-ds            3        3        3        <none>                 7m
         
 
 3. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master node and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
@@ -455,24 +468,10 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-cni-ds-04s43          1/1       Running   0          7m
         nuage-cni-ds-81mnp          1/1       Running   0          7m
         nuage-cni-ds-f4q2k          1/1       Running   0          7m
-        nuage-cni-ds-hgrjt          1/1       Running   0          7m
-        nuage-cni-ds-j0g2k          1/1       Running   0          7m
-        nuage-cni-ds-k6df0          1/1       Running   0          7m
-        nuage-cni-ds-kclh5          1/1       Running   0          7m
-        nuage-cni-ds-l2ftp          1/1       Running   0          7m
-        nuage-cni-ds-q68s3          1/1       Running   0          7m
-        nuage-cni-ds-zkdv4          1/1       Running   0          7m
-        nuage-master-config-0d95v   1/1       Running   0          1h
+        nuage-master-config-0d95v   1/1       Running   0          7m
         nuage-vrs-ds-0v9sq          1/1       Running   0          7m
         nuage-vrs-ds-c0kt5          1/1       Running   0          7m
         nuage-vrs-ds-d4h7m          1/1       Running   0          7m
-        nuage-vrs-ds-kqmhf          1/1       Running   0          7m
-        nuage-vrs-ds-qcq65          1/1       Running   0          7m
-        nuage-vrs-ds-qkxv3          1/1       Running   0          7m
-        nuage-vrs-ds-qpp21          1/1       Running   0          7m
-        nuage-vrs-ds-rg9w1          1/1       Running   0          7m
-        nuage-vrs-ds-w05bw          1/1       Running   0          7m
-        nuage-vrs-ds-w5v9r          1/1       Running   0          7m
    
     
 
