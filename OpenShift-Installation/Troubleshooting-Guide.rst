@@ -17,7 +17,7 @@ If the Openshift Installation is with Nuage release 5.0.2 or prior, default prox
 Insecure registry config in /etc/sysconfig/docker
 ==================================================
 
-One of the most important steps in host preparation for Openshift is adding the insecure-registry option in the /etc/sysconfig/docker on the masters & nodes being used for Openshift. If the docker-registry if failing to deploy, missing insecure-registry option might be the root cause. Please follow the steps for host preparation mentioned in the Openshift Installation guide on the Openshift website
+One of the most important steps in host preparation for Openshift is adding the insecure-registry option in the /etc/sysconfig/docker on the masters & nodes being used for Openshift. If the docker-registry is failing to deploy, missing insecure-registry option might be the root cause. Please follow the steps for host preparation mentioned in the Openshift Installation guide on the Openshift website
 
 Enabling Address translation support & Underlay support on the VSD
 ===================================================================
