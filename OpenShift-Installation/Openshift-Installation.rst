@@ -110,7 +110,7 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 Setup
 ----------
 
-1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_.
+1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
 
  .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
 
@@ -158,7 +158,7 @@ Installation for a Single Master
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
-  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.6
+  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5
   
 ::
 
@@ -176,7 +176,7 @@ Installation for a Single Master
     osm_cluster_network_cidr=70.70.0.0/16
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
-    openshift_pkg_version=-3.6.173.0.5
+    openshift_pkg_version=-3.5.5.5
 
     # If ansible_ssh_user is not root, ansible_sudo must be set to true
     #ansible_sudo=true 
@@ -280,7 +280,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets.
 
-   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.6
+   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5
 
     ::
     
@@ -299,7 +299,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         osm_cluster_network_cidr=70.70.0.0/16
         deployment_type=openshift-enterprise
         osm_host_subnet_length=10
-        openshift_pkg_version=-3.6.173.0.5
+        openshift_pkg_version=-3.5.5.5
     
         # If ansible_ssh_user is not root, ansible_sudo must be set to true
         #ansible_sudo=true 
@@ -474,4 +474,12 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-vrs-ds-d4h7m          1/1       Running   0          7m
    
     
+
+Post Installation
+-----------------------
+
+1. If you are using any VSP release prior to 5.1.2, enable 'Underlay Support' and 'Address Translation Support' for the Openshift domain on VSD Architect.
+
+2. Check the docker-registry and router pods. If they have failed to deploy, delete and re-deploy the docker-registry and router pods. Check the troubleshooting guide for more information.
+
 
