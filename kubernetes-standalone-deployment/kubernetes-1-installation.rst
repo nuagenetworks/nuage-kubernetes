@@ -128,10 +128,10 @@ You need to have Git installed on your Ansible host machine. Perform the followi
    ::
    
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
-        git checkout tags/v5.1.1-1
+        git checkout tags/<Nuage-release>
         cd nuage-kubernetes/ansible
 	
-  .. Note:: With new tag v5.1.1-1, rpm based install is not supported using ansible. Daemonsets is the recommended mode of installing Nuage components 
+  .. Note:: Post Nuage 5.1.1, rpm based install is not supported using ansible. Daemonsets is the recommended mode of installing Nuage components 
 
 
 4. Load the following docker images on your master node:
@@ -141,6 +141,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
     docker load -i nuage-master-docker.tar
     docker load -i nuage-cni-docker.tar
     docker load -i nuage-vrs-docker.tar
+    docker load -i nuage-infra-docker.tar
 
 5. Load the following docker images on your slave nodes:
 
@@ -148,6 +149,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 
     docker load -i nuage-cni-docker.tar
     docker load -i nuage-vrs-docker.tar
+    docker load -i nuage-infra-docker.tar
 
 6. Update the following parameters in ConfigMap section of **nuage-kubernetes/ansible/roles/nuage-daemonset/files/nuage-master-config-daemonset.yaml** file as per your environment configuration:
 
@@ -179,8 +181,25 @@ You need to have Git installed on your Ansible host machine. Perform the followi
           logLevel: 0
           # Parameters related to the nuage monitor REST server
           nuageMonServer:
-              URL: 0.0.0.0:9443
-              certificateDirectory: /usr/share/nuagekubemon
+          URL: 0.0.0.0:9443
+          certificateDirectory: /usr/share/nuagekubemon
+
+Make sure to set the etcd config correctly if there is an external etcd cluster. If the etcd cluster is not using TLS certificates, do not set the ca, certFile & keyFile parameters. Also, if etcd is running locally on the master, use the localhost IP as shown below. If the etcd cluster is setup using FQDN, set the URL to the FQDN hostname. Also, make sure to check the protocol for the etcd cluster and set http or https accordingly.
+
+          # etcd config required for HA
+          etcdClientConfig:
+              ca: ""
+              certFile: ""
+              keyFile: ""
+              urls:
+                 - http://127.0.0.1:2379
+
+Set the parameter to 1 in order to allow nuagekubemon to automagically create a new subnet when the existing subnet gets depleted. Threshold for new subnet creation is set to 70% namespace/zone allocation. It will also delete additional subnets if the namespace usage falls below 25%
+
+          # auto scale subnets feature
+          # 0 => disabled(default)
+          # 1 => enabled
+          autoScaleSubnets: 1
 
       # This will generate the required Nuage network configuration
       # on master nodes
@@ -197,7 +216,7 @@ Make sure the **image** parameter is correctly set to the Nuagekubemon docker im
       containers:
         # This container configures Nuage Master node
         - name: install-nuage-master-config
-          image: nuage/master:5.1.1
+          image: nuage/master:<nuage-version>
 
 7. Update the following parameters in **nuage-kubernetes/ansible/roles/nuage-daemonset/files/nuage-node-config-daemonset.yaml** file as per your environment configuration:
 
@@ -276,13 +295,13 @@ Make sure the **image** parameter is correctly set to the Nuage VRS and CNI dock
         # This container installs Nuage VRS running as a
         # container on each worker node
         - name: install-nuage-vrs
-          image: nuage/vrs:5.1.1
+          image: nuage/vrs:<nuage-version>
 
       containers:
         # This container installs Nuage CNI binaries
         # and CNI network config file on each node.
         - name: install-nuage-cni
-          image: nuage/cni:5.1.1
+          image: nuage/cni:<nuage-version>
 
 
 Installation for a Single Master 
