@@ -12,9 +12,15 @@ if [ -z ${version} ]; then
     exit 1
 fi
 
+cd $GOPATH
+
+for binary_name in nuagekubemon nuage-openshift-monitor
+do
+    docker run --rm -v `pwd`:/go -w /go golang:1.8 go build -v -o $binary_name github.com/nuagenetworks/nuage-kubernetes/nuagekubemon
+    mv $binary_name $GOPATH/src/github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/
+done
+
 cd $GOPATH/src/github.com/nuagenetworks/nuage-kubernetes/nuagekubemon
-go build -o nuagekubemon
-go build -o nuage-openshift-monitor
 
 sudo docker build -t nuage/master:${version} .
 docker save nuage/master:${version} > nuage-master-docker-${version}.tar

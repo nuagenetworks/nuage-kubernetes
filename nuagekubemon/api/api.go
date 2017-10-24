@@ -77,11 +77,63 @@ type NetworkPolicyEvent struct {
 	Labels    map[string]string `json:"labels,omitempty"`
 }
 
+type PodEventResp struct {
+	Data  interface{}
+	Error error
+}
+
 type PodEvent struct {
 	Type      EventType
 	Name      string
 	Namespace string
 	Labels    map[string]string `json:"labels,omitempty"`
+	RespChan  chan *PodEventResp
+}
+
+const (
+	EtcdAddSubnet        EventType = "ETCD_ADD_SUBNET"
+	EtcdDelSubnet        EventType = "ETCD_DEL_SUBNET"
+	EtcdIncActiveIPCount EventType = "ETCD_INC_IP_COUNT"
+	EtcdDecActiveIPCount EventType = "ETCD_DEC_IP_COUNT"
+	EtcdAllocSubnetCIDR  EventType = "ETCD_ALLOC_SUBNET_CIDR"
+	EtcdFreeSubnetCIDR   EventType = "ETCD_FREE_SUBNET_CIDR"
+	EtcdUpdateSubnetID   EventType = "ETCD_UPDATE_SUBNET_ID"
+	EtcdGetSubnetID      EventType = "ETCD_GET_SUBNET_ID"
+	EtcdAddZone          EventType = "ETCD_ADD_ZONE"
+	EtcdDeleteZone       EventType = "ETCD_DELETE_ZONE"
+	EtcdUpdateZone       EventType = "ETCD_UPDATE_ZONE"
+)
+
+type EtcdRespObject struct {
+	EtcdData interface{}
+	Error    error
+}
+
+type EtcdEvent struct {
+	Type               EventType
+	EtcdReqObject      interface{}
+	EtcdRespObjectChan chan *EtcdRespObject
+}
+
+type EtcdPodMetadata struct {
+	PodName       string
+	NamespaceName string
+}
+
+type EtcdSubnetMetadata struct {
+	Name      string
+	ID        string
+	Namespace string
+	CIDR      string
+}
+
+type EtcdZoneMetadata struct {
+	Name string
+	ID   string
+}
+type EtcdPodSubnet struct {
+	ToUse    string
+	ToCreate string
 }
 
 type GetPod func(string, string) (*PodEvent, error)
@@ -104,6 +156,18 @@ type RESTError struct {
 		} `json:"descriptions"`
 	} `json:"errors"`
 	InternalErrorCode int `json:"internalErrorCode"`
+}
+
+//EtcdChanRequest make a request on Etcd Channel
+func EtcdChanRequest(receiver chan *EtcdEvent, event EventType, params interface{}) *EtcdRespObject {
+	etcdReq := &EtcdEvent{
+		Type:          event,
+		EtcdReqObject: params,
+	}
+	etcdReq.EtcdRespObjectChan = make(chan *EtcdRespObject)
+	receiver <- etcdReq
+	etcdResp := <-etcdReq.EtcdRespObjectChan
+	return etcdResp
 }
 
 func (restErr RESTError) String() string {

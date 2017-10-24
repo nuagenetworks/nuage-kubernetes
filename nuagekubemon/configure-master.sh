@@ -7,6 +7,8 @@ if [ "$1" = "k8s" ]; then
     BIN=/usr/bin/nuagekubemon
     PIDFILE=/var/run/nuagekubemon.pid
     rm -irf /usr/bin/nuage-openshift-monitor
+    rm -irf /usr/share/nuagekubemon/nuagekubemon.yaml
+    rm -irf /usr/share/nuagekubemon/net-config.yaml
     MONITOR=nuagekubemon
     MONITOR_CONF='/usr/share/nuagekubemon/nuagekubemon.yaml'
     NET_CONF='/usr/share/nuagekubemon/net-config.yaml'
@@ -16,6 +18,7 @@ if [ "$1" = "ose" ]; then
     BIN=/usr/bin/nuage-openshift-monitor
     PIDFILE=/var/run/nuage-openshift-monitor.pid
     rm -irf /usr/bin/nuagekubemon
+    rm -irf /usr/share/nuage-openshift-monitor/nuage-openshift-monitor.yaml
     MONITOR=nuage-openshift-monitor
     MONITOR_CONF='/usr/share/nuage-openshift-monitor/nuage-openshift-monitor.yaml'
 fi

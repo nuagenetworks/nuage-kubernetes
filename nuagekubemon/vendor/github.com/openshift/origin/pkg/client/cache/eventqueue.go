@@ -49,6 +49,10 @@ type EventQueue struct {
 	// item it refers to is explicitly deleted from the store or the
 	// event is read via Pop().
 	lastReplaceKey string
+	// Tracks whether the Replace() method has been called at least once.
+	replaceCalled bool
+	// Tracks the number of items queued by the last Replace() call.
+	replaceCount int
 }
 
 // EventQueue implements kcache.Store
@@ -148,6 +152,11 @@ func (eq *EventQueue) handleEvent(obj interface{}, newEventType watch.EventType)
 	case watchEventEffectDelete:
 		delete(eq.events, key)
 		eq.queue = eq.queueWithout(key)
+		// A delete means we added and deleted _before_ we popped, we need to clean up the store here
+		if err := eq.store.Delete(obj); err != nil {
+			panic(fmt.Sprintf("Delete of key not in store from handleEvent(): %v", key))
+		}
+
 	}
 	return nil
 }
@@ -292,7 +301,7 @@ func (eq *EventQueue) Pop() (watch.EventType, interface{}, error) {
 		// Track the last replace key immediately after the store
 		// state has been changed to prevent subsequent errors from
 		// leaving a stale key.
-		if eq.lastReplaceKey != "" && eq.lastReplaceKey == key {
+		if eq.lastReplaceKey == key {
 			eq.lastReplaceKey = ""
 		}
 
@@ -322,6 +331,9 @@ func (eq *EventQueue) Replace(objects []interface{}, resourceVersion string) err
 	eq.lock.Lock()
 	defer eq.lock.Unlock()
 
+	eq.replaceCalled = true
+	eq.replaceCount = len(objects)
+
 	eq.events = map[string]watch.EventType{}
 	eq.queue = eq.queue[:0]
 
@@ -346,6 +358,23 @@ func (eq *EventQueue) Replace(objects []interface{}, resourceVersion string) err
 	return nil
 }
 
+// ListSuccessfulAtLeastOnce indicates whether a List operation was
+// successfully completed regardless of whether any items were queued.
+func (eq *EventQueue) ListSuccessfulAtLeastOnce() bool {
+	eq.lock.Lock()
+	defer eq.lock.Unlock()
+
+	return eq.replaceCalled
+}
+
+// ListCount returns how many objects were queued by the most recent List operation.
+func (eq *EventQueue) ListCount() int {
+	eq.lock.Lock()
+	defer eq.lock.Unlock()
+
+	return eq.replaceCount
+}
+
 // ListConsumed indicates whether the items queued by a List/Relist
 // operation have been consumed.
 func (eq *EventQueue) ListConsumed() bool {
@@ -368,6 +397,7 @@ func (eq *EventQueue) Resync() error {
 	for _, id := range eq.store.ListKeys() {
 		if !inQueue.Has(id) {
 			eq.queue = append(eq.queue, id)
+			eq.events[id] = watch.Modified
 		}
 	}
 
