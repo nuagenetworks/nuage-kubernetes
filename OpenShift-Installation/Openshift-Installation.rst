@@ -200,7 +200,7 @@ Installation for a Single Master
     vsc_standby_ip=10.100.100.102
     uplink_interface=eth0
     nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
-    nuage_interface_mtu=1500
+    nuage_interface_mtu=1450
     # auto scale subnets feature
     # 0 => disabled(default)
     # 1 => enabled
@@ -323,7 +323,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         vsc_standby_ip=10.100.100.102
         uplink_interface=eth0
         nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
-        nuage_interface_mtu=1500
+        nuage_interface_mtu=1450
         nuage_openshift_monitor_rest_server_port=9443
         
         # VSD user in the admin group
