@@ -561,9 +561,13 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 				glog.Errorf("watch received an error: %v", watchResp.Err())
 				return "", watchResp.Err()
 			}
-			//could not figure out why this is happening. sometimes getting zero events
+			//could not figure out why this is happening. sometimes getting zero events??
+			//found out that this happens when etcd server is busy.so we will keep doing this
+			//until we get the right response. happens very sporadically
 			if len(watchResp.Events) == 0 {
-				return "", fmt.Errorf("something went wrong. received zero updates when watching for key %s", key)
+				glog.Errorf("something went wrong. received zero updates when watching for key %s. will try again in a second", key)
+				time.Sleep(time.Second)
+				break
 			}
 			return transform(watchResp.Events[0].Kv.Value), nil
 		case <-ctx.Done():
