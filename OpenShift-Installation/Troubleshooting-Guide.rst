@@ -6,7 +6,25 @@ Troubleshooting
 .. contents::
    :local:
    :depth: 3
-   
+
+OpenShift iptables rules
+==========================
+
+If the Openshift Installation is with Nuage release 5.0.2 or prior, default proxy mode is set to userspace but Openshift install itself adds iptables rules on the master and the nodes. Since, Nuage is managing the datapath forwarding, it is necessary to flush the iptables rules on all the nodes and the master using the command ``iptables -F`` 
+
+.. Note:: This applies only to Nuage Installation with userspace kube-proxy. With Nuage release 5.1.1 and beyond, iptables based kube-proxy is used by default so iptables should not be flushed.
+
+Insecure registry config in /etc/sysconfig/docker
+==================================================
+
+One of the most important steps in host preparation for Openshift is adding the insecure-registry option in the /etc/sysconfig/docker on the masters & nodes being used for Openshift. If the docker-registry is failing to deploy, missing insecure-registry option might be the root cause. Please follow the steps for host preparation mentioned in the Openshift Installation guide on the Openshift website
+
+Enabling Address translation support & Underlay support on the VSD
+===================================================================
+
+If the Openshift Installation is with Nuage release 5.1.1 or prior, Address translation support & Underlay support needs to be enabled on the Openshift domain in the VSD Architect manually. This is required to allow the pods to reach the internet via the underlay in order to pull and push images from the docker registry
+
+
 OpenShift HA Cluster Installation Fails
 =========================================
 
