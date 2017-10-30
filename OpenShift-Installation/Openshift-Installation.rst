@@ -324,8 +324,11 @@ Nuage OpenShift only supports HA configuration method described in this section.
         uplink_interface=eth0
         nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
         nuage_interface_mtu=1450
-        nuage_openshift_monitor_rest_server_port=9443
-        
+        # auto scale subnets feature
+        # 0 => disabled(default)
+        # 1 => enabled
+        auto_scale_subnets=0
+                
         # VSD user in the admin group
         vsd_user=ose-admin
         # Complete local host path to the VSD user certificate file
@@ -339,6 +342,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
     
         # Required for Nuage Monitor REST server and HA
         openshift_master_cluster_method=native
+        nuage_openshift_monitor_rest_server_port=9443
         openshift_master_cluster_hostname=lb.nuageopenshift.com
         openshift_master_cluster_public_hostname=lb.nuageopenshift.com
         
@@ -379,7 +383,6 @@ Installing the VSP Components for Multiple Masters
 
    ::
    
-       
        2017-08-11 22:01:49,891 p=16545 u=root | PLAY RECAP *********************************************************************
        2017-08-11 22:01:49,892 p=16545 u=root | localhost             : ok=20  changed=0  unreachable=0 failed=0
        2017-08-11 22:01:49,892 p=16545 u=root | master1.nuageopenshift.com : ok=247 changed=22 unreachable=0  failed=0
@@ -401,7 +404,7 @@ Installing the VSP Components for Multiple Masters
 Deploying the Nuage DaemonSet
 --------------------------------
 
-The Ansible installer with automatically label the master nodes and deploy the nuage-master-config, nuage-cni-ds and nuage-cni-ds daemonsets. In case of any failures, use the appropriate commands to correct or verify the daemonset files and re-deploy.
+The Ansible installer with automatically label the master nodes and deploy the nuage-master-config, nuage-vrs-ds and nuage-cni-ds daemonsets. In case of any failures, use the appropriate commands to correct or verify the daemonset files and re-deploy.
 
 The nuage-master-config-daemonset.yaml for openshift-monitor deployment and nuage-node-config-daemonset.yaml for VRS and CNI plugin deployment is copied to /etc/ directory as part of Ansible installation. 
 
@@ -414,6 +417,7 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
        [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
         nuage-cni-ds             3        3        3        <none>                 7m
+        nuage-infra-ds           4        4        2         <none>                 7m
         nuage-master-config      1        1        1        install-monitor=true   7m
         nuage-vrs-ds             3        3        3        <none>                 7m
         
@@ -457,9 +461,9 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-cni-ds            3        3        3        <none>                 7m
         nuage-master-config     1        1        1        install-monitor=true   7m
         nuage-vrs-ds            3        3        3        <none>                 7m
-        
 
 3. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master node and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
+The Nuage infra pod now runs on all nodes to enable access to the service IP from underlay nodes. 
 
    ::
         
@@ -469,6 +473,8 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-cni-ds-81mnp          1/1       Running   0          7m
         nuage-cni-ds-f4q2k          1/1       Running   0          7m
         nuage-master-config-0d95v   1/1       Running   0          7m
+        nuage-infra-ds-sftn2        1/1       Running   0          7m
+        nuage-infra-ds-x6fmr        1/1       Running   0          7m
         nuage-vrs-ds-0v9sq          1/1       Running   0          7m
         nuage-vrs-ds-c0kt5          1/1       Running   0          7m
         nuage-vrs-ds-d4h7m          1/1       Running   0          7m
@@ -478,8 +484,6 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
 Post Installation
 -----------------------
 
-1. If you are using any VSP release prior to 5.1.2, enable 'Underlay Support' and 'Address Translation Support' for the Openshift domain on VSD Architect.
-
-2. Check the docker-registry and router pods. If they have failed to deploy, delete and re-deploy the docker-registry and router pods. Check the troubleshooting guide for more information.
+1. Check the docker-registry and router pods in the default namespace. If they have failed to deploy, delete and re-deploy the docker-registry and router pods. Check the troubleshooting guide for more information.
 
 
