@@ -401,7 +401,7 @@ Installing the VSP Components for Multiple Masters
 Deploying the Nuage DaemonSet
 --------------------------------
 
-The Ansible installer with automatically label the master nodes and deploy the nuage-master-config, nuage-cni-ds and nuage-cni-ds daemonsets. In case of any failures, use the appropriate commands to correct or verify the daemonset files and re-deploy.
+The Ansible installer with automatically label the master nodes and deploy the nuage-master-config, nuage-vrs-ds and nuage-cni-ds daemonsets. In case of any failures, use the appropriate commands to correct or verify the daemonset files and re-deploy.
 
 The nuage-master-config-daemonset.yaml for openshift-monitor deployment and nuage-node-config-daemonset.yaml for VRS and CNI plugin deployment is copied to /etc/ directory as part of Ansible installation. 
 
@@ -414,6 +414,7 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
        [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
         nuage-cni-ds             3        3        3        <none>                 7m
+        nuage-infra-ds           4        4        2         <none>                 7m
         nuage-master-config      1        1        1        install-monitor=true   7m
         nuage-vrs-ds             3        3        3        <none>                 7m
         
@@ -478,7 +479,7 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
 Post Installation
 -----------------------
 
-1. If you are using any VSP release prior to 5.1.2, enable 'Underlay Support' and 'Address Translation Support' for the Openshift domain on VSD Architect.
+1. Enable 'Underlay Support' and 'Address Translation Support' for the Openshift domain on VSD Architect.
 
 2. Check the docker-registry and router pods. If they have failed to deploy, delete and re-deploy the docker-registry and router pods. Check the troubleshooting guide for more information.
 
