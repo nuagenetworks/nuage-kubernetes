@@ -1,7 +1,7 @@
 
-===========================
-OpenShift Installation
-===========================
+=============================================
+OpenShift Installation - Standalone and HA
+=============================================
 
 .. contents::
    :local:
@@ -11,7 +11,7 @@ OpenShift Installation
 Supported Platforms
 ====================
 
-The VSP integration with OpenShift works for both virtual machines (VMs) and bare metal installations of OpenShift.
+The VSP integration with OpenShift is supported on RHEL Server hosts (Version 7.3).
 
 .. Note:: For information on other supported platforms and distributions, see the *Nuage VSP Release Notes*.
 
@@ -26,7 +26,7 @@ You only need to install Ansible once on a machine and it can manage the master 
 OpenShift DaemonSet for Nuage installation
 ===========================================
 
-DaemonSet is used for installation of Nuage containerized services as part of the OpenShift Ansible Installation for Nuage. The nuage-openshift-monitor, CNI plugin, and VRS operate as DaemonSet pods on master and slave nodes.
+DaemonSet is used for installation of Nuage containerized services as part of the OpenShift Ansible Installation for Nuage. The nuage-openshift-monitor, CNI plugin, nuage-infra pod and VRS operate as DaemonSet pods on master and slave nodes.
 
 .. Note:: Nuage recommends using Daemonsets for installation of Nuage services.
 
@@ -34,7 +34,7 @@ Pre-Installation Steps in VSD
 -----------------------------
 1. Login to VSD UI as csproot and create an  "openshift" Enterprise.
 
-2. Under the "openshift" Enterprise, create a user "ose-admin" and add the user to the "Administrators" group.
+2. Under the "openshift" Enterprise, create a user "ose-admin" and add the user to the "Administrators" group. It is mandatory to add the user to the "Administrators" group on the VSD.
 
    .. Note:: The steps to create the user and adding the user to a particular group can be found in the "CSP User Management" section in the "Nuage VSP User Guide."
 
@@ -67,14 +67,15 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
 .. Note:: set-up passwordless **ssh** between Ansible node and cluster nodes.
    
-3. Copy the nuage-ose-rhel-install-5-1-2.tar.gz file shipped with Nuage 5.1.2 Release to a host machine where Ansible is run.
+3. Copy the nuage-ose-rhel-install-5-1-2.tar file shipped with Nuage 5.1.2 Release to a host machine where Ansible is run.
 
-4. Unzip and Untar the above image
+4. Untar the above image
 
    ::
    
        [root@ovs-10 ~]# tar -xvf nuage-ose-rhel-install.tar 
        etcd_certificates.yml
+       nuage-infra-pod-config-daemonset.j2
        nuage-openshift-ansible.diff
        patch-nuage-openshift-ansible.sh
 
@@ -85,24 +86,24 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
       [root@ansible-mc ~]# ./patch-nuage-openshift-ansible.sh 
       Cloning into 'openshift-ansible'...
-      remote: Counting objects: 71319, done.
-      remote: Compressing objects: 100% (24/24), done.
-      remote: Total 71319 (delta 4), reused 13 (delta 0), pack-reused 71293
-      Receiving objects: 100% (71319/71319), 18.18 MiB | 2.86 MiB/s, done.
-      Resolving deltas: 100% (44186/44186), done.
-      Checking out files: 100% (287/287), done.
-      Note: checking out 'tags/openshift-ansible-3.7.0-0.135.0'.
+      remote: Counting objects: 74439, done.
+      remote: Compressing objects: 100% (7/7), done.
+      remote: Total 74439 (delta 4), reused 2 (delta 2), pack-reused 74430
+      Receiving objects: 100% (74439/74439), 18.85 MiB | 3.60 MiB/s, done.
+      Resolving deltas: 100% (46284/46284), done.
+      Checking connectivity... done.
+      Note: checking out 'tags/openshift-ansible-3.7.0-0.116.0'.
 
       You are in 'detached HEAD' state. You can look around, make experimental
       changes and commit them, and you can discard any commits you make in this
       state without impacting any branches by performing another checkout.
-      
+
       If you want to create a new branch to retain commits you create, you may
       do so (now or later) by using -b with the checkout command again. Example:
 
-      git checkout -b new_branch_name
+      git checkout -b <new-branch-name>
 
-      HEAD is now at d1e5160... Automatic commit of package [openshift-ansible] release [3.7.0-0.135.0].
+      HEAD is now at cc47755... Automatic commit of package [openshift-ansible] release [3.7.0-0.116.0].
       Successfully patched Nuage ansible changes into openshift-ansible
       You may now use the openshift-ansible folder for your ansible installation
 
@@ -118,17 +119,54 @@ Setup
 
    ::
    
-       nuage-master-docker.tar
-       nuage-cni-docker.tar
-       nuage-vrs-docker.tar
+       nuage-master-docker-<version>.tar
+       nuage-cni-docker-<version>.tar
+       nuage-vrs-docker-<version>.tar
+       nuage-infra-docker-<version>.tar
 
 3. Load the following docker images on your slave nodes:
 
    ::
    
-       nuage-cni-docker.tar
-       nuage-vrs-docker.tar
-       
+       nuage-cni-docker-<version>.tar
+       nuage-vrs-docker-<version>.tar
+       nuage-infra-docker-<version>.tar
+
+4. By loading the images, we mean loading the images to docker using 'docker load -i' command. Example shown below
+
+   ::
+   
+      [root@node-1 .ssh]# docker load -i nuage-vrs-docker-<version>.tar 
+      b431d6b0d399: Loading layer [==================================================>] 7.591 MB/7.591 MB
+      3936811d0a81: Loading layer [==================================================>]   173 MB/173 MB
+      Loaded image: nuage/vrs:<version>
+
+      [root@node-1 ~]# docker load -i nuage-infra-docker-<version>.tar 
+      6a749002dd6a: Loading layer [==================================================>] 1.338 MB/1.338 MB
+      6b59b94504a9: Loading layer [==================================================>] 2.048 kB/2.048 kB
+      Loaded image: nuage/infra:<version>
+
+      [root@node-1 ~]# docker load -i nuage-cni-docker-<version>.tar
+      99b28d9413e4: Loading layer [==================================================>] 200.2 MB/200.2 MB
+      1541333c4fbd: Loading layer [==================================================>]  63.9 MB/63.9 MB
+      523358a7deb2: Loading layer [==================================================>]  63.9 MB/63.9 MB
+      62e0df2908be: Loading layer [==================================================>] 3.174 MB/3.174 MB
+      a658b822d29a: Loading layer [==================================================>] 5.632 kB/5.632 kB
+      b2914c7a133a: Loading layer [==================================================>] 2.048 kB/2.048 kB
+      bb72aaeb25b7: Loading layer [==================================================>] 2.048 kB/2.048 kB
+      4defe2b005cb: Loading layer [==================================================>] 75.86 MB/75.86 MB
+      Loaded image: nuage/cni:<version>
+
+      [root@ovs-1 ~]# docker images
+      REPOSITORY                                                 TAG                 IMAGE ID            CREATED             SIZE
+      nuage/vrs                                                  <version>           0f83ba129dc2        14 hours ago        505.8 MB
+      nuage/infra                                                <version>           53580dde0343        13 days ago         1.13 MB
+      nuage/cni                                                  <version>           01be44d6d037        5 weeks ago         399.1 MB
+      registry.access.redhat.com/openshift3/ose-haproxy-router   v3.5.5.5            0da1e83a3dc6        6 months ago        775.2 MB
+      registry.access.redhat.com/openshift3/node                 v3.5.5.5            2a27de91c442        6 months ago        981.4 MB
+      registry.access.redhat.com/openshift3/ose-deployer         v3.5.5.5            fe58ee8f8ced        6 months ago        755.7 MB
+      registry.access.redhat.com/openshift3/ose-pod              v3.5.5.5            b717234be287        6 months ago        205.6 MB
+   
    
 Including the ansible.cfg File
 --------------------------------
@@ -191,9 +229,14 @@ Installation for a Single Master
     os_sdn_network_plugin_name=cni
     vsd_api_url=https://<VSD-IP/VSD-Hostname>:7443
     vsp_version=v5_0
-    nuage_monitor_image_version=v5.1.2-1
-    nuage_vrs_image_version=v5.1.2-1
-    nuage_cni_image_version=v5.1.2-1
+    
+    # The below versions should match the TAG version in the output of 'docker images' on the nodes. See point 2 above
+    # Example: nuage_monitor_image_version=5.1.2-70
+    nuage_monitor_image_version=<version>
+    nuage_vrs_image_version=<version>
+    nuage_cni_image_version=<version>
+    nuage_infra_image_version=<version>
+    
     enterprise=openshift
     domain=openshift
     vsc_active_ip=10.100.100.101
@@ -260,7 +303,9 @@ Installing the VSP Components for the Single Master
        2017-08-11 22:01:49,894 p=16545 u=root |  etcd.nuageopenshift.com: ok=247  changed=22  unreachable=0  failed=0
        2017-08-11 22:01:49,895 p=16545 u=root |  node1.nuageopenshift.com : ok=111  changed=21  unreachable=0  failed=0
        2017-08-11 22:01:49,896 p=16545 u=root |  node2.nuageopenshift.com : ok=111  changed=21  unreachable=0  failed=0
-       
+   
+.. Note:: Make sure that all the images are loaded on the nodes & masters using 'docker load -i <docker-image.tar>' command as shown in the Setup section above. If the images are not loaded, the deployment of daemonsets will fail.
+
 2. Verify that the Master-Node connectivity is up and all nodes are running:
 
    ::
@@ -276,7 +321,7 @@ A High Availability (HA) environment can be configured with multiple masters and
 
 Nuage OpenShift only supports HA configuration method described in this section. This can be combined with any load balancing solution, the default being HAProxy. In the inventory file, there are two master hosts, the nodes, an etcd server and a host that functions as the HAProxy to balance the master API on all master hosts. The HAProxy host is defined in the [lb] section of the inventory file enabling Ansible to automatically install and configure HAProxy as the load balancing solution.
 
-1. Create the nodes file for Ansible configuration for multiple masters in the openshift-ansible directory with the contents shown below.
+1. Create the nodes file for Ansible configuration for multiple masters in the openshift-ansible directory with the content shown below.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets.
 
@@ -314,9 +359,14 @@ Nuage OpenShift only supports HA configuration method described in this section.
         os_sdn_network_plugin_name=cni
         vsd_api_url=https://<VSD-IP/VSD-Hostname>:7443
         vsp_version=v5_0
-        nuage_monitor_image_version=v5.1.2-1
-        nuage_vrs_image_version=v5.1.2-1
-        nuage_cni_image_version=v5.1.2-1
+        
+        # The below versions should match the TAG version in the output of 'docker images' on the nodes. See point 2 above
+        # Example: nuage_monitor_image_version=5.1.2-70
+        nuage_monitor_image_version=<version>
+        nuage_vrs_image_version=<version>
+        nuage_cni_image_version=<version>
+        nuage_infra_image_version=<version>
+        
         enterprise=openshift
         domain=openshift
         vsc_active_ip=10.100.100.101
@@ -389,7 +439,9 @@ Installing the VSP Components for Multiple Masters
        2017-08-11 22:01:49,893 p=16545 u=root | master2.nuageopenshift.com : ok=248 changed=22 unreachable=0  failed=0
        2017-08-11 22:01:49,894 p=16545 u=root | node1.nuageopenshift.com : ok=111 changed=21 unreachable=0  failed=0
        2017-08-11 22:01:49,895 p=16545 u=root | node2.nuageopenshift.com : ok=111 changed=21 unreachable=0  failed=0 
-       
+
+.. Note:: Make sure that all the images are loaded on the nodes & masters using 'docker load -i <docker-image.tar>' command as shown in the Setup section above. If the images are not loaded, the deployment of daemonsets will fail.
+
 2. Verify that the Master-Node connectivity is up and all nodes are running:
 
    ::
@@ -404,9 +456,10 @@ Installing the VSP Components for Multiple Masters
 Deploying the Nuage DaemonSet
 --------------------------------
 
-The Ansible installer with automatically label the master nodes and deploy the nuage-master-config, nuage-vrs-ds and nuage-cni-ds daemonsets. In case of any failures, use the appropriate commands to correct or verify the daemonset files and re-deploy.
+The Ansible installer with automatically label the master nodes and deploy the nuage-master-config, nuage-vrs-ds, nuage-infra-ds and nuage-cni-ds daemonsets. In case of any failures, use the appropriate commands to correct or verify the daemonset files and re-deploy.
 
-The nuage-master-config-daemonset.yaml for openshift-monitor deployment and nuage-node-config-daemonset.yaml for VRS and CNI plugin deployment is copied to /etc/ directory as part of Ansible installation. 
+The nuage-master-config-daemonset.yaml for openshift-monitor deployment and nuage-node-config-daemonset.yaml for VRS and CNI plugin deployment and nuage-infra-pod-config-daemonset.yaml for nuage-infra pod is copied to /etc/ directory as part of Ansible installation. 
+The Nuage infra pod now runs on all nodes to enable access to the service IP from underlay nodes.
 
 The daemonset files are pre-populated using the values provided in the 'nodes' file during Ansible installation. You may modify the image versions or other relevant parameters in the yaml file. However, it is advised to take a back-up of the yaml files before any modification.
 
@@ -417,7 +470,7 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
        [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
         nuage-cni-ds             3        3        3        <none>                 7m
-        nuage-infra-ds           4        4        2         <none>                 7m
+        nuage-infra-ds           4        4        2        <none>                 7m
         nuage-master-config      1        1        1        install-monitor=true   7m
         nuage-vrs-ds             3        3        3        <none>                 7m
         
@@ -430,7 +483,9 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
 
    .. Note:: If 'nuageMonRestServer' has the value 0.0.0.0:9443, it is incorrect. Please change the value and re-deploy.
 
-2. If you modify the daemonset files, delete and re-deploy the master or node daemonsets respectively using the following commands.
+3. If you modify the daemonset files, delete and re-deploy the master or node daemonsets respectively using the following commands.
+
+.. Note:: It is mandatory to delete the nuage-infra-ds using the command 'oc delete -f /etc/nuage-infra-pod-config-daemonset.yaml' before deleting nuage-cni-ds or nuage-vrs-ds i.e before you do 'oc delete -f /etc/nuage-node-config-daemonset.yaml'. In case you skipped doing this and there are stale nuage-infra pods in kube-system namespace, refer to the troubleshooting guide.
 
    ::
     
@@ -456,13 +511,20 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         daemonset "nuage-cni-ds" created
         daemonset "nuage-vrs-ds" created
         
+         [root@master]# oc create -f /etc/nuage-infra-pod-config-daemonset.yaml 
+        daemonset "nuage-infra-ds" created
+
+        [root@master]# oc delete -f /etc/nuage-infra-pod-config-daemonset.yaml 
+        daemonset "nuage-infra-ds" deleted
+        
         [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
         nuage-cni-ds            3        3        3        <none>                 7m
         nuage-master-config     1        1        1        install-monitor=true   7m
         nuage-vrs-ds            3        3        3        <none>                 7m
-
-3. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master node and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
+        nuage-infra-ds         3        3         3         <none>                 7m
+         
+4. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master node and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
 The Nuage infra pod now runs on all nodes to enable access to the service IP from underlay nodes. 
 
    ::
@@ -479,7 +541,7 @@ The Nuage infra pod now runs on all nodes to enable access to the service IP fro
         nuage-vrs-ds-c0kt5          1/1       Running   0          7m
         nuage-vrs-ds-d4h7m          1/1       Running   0          7m
    
-    
+5. If the nuage-infra daemonset is stuck in 'ContainerCreating' stage on the master nodes, you can ignore as the pods are unable to get an overlay IP as the master nodes are probably not being used to actively schedule pods or services. The infra pods are not restricted from running on the masters due a fact that some customers might be interested in using the master nodes to schedule pods or services.    
 
 Post Installation
 -----------------------
