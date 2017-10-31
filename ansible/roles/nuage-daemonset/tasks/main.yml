@@ -19,3 +19,14 @@
 - name: Spawn Nuage node daemon sets pods
   shell: kubectl create -f /etc/nuage-node-config-daemonset.yaml
   ignore_errors: true
+
+- name: Copy Nuage Infra Pod daemon sets yaml to master node
+  become: yes
+  copy:
+    src: nuage-infra-pod-config-daemonset.yaml
+    dest: /etc/nuage-infra-pod-config-daemonset.yaml
+    mode: 0755
+
+- name: Spawn Nuage Infra daemon sets pods
+  shell: kubectl create -f /etc/nuage-infra-pod-config-daemonset.yaml
+  ignore_errors: true

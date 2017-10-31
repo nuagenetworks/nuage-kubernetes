@@ -33,16 +33,17 @@ data:
       nuageMonServer:
           URL: 0.0.0.0:9443
           certificateDirectory: /usr/share/nuagekubemon
-       # etcd config required for HA
-       etcdClientConfig:
-         urls:
-       {% for etcd_url in groups['etcd'] %}
-             - {{ etcd_url }}
-       {% endfor %}
-       # auto scale subnets feature
-       # 0 => disabled(default) 
-       # 1 => enabled
-       autoScaleSubnets: {{ auto_scale_subnets | default(0) }}
+      # etcd config required for HA
+      etcdClientConfig:
+          ca: ""
+          certFile: ""
+          keyFile: ""
+          urls:
+             - http://127.0.0.1:2379
+      # auto scale subnets feature
+      # 0 => disabled(default) 
+      # 1 => enabled
+      autoScaleSubnets: 0
 
   # This will generate the required Nuage network configuration
   # on master nodes
