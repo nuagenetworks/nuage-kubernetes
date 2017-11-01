@@ -38,7 +38,7 @@ Pre-Installation Steps in VSD
 
     ::
 
-         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u k8s-admin -c k8s-admin -o kubernetes -f pem -t client -s root@<k8s-master-IP>:/usr/local/
+         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u k8s-admin -c k8s-admin -o kubernetes -f pem -t client -s root@<ansible-node-IP>:/usr/local/
          
          Where:
          -a <action>         Action [generate|revoke|delete|renew|bscopy]
