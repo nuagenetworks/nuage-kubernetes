@@ -26,3 +26,5 @@ Follow this release pattern and you can't go wrong:
  `yum install -y kubeadm-1.6.6 kubelet-1.6.6 kubectl-1.6.6 docker kubernetes-cni`
  
  This should install the required version of kubernetes components along with the required version of docker.
+ 
+ ..Note: Ansible version supported is 2.3.0.0 for Nuage ansible playbook with Kubernetes
