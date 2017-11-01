@@ -111,7 +111,6 @@ chmod +x setup-worker.sh
           sudo cp /etc/kubernetes/admin.conf ~/.kube/config
           sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-
 As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage components. DaemonSet will be responsible for installation & maintenance of containerized monitor (nuagekubemon) and containerized CNI plugin with containerized Nuage VRS on master and slave nodes respectively.
 
 .. Note:: All Nuage services like nuagekubemon, CNI plugin and VRS will be operating as DaemonSet pods on master and slave nodes. This is the recommended method of installing Nuage components with Kubernetes.

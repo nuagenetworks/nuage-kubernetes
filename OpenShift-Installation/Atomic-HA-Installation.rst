@@ -1,6 +1,6 @@
 
 =======================================
-OpenShift Installation on Atomic Hosts - Standalone
+OpenShift Installation on Atomic Hosts - HA
 =======================================
 
 .. contents::
@@ -13,7 +13,7 @@ Supported Platforms
 
 The VSP integration with OpenShift is supported on RHEL Atomic hosts (VERSION 7.3).
 
-The installation procedure in this section is for VSP integration with OpenShift when the master nodes are RHEL Server hosts and slave nodes are RHEL Atomic hosts. This guide documents the installation procedure for Atomic Standalone Installation.
+The installation procedure in this section is for VSP integration with OpenShift when the master nodes are RHEL Server hosts and slave nodes are RHEL Atomic hosts. This guide documents the installation procedure for Atomic High-Availability/Multi-Master Installation.
 
 .. Note:: For information on other supported platforms and distributions, see the *Nuage VSP Release Notes*.
 
@@ -69,53 +69,46 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
    .. Note:: set-up passwordless ssh between Ansible node and cluster nodes.
 
-3. Copy the nuage-ose-atomic-install-5-1-2.tar.gz file shipped with Nuage 5.1.2 Release to a host machine where Ansible is run.
+3. Copy the nuage-ose-rhel-install-5-1-2.tar.gz file shipped with Nuage 5.1.2 Release to a host machine where Ansible is run.
 
 4. Unzip and Untar the above image
 
   ::
       
-       [root@ansible-host ~]# tar -xvf nuage-ose-atomic-install.tar 
+       [root@ansible-host ~]# tar -xvf nuage-ose-rhel-install.tar 
        etcd_certificates.yml
-       main.yml
-       nuage-master-config-daemonset.j2
-       nuage-node-config-daemonset.j2
        nuage-infra-pod-config-daemonset.j2
        nuage-openshift-ansible.diff
        patch-nuage-openshift-ansible.sh
-
-       [root@ansible-host ~]# ls
-       etcd_certificates.yml  nuage-master-config-daemonset.j2  nuage-openshift-ansible.diff  patch-nuage-openshift-ansible.sh
-       main.yml               nuage-node-config-daemonset.j2    nuage-ose-atomic-install.tar  nuage-infra-pod-config-daemonset.j2
 
    
 3. Run the patch-nuage-openshift-ansible.sh script to clone the ansible repo and set up Nuage changes.
 
    ::
    
-       [root@ansible-host ~]# ./patch-nuage-openshift-ansible.sh 
-       Cloning into 'openshift-ansible'...
-       remote: Counting objects: 71754, done.
-       remote: Compressing objects: 100% (11/11), done.
-       remote: Total 71754 (delta 0), reused 6 (delta 0), pack-reused 71742
-       Receiving objects: 100% (71754/71754), 18.28 MiB | 2.48 MiB/s, done.
-       Resolving deltas: 100% (44453/44453), done.
-       Checking connectivity... done.
-       Note: checking out 'tags/openshift-ansible-3.6.128-1'.
+	[root@ansible-host ~]# ./patch-nuage-openshift-ansible.sh 
+	Cloning into 'openshift-ansible'...
+	remote: Counting objects: 74439, done.
+	remote: Compressing objects: 100% (53/53), done.
+	remote: Total 74439 (delta 33), reused 44 (delta 19), pack-reused 74364
+	Receiving objects: 100% (74439/74439), 18.93 MiB | 3.55 MiB/s, done.
+	Resolving deltas: 100% (46271/46271), done.
+	Checking connectivity... done.
+	Note: checking out 'tags/openshift-ansible-3.7.0-0.116.0'.
 
-       You are in 'detached HEAD' state. You can look around, make experimental
-       changes and commit them, and you can discard any commits you make in this
-       state without impacting any branches by performing another checkout.
+	You are in 'detached HEAD' state. You can look around, make experimental
+	changes and commit them, and you can discard any commits you make in this
+	state without impacting any branches by performing another checkout.
 
-       If you want to create a new branch to retain commits you create, you may
-       do so (now or later) by using -b with the checkout command again. Example:
+	If you want to create a new branch to retain commits you create, you may
+	do so (now or later) by using -b with the checkout command again. Example:
 
-       git checkout -b <new-branch-name>
+	git checkout -b <new-branch-name>
 
-       HEAD is now at 2d7e10b... Automatic commit of package [openshift-ansible] release [3.6.128-1].
-       Successfully patched Nuage ansible changes into openshift-ansible
-       You may now use the openshift-ansible folder for your ansible installation
-      
+	HEAD is now at cc47755... Automatic commit of package [openshift-ansible] release [3.7.0-0.116.0].
+	Successfully patched Nuage ansible changes into openshift-ansible
+	You may now use the openshift-ansible folder for your ansible installation
+ 
 
 Setup
 ----------
@@ -198,7 +191,7 @@ Including the ansible.cfg File
 2. Make sure the directory specified for the log_path exists.
 
 
-Installation for a Single Master
+Installation for Multi-Master
 -----------------------------------
 
 1. Create a nodes file for Ansible configuration for a single master (RHEL Server) in the openshift-ansible directory with the contents shown below.
@@ -214,7 +207,8 @@ Installation for a Single Master
     masters
     nodes
     etcd 
-    
+    lb
+
     # Set variables common for all OSEv3 hosts
     [OSEv3:vars]
     # SSH user, this user should allow ssh based auth without requiring a password
@@ -272,14 +266,19 @@ Installation for a Single Master
     openshift_master_cluster_method=native
     
     # Required for Nuage Monitor REST server 
-    openshift_master_cluster_hostname=master.nuageopenshift.com
-    openshift_master_cluster_public_hostname=master.nuageopenshift.com
+    openshift_master_cluster_hostname=lb.nuageopenshift.com
+    openshift_master_cluster_public_hostname=lb.nuageopenshift.com
     nuage_openshift_monitor_rest_server_port=9443
     
     # host group for masters
     [masters]
-    master.nuageopenshift.com
+    master1.nuageopenshift.com
+    master2.nuageopenshift.com
     
+    # Specify load balancer host
+    [lb]
+    lb.nuageopenshift.com
+
     # etcd 
     [etcd]
     etcd.nuageopenshift.com
@@ -288,10 +287,10 @@ Installation for a Single Master
     [nodes]
     node1.nuageopenshift.com openshift_schedulable=True openshift_node_labels="{'region': 'infra'}"
     node2.nuageopenshift.com
-    master.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
+    master1.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
+    master2.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
 
-
-.. Note:: It is mandatory to specify the openshift_node_labels="{'install-monitor': 'true'}" parameter for the master node for Nuage OpenShift master to be deployed.
+.. Note:: It is mandatory to specify the openshift_node_labels="{'install-monitor': 'true'}" parameter for the master nodes for Nuage OpenShift master daemonset to be deployed.
 
 Installing the VSP Components for the Single Master
 ----------------------------------------------------
@@ -309,7 +308,8 @@ Installing the VSP Components for the Single Master
        
        2017-08-11 22:01:49,891 p=16545 u=root |  PLAY RECAP *********************************************************************
        2017-08-11 22:01:49,892 p=16545 u=root |  localhost                : ok=20   changed=0   unreachable=0  failed=0
-       2017-08-11 22:01:49,893 p=16545 u=root |  master.nuageopenshift.com: ok=247  changed=22  unreachable=0  failed=0
+       2017-08-11 22:01:49,893 p=16545 u=root |  master1.nuageopenshift.com: ok=247  changed=22  unreachable=0  failed=0
+       2017-08-11 22:01:49,893 p=16545 u=root |  master2.nuageopenshift.com: ok=247  changed=22  unreachable=0  failed=0
        2017-08-11 22:01:49,894 p=16545 u=root |  etcd.nuageopenshift.com: ok=247  changed=22  unreachable=0  failed=0
        2017-08-11 22:01:49,895 p=16545 u=root |  node1.nuageopenshift.com : ok=111  changed=21  unreachable=0  failed=0
        2017-08-11 22:01:49,896 p=16545 u=root |  node2.nuageopenshift.com : ok=111  changed=21  unreachable=0  failed=0
@@ -340,10 +340,10 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
        
         [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
-        nuage-cni-ds           3        3         3         <none>                 7m
-        nuage-master-config    1        1         1         install-monitor=true   7m
-        nuage-vrs-ds           3        3         3         <none>                 7m
-        nuage-infra-ds         3        3         3         <none>                 7m
+        nuage-cni-ds           4        4         4         <none>                 7m
+        nuage-master-config    2        2         2         install-monitor=true   7m
+        nuage-vrs-ds           4        4         4         <none>                 7m
+        nuage-infra-ds         4        4         4         <none>                 7m
         
 2. Verify that the REST server URL value is correct in the /etc/nuage-node-config-daemonset.yaml file. The 'nuageMonRestServer' should be configured with openshift_master_cluster_hostname value specified in the nodes files during Ansible installation. Modify the value and save the file if this field has incorrect values. Delete and re-deploy the node daemonset as shown in the following steps. 
 
@@ -388,13 +388,13 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
 
         [root@master]# oc get ds -n kube-system
         NAME                  DESIRED   CURRENT   READY     NODE-SELECTOR          AGE
-        nuage-cni-ds           3        3         3         <none>                 7m
-        nuage-master-config    1        1         1         install-monitor=true   7m
-        nuage-vrs-ds           3        3         3         <none>                 7m
-        nuage-infra-ds         3        3         3         <none>                 7m
+        nuage-cni-ds           4        4         4         <none>                 7m
+        nuage-master-config    2        2         2         install-monitor=true   7m
+        nuage-vrs-ds           4        4         4         <none>                 7m
+        nuage-infra-ds         4        4         4         <none>                 7m
         
 
-4. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master node and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
+4. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master nodes and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
 
    ::
         
@@ -403,19 +403,24 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-cni-ds-04s43          1/1       Running   0          7m
         nuage-cni-ds-81mnp          1/1       Running   0          7m
         nuage-cni-ds-f4q2k          1/1       Running   0          7m
+        nuage-cni-ds-f5q2k          1/1       Running   0          7m
         nuage-master-config-0d95v   1/1       Running   0          7m
+        nuage-master-config-0d95z   1/1       Running   0          7m
         nuage-vrs-ds-0v9sq          1/1       Running   0          7m
         nuage-vrs-ds-c0kt5          1/1       Running   0          7m
         nuage-vrs-ds-d4h7m          1/1       Running   0          7m
+        nuage-vrs-ds-ac9sq          1/1       Running   0          7m 
+        nuage-infra-ds-abvl2        1/1       Running   0          7m
         nuage-infra-ds-74cl2        1/1       Running   0          7m
         nuage-infra-ds-vhsdd        1/1       Running   0          7m
         nuage-infra-ds-vhsdc        1/1       Running   0          7m
         
-5. If the nuage-infra daemonset is stuck in 'ContainerCreating' stage on the master nodes, you can ignore as the pods are unable to get an overlay IP as the master nodes are probably not being used to actively schedule pods or services. The infra pods are not restricted from running on the masters due a fact that some customers might be interested in using the master nodes to schedule pods or services.
+5. If the nuage-infra daemonset is stuck in 'ContainerCreating' stage on the master nodes, you can ignore as the pods are unable to get an overlay IP as the master nodes are probably not being used to actively schedule application pods or services. The infra pods are not restricted from running on the masters due the fact that some customers might be interested in using the master nodes to schedule application pods or services.
 
 
 Post Installation
 -----------------------
 
 1. Check the docker-registry and router pods in the default namespace. If they have failed to deploy, delete and re-deploy the docker-registry and router pods. Check the troubleshooting guide for more information.
+
 
