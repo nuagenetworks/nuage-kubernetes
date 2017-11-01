@@ -287,7 +287,7 @@ Update the following environment variables in DaemonSet section for **nuage-vrs-
           value: '192.168.0.0\/16'
 
 
-Make sure the **image** parameter is correctly set to the Nuage VRS and CNI docker images version pre-loaded on slave nodes:
+Make sure the **image** parameter is correctly set to the Nuage VRS and CNI docker images version pre-loaded on the slave nodes:
 
 ::
 
@@ -303,6 +303,17 @@ Make sure the **image** parameter is correctly set to the Nuage VRS and CNI dock
         - name: install-nuage-cni
           image: nuage/cni:<nuage-version>
 
+Update the **image** parameter in **nuage-kubernetes/ansible/roles/nuage-daemonset/files/nuage-infra-pod-config-daemonset.yaml** file and make sure that it is correctly set to the Nuage infra pod image version pre-loaded on the slave nodes:
+
+::
+
+      containers:
+        # This container spawns a Nuage Infra pod
+        # on each worker node
+        - name: install-nuage-infra
+          image: nuage/infra:v5.1.2
+
+       
 
 Installation for a Single Master 
 -----------------------------------
