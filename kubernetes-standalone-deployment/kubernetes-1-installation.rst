@@ -186,6 +186,8 @@ You need to have Git installed on your Ansible host machine. Perform the followi
 
 Make sure to set the etcd config correctly if there is an external etcd cluster. If the etcd cluster is not using TLS certificates, do not set the ca, certFile & keyFile parameters. Also, if etcd is running locally on the master, use the localhost IP as shown below. If the etcd cluster is setup using FQDN, set the URL to the FQDN hostname. Also, make sure to check the protocol for the etcd cluster and set http or https accordingly.
 
+::
+
           # etcd config required for HA
           etcdClientConfig:
               ca: ""
@@ -196,18 +198,20 @@ Make sure to set the etcd config correctly if there is an external etcd cluster.
 
 Set the parameter to 1 in order to allow nuagekubemon to automagically create a new subnet when the existing subnet gets depleted. Threshold for new subnet creation is set to 70% namespace/zone allocation. It will also delete additional subnets if the namespace usage falls below 25%
 
+::
+
           # auto scale subnets feature
           # 0 => disabled(default)
           # 1 => enabled
           autoScaleSubnets: 1
 
-      # This will generate the required Nuage network configuration
-      # on master nodes
-      net_yaml_config: |
-          networkConfig:
-            clusterNetworkCIDR: 70.70.0.0/16
-            serviceNetworkCIDR: 192.168.0.0/16
-            hostSubnetLength: 8
+          # This will generate the required Nuage network configuration
+          # on master nodes
+          net_yaml_config: |
+              networkConfig:
+                clusterNetworkCIDR: 70.70.0.0/16
+                serviceNetworkCIDR: 192.168.0.0/16
+                hostSubnetLength: 8
 
 Make sure the **image** parameter is correctly set to the Nuagekubemon docker images version pre-loaded on master nodes:
 
@@ -266,9 +270,11 @@ Make sure the **image** parameter is correctly set to the Nuagekubemon docker im
 
 Update the following environment variables in the DaemonSet section for **nuage-cni-ds** with the value set in clusterNetworkCIDR in the nuage-master-config-daemonset.yaml above    
 
-         # Nuage cluster network CIDR for iptables configuration
-            - name: NUAGE_CLUSTER_NW_CIDR
-              value: "70.70.0.0/16"
+::
+
+            # Nuage cluster network CIDR for iptables configuration
+              - name: NUAGE_CLUSTER_NW_CIDR
+                value: "70.70.0.0/16"
 
 
 Update the following environment variables in DaemonSet section for **nuage-vrs-ds** with Active and Standby Nuage VSC IP addresses for containerized Nuage VRS and NUAGE_K8S_SERVICE_IPV4_SUBNET with the value for serviceNetworkCIDR set in nuage-master-config-daemonset.yaml above
@@ -311,7 +317,7 @@ Update the **image** parameter in **nuage-kubernetes/ansible/roles/nuage-daemons
         # This container spawns a Nuage Infra pod
         # on each worker node
         - name: install-nuage-infra
-          image: nuage/infra:v5.1.2
+          image: nuage/infra:<nuage-version>
 
        
 
@@ -383,6 +389,6 @@ Installing the VSP Components for the Single Master
 
    ::
    
-      kubectl get nodes       
+      `kubectl get nodes`      
      
 
