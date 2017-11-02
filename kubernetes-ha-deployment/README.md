@@ -89,7 +89,7 @@ chmod +x setup-worker.sh
 3. Login to the VSD node using the CLI and execute the following command:
 
 
-         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u k8s-admin -c k8s-admin -o kubernetes -f pem -t client -s root@<k8s-master-IP>:/usr/local/
+         /opt/vsd/ejbca/deploy/certMgmt.sh -a generate -u k8s-admin -c k8s-admin -o kubernetes -f pem -t client -s root@<ansible-node-IP>:/usr/local/
          
          Where:
          -a <action>         Action [generate|revoke|delete|renew|bscopy]
@@ -102,6 +102,14 @@ chmod +x setup-worker.sh
 
 
 	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /usr/local/ or any specified directory of the k8s node where Ansible is run and this file path is also specified in the nodes file. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
+
+4. To complete the steps provided in the Kubeadm installer guide, go `here <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_. 
+
+  .. Note:: Kubectl needs the kube config to be copied to a specific location after the master is initialized using kubeadm init. Ansible scripts used to install Nuage components also rely on kubectl being available to the ansible user. In order to achieve that, execute the following commands on the master node after kubeadm init:
+    ::
+          sudo mkdir -p ~/.kube
+          sudo cp /etc/kubernetes/admin.conf ~/.kube/config
+          sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 As a part of the Kubernetes Ansible Installation for Nuage, Kubernetes DaemonSet will be used for installation of Nuage components. DaemonSet will be responsible for installation & maintenance of containerized monitor (nuagekubemon) and containerized CNI plugin with containerized Nuage VRS on master and slave nodes respectively.
 
