@@ -9,3 +9,4 @@ fi
 
 sudo docker build -t nuage/infra:${version} ../nuage-infra/
 docker save nuage/infra:${version} > nuage-infra-docker-${version}.tar
+docker rmi nuage/infra:${version}
