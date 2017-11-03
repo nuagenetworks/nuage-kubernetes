@@ -394,11 +394,7 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-infra-ds         4        4         4         <none>                 7m
         
 
-<<<<<<< HEAD
-3. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master nodes and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
-=======
 4. The master daemonset deploys the nuage-master-config(nuage-openshift-monitor) pod on the master nodes and the node daemonset deploys the CNI plugin pod and Nuage VRS pod on every slave node. Following is the output of successfully deployed master and node daemonsets.
->>>>>>> 91517a3c43f9e09f9c6f561bbff095df91c37bbe
 
    ::
         
@@ -419,11 +415,7 @@ The daemonset files are pre-populated using the values provided in the 'nodes' f
         nuage-infra-ds-vhsdd        1/1       Running   0          7m
         nuage-infra-ds-vhsdc        1/1       Running   0          7m
         
-<<<<<<< HEAD
-4. If the nuage-infra daemonset is stuck in 'ContainerCreating' stage on the master nodes, you can ignore as the pods are unable to get an overlay IP as the master nodes are probably not being used to actively schedule application pods or services. The infra pods are not restricted from running on the masters due the fact that some customers might be interested in using the master nodes to schedule application pods or services.
-=======
 5. If the nuage-infra daemonset is stuck in 'ContainerCreating' stage on the master nodes, you can ignore as the pods are unable to get an overlay IP as the master nodes are probably not being used to actively schedule application pods or services. The infra pods are not restricted from running on the masters due the fact that some customers might be interested in using the master nodes to schedule application pods or services.
->>>>>>> 91517a3c43f9e09f9c6f561bbff095df91c37bbe
 
 
 Post Installation
