@@ -24,3 +24,4 @@ cd $GOPATH/src/github.com/nuagenetworks/nuage-kubernetes/nuagekubemon
 
 sudo docker build -t nuage/master:${version} .
 docker save nuage/master:${version} > nuage-master-docker-${version}.tar
+docker rmi nuage/master:${version}
