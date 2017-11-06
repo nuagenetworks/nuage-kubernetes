@@ -7,6 +7,6 @@ if [ -z ${version} ]; then
     exit 1
 fi
 
-sudo docker build -t nuage/infra:${version} ../nuage-infra/
+sudo docker build -t nuage/infra:${version} .
 docker save nuage/infra:${version} > nuage-infra-docker-${version}.tar
 docker rmi nuage/infra:${version}
