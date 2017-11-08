@@ -437,6 +437,38 @@ func (nuageetcd *NuageEtcdClient) UpdateSubnetInfo(subnetInfo *api.EtcdSubnetMet
 	return nil
 }
 
+//GetSubnetInfo fetches subnet info from subnet metadata tree
+func (nuageetcd *NuageEtcdClient) GetSubnetInfo(subnetInfo *api.EtcdSubnetMetadata) (*api.EtcdSubnetMetadata, error) {
+	var err error
+	var getResp *clientv3.GetResponse
+	key := SUBNET_METADATA_TREE + subnetInfo.Namespace + "/" + subnetInfo.Name
+	nuageEtcdRetry(
+		func() error {
+			getResp, err = nuageetcd.client.Get(context.Background(), key)
+			return err
+		})
+	if err != nil {
+		glog.Errorf("fetching subnet info failed: %v", err)
+		return nil, err
+	}
+	if len(getResp.Kvs) == 0 {
+		return nil, fmt.Errorf("subnet(%s) under namespace(%s) not found in etcd", subnetInfo.Name, subnetInfo.Namespace)
+	}
+	subnet := &etcdSubnetValue{}
+	err = json.Unmarshal(getResp.Kvs[0].Value, subnet)
+	if err != nil {
+		glog.Errorf("json unmarshal in GetSubnetInfo failed: %v", err)
+		return nil, err
+	}
+	return &api.EtcdSubnetMetadata{
+		Name:      subnetInfo.Name,
+		Namespace: subnetInfo.Namespace,
+		ID:        subnet.VSDID,
+		CIDR:      subnet.CIDR,
+	}, nil
+
+}
+
 //GetSubnetID fetches the subnet ID. If it is "", it waits until the value is updated
 func (nuageetcd *NuageEtcdClient) GetSubnetID(subnetInfo *api.EtcdSubnetMetadata) (string, error) {
 	if subnetID, ok := nuageetcd.subnetIDCache[subnetInfo.Namespace+"/"+subnetInfo.Name]; ok {
@@ -518,6 +550,35 @@ func (nuageetcd *NuageEtcdClient) DeleteZone(zoneInfo *api.EtcdZoneMetadata) err
 		return err
 	}
 	return nil
+}
+
+func (nuageetcd *NuageEtcdClient) GetZonesSubnets() (map[string]map[string]bool, error) {
+	var err error
+	var getResp *clientv3.GetResponse
+	result := make(map[string]map[string]bool)
+	nuageEtcdRetry(
+		func() error {
+			getResp, err = nuageetcd.client.Get(context.Background(), SUBNET_METADATA_TREE,
+				clientv3.WithPrefix(), clientv3.WithKeysOnly())
+			return err
+		})
+	if err != nil {
+		glog.Errorf("getting subnet metadata tree keys failed: %v", err)
+		return nil, err
+	}
+	for _, kv := range getResp.Kvs {
+		elems := strings.Split(string(kv.Key), "/")
+		n := len(elems)
+		if n <= 2 {
+			glog.Errorf("invalid key obtained %s", kv.Key)
+			continue
+		}
+		if _, ok := result[elems[n-2]]; !ok {
+			result[elems[n-2]] = make(map[string]bool)
+		}
+		result[elems[n-2]][elems[n-1]] = true
+	}
+	return result, nil
 }
 
 func (nuageetcd *NuageEtcdClient) nuageSTM(f func() (bool, error)) {
@@ -623,6 +684,8 @@ func (nuageetcd *NuageEtcdClient) HandleEtcdEvent(event *api.EtcdEvent) {
 		err = nuageetcd.FreeSubnetCIDR(event.EtcdReqObject.(*api.EtcdSubnetMetadata))
 	case api.EtcdUpdateSubnetID:
 		err = nuageetcd.UpdateSubnetInfo(event.EtcdReqObject.(*api.EtcdSubnetMetadata))
+	case api.EtcdGetSubnetInfo:
+		data, err = nuageetcd.GetSubnetInfo(event.EtcdReqObject.(*api.EtcdSubnetMetadata))
 	case api.EtcdGetSubnetID:
 		data, err = nuageetcd.GetSubnetID(event.EtcdReqObject.(*api.EtcdSubnetMetadata))
 	case api.EtcdAddZone:
@@ -631,6 +694,8 @@ func (nuageetcd *NuageEtcdClient) HandleEtcdEvent(event *api.EtcdEvent) {
 		err = nuageetcd.DeleteZone(event.EtcdReqObject.(*api.EtcdZoneMetadata))
 	case api.EtcdUpdateZone:
 		err = nuageetcd.UpdateZone(event.EtcdReqObject.(*api.EtcdZoneMetadata))
+	case api.EtcdGetZonesSubnets:
+		data, err = nuageetcd.GetZonesSubnets()
 	}
 	event.EtcdRespObjectChan <- &api.EtcdRespObject{EtcdData: data, Error: err}
 }
