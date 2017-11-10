@@ -99,9 +99,11 @@ const (
 	EtcdFreeSubnetCIDR   EventType = "ETCD_FREE_SUBNET_CIDR"
 	EtcdUpdateSubnetID   EventType = "ETCD_UPDATE_SUBNET_ID"
 	EtcdGetSubnetID      EventType = "ETCD_GET_SUBNET_ID"
+	EtcdGetSubnetInfo    EventType = "ETCD_GET_SUBNET_INFO"
 	EtcdAddZone          EventType = "ETCD_ADD_ZONE"
 	EtcdDeleteZone       EventType = "ETCD_DELETE_ZONE"
 	EtcdUpdateZone       EventType = "ETCD_UPDATE_ZONE"
+	EtcdGetZonesSubnets  EventType = "ETCD_GET_ZONES_SUBNETS"
 )
 
 type EtcdRespObject struct {

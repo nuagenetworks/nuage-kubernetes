@@ -228,46 +228,55 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	domainTemplateID, err := nvsdc.CreateDomainTemplate(nvsdc.enterpriseID,
 		nkmConfig.DomainName+"-Template")
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
 		domainTemplateID, nkmConfig.DomainName)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 	_, err = nvsdc.CreateIngressAclTemplate(nvsdc.domainID)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 
 	err = nvsdc.CreateIngressAclEntries()
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 
 	_, err = nvsdc.CreateEgressAclTemplate(nvsdc.domainID)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 
 	err = nvsdc.CreateEgressAclEntries()
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 
 	_, err = nvsdc.CreateIngressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 
 	_, err = nvsdc.CreateEgressAclTemplateForNamespaceAnnotations(nvsdc.domainID)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 
 	err = nvsdc.StartRestServer(nkmConfig.RestServer)
 	if err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return
 	}
 }
 
@@ -1258,6 +1267,116 @@ func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.Container
 	return nil, errors.New("Unable to fetch pods in the domain and their interfaces")
 }
 
+func (nvsdc *NuageVsdClient) GetVsdObjects(objectUrl string, objType int) (*[]interface{}, error) {
+	var objs []interface{}
+	zoneResult := make([]vspk.Zone, 0, 100)
+	subnetResult := make([]vspk.Subnet, 0, 100)
+	e := api.RESTError{}
+	nvsdc.session.Header.Add("X-Nuage-PageSize", "100")
+	page := 0
+	nvsdc.session.Header.Add("X-Nuage-Page", strconv.Itoa(page))
+	// guarantee that the headers are cleared so that we don't change the
+	// behavior of other functions
+	defer nvsdc.session.Header.Del("X-Nuage-PageSize")
+	defer nvsdc.session.Header.Del("X-Nuage-Page")
+	for {
+		reqUrl := nvsdc.url + objectUrl
+		var params *url.Values
+		var resp *napping.Response
+		var err error
+		if objType == 1 {
+			resp, err = nvsdc.session.Get(reqUrl, params, &zoneResult, &e)
+		} else {
+			resp, err = nvsdc.session.Get(reqUrl, params, &subnetResult, &e)
+		}
+		logGETRequest(reqUrl, params)
+		logGETResponse(resp, &e)
+		if err != nil {
+			glog.Errorf("Error when getting zones %v", err)
+			return nil, err
+		}
+		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
+			if page == 0 {
+				glog.Errorf("Got an error when getting zones %v", err)
+				return nil, VsdErrorResponse(resp, &e)
+			} else {
+				return &objs, nil
+			}
+		} else if resp.Status() == http.StatusOK {
+			// Add all the items on this page to the list
+			if objType == 1 {
+				for _, obj := range zoneResult {
+					objs = append(objs, obj)
+				}
+			} else {
+				for _, obj := range subnetResult {
+					objs = append(objs, obj)
+				}
+			}
+			// If there's less than 100 items in the page, we must've reached
+			// the last page.  Break here instead of getting the next
+			// (guaranteed empty) page.
+			if count, err := strconv.Atoi(resp.HttpResponse().Header.Get("x-nuage-count")); err == nil {
+				if count < 100 {
+					return &objs, nil
+				}
+			} else {
+				// Something went wrong with parsing the x-nuage-count header
+				return nil, errors.New("Invalid X-Nuage-Count: " + err.Error())
+			}
+			// Update headers to get the next page
+			page++
+			nvsdc.session.Header.Set("X-Nuage-Page", strconv.Itoa(page))
+		} else {
+			// Something went wrong
+			return nil, VsdErrorResponse(resp, &e)
+		}
+	}
+	return nil, errors.New("Unknown error when trying to fetch objects")
+}
+
+func (nvsdc *NuageVsdClient) GetZonesSubnets() (map[string]map[string]bool, error) {
+	result := make(map[string]map[string]bool)
+	objType := make([]interface{}, 0, 100)
+
+	zoneArr := make([]vspk.Zone, 0, 100)
+	for i, _ := range zoneArr {
+		objType[i] = zoneArr[i]
+	}
+	zones, err := nvsdc.GetVsdObjects("domains/"+nvsdc.domainID+"/zones", 1)
+	if err != nil {
+		glog.Errorf("Fetching zones from vsd failed: %v", err)
+		return nil, err
+	}
+
+	subnetArr := make([]vspk.Subnet, 0, 100)
+	for i, _ := range subnetArr {
+		objType[i] = subnetArr[i]
+	}
+	for _, zoneIntf := range *zones {
+		zone, ok := zoneIntf.(vspk.Zone)
+		if !ok {
+			continue
+		}
+		subnetUrl := "zones/" + zone.ID + "/subnets"
+		subnets, err := nvsdc.GetVsdObjects(subnetUrl, 2)
+		if err != nil {
+			glog.Errorf("Fetching subnets from zone %s failed: %v", zone.ID, err)
+			continue
+		}
+		subnetList := make(map[string]bool)
+		for _, subnetIntf := range *subnets {
+			subnet, ok := subnetIntf.(vspk.Subnet)
+			if !ok {
+				continue
+			}
+			subnetList[subnet.Name] = true
+		}
+		result[zone.Name] = subnetList
+	}
+	return result, nil
+}
+
 func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.ContainerInterface, error) {
 	var interfaces []vspk.ContainerInterface
 	result := make([]vspk.ContainerInterface, 0, 100)
@@ -1499,6 +1618,8 @@ func (nvsdc *NuageVsdClient) DeletePolicyGroup(id string) error {
 }
 
 func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
+	//before anything, do audit once
+	nvsdc.audit()
 	//we will use the kube client APIs than interfacing with the REST API
 	for {
 		select {
@@ -1515,24 +1636,94 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, podEvent *api.PodEvent) error {
+func (nvsdc *NuageVsdClient) audit() {
+	resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdGetZonesSubnets, nil)
+	if resp.Error != nil {
+		glog.Errorf("Fetching zones subnets from etcd failed: %v.. audit unsuccessful", resp.Error)
+		return
+	}
+	etcdData := resp.EtcdData.(map[string]map[string]bool)
+
+	vsdData, err := nvsdc.GetZonesSubnets()
+	if err != nil {
+		glog.Errorf("Fetching zones subnets from vsd failed: %v.. audit unsuccessful", err)
+		return
+	}
+
+	for etcdZone, etcdSubnetList := range etcdData {
+		if vsdSubnetList, ok := vsdData[etcdZone]; ok {
+			zoneID, err := nvsdc.GetZoneID(nvsdc.domainID, etcdZone)
+			if err != nil {
+				glog.Errorf("getching zone(%s) id failed: %v", etcdZone, err)
+				continue
+			}
+			for etcdSubnet, _ := range etcdSubnetList {
+				if _, ok := vsdSubnetList[etcdSubnet]; !ok {
+					namespace := &NamespaceData{Name: etcdZone, ZoneID: zoneID}
+					glog.Warningf("subnet(%s) missing from VSD, creating it now", etcdSubnet)
+					err = nvsdc.CreateAdditionalSubnet(etcdSubnet, namespace)
+					if err != nil {
+						glog.Errorf("creating subnet %s failed: %v", etcdSubnet, err)
+						continue
+					}
+				}
+			}
+		} else {
+			glog.Warningf("zone(%s) missing from VSD, creating it now", etcdZone)
+			//let's first create zone
+			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, etcdZone)
+			if err != nil {
+				glog.Errorf("creating zone(%s) on vsd failed: %v", etcdZone, err)
+				continue
+			}
+			zoneMetadata := &api.EtcdZoneMetadata{Name: etcdZone, ID: zoneID}
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateZone, zoneMetadata)
+			if resp.Error != nil {
+				glog.Errorf("updating zone(%s) with id(%s) failed: %v", etcdZone, zoneID, err)
+				continue
+			}
+			//now create subnets if any are missing
+			for etcdSubnet, _ := range etcdSubnetList {
+				namespace := &NamespaceData{Name: etcdZone, ZoneID: zoneID}
+				glog.Warningf("subnet(%s) missing from VSD, creating it now", etcdSubnet)
+
+				subnet := &api.EtcdSubnetMetadata{Name: etcdSubnet, Namespace: namespace.Name}
+				resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdGetSubnetInfo, subnet)
+				if resp.Error != nil {
+					glog.Errorf("fetching subnet info from etcd failed: %v", resp.Error)
+				}
+				subnetInfo := resp.EtcdData.(*api.EtcdSubnetMetadata)
+
+				//release previous cidr in etcd
+				subnet = &api.EtcdSubnetMetadata{CIDR: subnetInfo.CIDR}
+				resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdFreeSubnetCIDR, subnet)
+				if resp.Error != nil {
+					glog.Errorf("etcd free subnet cidr(%s) failed: %v", subnetInfo.CIDR, resp.Error)
+				}
+
+				err = nvsdc.CreateAdditionalSubnet(etcdSubnet, namespace)
+				if err != nil {
+					glog.Errorf("creating subnet %s failed: %v", etcdSubnet, err)
+					continue
+				}
+			}
+		}
+	}
+}
+
+func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, namespace *NamespaceData) error {
 	var subnet *IPv4Subnet
 	var err error
 
-	//create the new subnet
-	namespace, ok := nvsdc.namespaces[podEvent.Namespace]
-	if !ok {
-		return fmt.Errorf("Uknown state. %s ns should be cached by now", podEvent.Namespace)
-	}
-
 	for {
+
 		subnet, err = nvsdc.pool.Alloc(32 - nvsdc.subnetSize)
 		if err != nil {
 			glog.Errorf("Allocating subnet from pool failed: %v", err)
 			return err
 		}
 
-		etcdSubnet := &api.EtcdSubnetMetadata{Name: subnetName, CIDR: subnet.String(), Namespace: podEvent.Namespace}
+		etcdSubnet := &api.EtcdSubnetMetadata{Name: subnetName, CIDR: subnet.String(), Namespace: namespace.Name}
 		resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAllocSubnetCIDR, etcdSubnet)
 		if resp.Error != nil {
 			nvsdc.pool.Free(subnet)
@@ -1550,7 +1741,7 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, podEvent 
 			subnetMetadata := &api.EtcdSubnetMetadata{
 				ID:        id,
 				CIDR:      subnet.String(),
-				Namespace: podEvent.Namespace,
+				Namespace: namespace.Name,
 				Name:      subnetName,
 			}
 			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateSubnetID, subnetMetadata)
@@ -1565,6 +1756,10 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, podEvent 
 }
 
 func (nvsdc *NuageVsdClient) HandlePodAddEvent(podEvent *api.PodEvent) (string, error) {
+	namespace, ok := nvsdc.namespaces[podEvent.Namespace]
+	if !ok {
+		return "", fmt.Errorf("Uknown state. %s ns should be cached by now", podEvent.Namespace)
+	}
 	podMetadata := &api.EtcdPodMetadata{
 		PodName:       podEvent.Name,
 		NamespaceName: podEvent.Namespace,
@@ -1579,7 +1774,7 @@ func (nvsdc *NuageVsdClient) HandlePodAddEvent(podEvent *api.PodEvent) (string, 
 	if podSubnet.ToCreate != "" {
 		glog.Infof("received a new subnet(%s) from etcd. creating it on vsd", podSubnet.ToCreate)
 
-		if err := nvsdc.CreateAdditionalSubnet(podSubnet.ToCreate, podEvent); err != nil {
+		if err := nvsdc.CreateAdditionalSubnet(podSubnet.ToCreate, &namespace); err != nil {
 			glog.Errorf("Creating additional subnet(%s) failed: %v", podSubnet.ToCreate, err)
 
 			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdDecActiveIPCount, podMetadata)
