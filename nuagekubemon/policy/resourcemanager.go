@@ -26,7 +26,7 @@ import (
 	"github.com/nuagenetworks/nuagepolicyapi/implementer"
 	"github.com/nuagenetworks/nuagepolicyapi/policies"
 	kapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"strconv"
@@ -119,7 +119,7 @@ func (rm *ResourceManager) GetPolicyGroupsForPod(podName string, podNs string) (
 		defer rm.lock.Unlock()
 		for _, pgMap := range rm.policyPgMap {
 			for _, pgInfo := range pgMap {
-				if selector, err := unversioned.LabelSelectorAsSelector(&pgInfo.Selector); err == nil {
+				if selector, err := metav1.LabelSelectorAsSelector(&pgInfo.Selector); err == nil {
 					if selector.Matches(labels.Set(pod.Labels)) {
 						pgList = append(pgList, pgInfo.PgName)
 					}
@@ -249,7 +249,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		if _, ok := rm.policyPgMap[pe.Name]; !ok {
 			rm.policyPgMap[pe.Name] = make(PgMap)
 		}
-		podTargetSelector, err := unversioned.LabelSelectorAsSelector(&pe.Policy.PodSelector)
+		podTargetSelector, err := metav1.LabelSelectorAsSelector(&pe.Policy.PodSelector)
 		if err == nil {
 			targetSelectorStr := podTargetSelector.String()
 			if _, found := rm.policyPgMap[pe.Name][targetSelectorStr]; !found {
@@ -280,7 +280,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		for i, ingressRule := range pe.Policy.Ingress {
 			for f, from := range ingressRule.From {
 				if from.PodSelector != nil {
-					sourceSelector, err := unversioned.LabelSelectorAsSelector(from.PodSelector)
+					sourceSelector, err := metav1.LabelSelectorAsSelector(from.PodSelector)
 					if err == nil {
 						sourceSelectorStr := sourceSelector.String()
 						if _, found := rm.policyPgMap[pe.Name][sourceSelectorStr]; !found {
@@ -326,7 +326,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 			glog.Info("No policy group map entry found for this policy")
 			return errors.New("No policy group map entry found")
 		} else {
-			podTargetSelector, err := unversioned.LabelSelectorAsSelector(&pe.Policy.PodSelector)
+			podTargetSelector, err := metav1.LabelSelectorAsSelector(&pe.Policy.PodSelector)
 			if err == nil {
 				targetSelectorStr := podTargetSelector.String()
 				if pgInfo, found := rm.policyPgMap[pe.Name][targetSelectorStr]; !found {
@@ -347,7 +347,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 			for _, ingressRule := range pe.Policy.Ingress {
 				for _, from := range ingressRule.From {
 					if from.PodSelector != nil {
-						sourceSelector, err := unversioned.LabelSelectorAsSelector(from.PodSelector)
+						sourceSelector, err := metav1.LabelSelectorAsSelector(from.PodSelector)
 						if err == nil {
 							sourceSelectorStr := sourceSelector.String()
 							if pgInfo, found := rm.policyPgMap[pe.Name][sourceSelectorStr]; !found {

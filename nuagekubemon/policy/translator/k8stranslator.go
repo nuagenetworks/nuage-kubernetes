@@ -6,7 +6,7 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuagepolicyapi/policies"
 	kapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 )
 
@@ -42,7 +42,7 @@ func CreateNuagePGPolicy(
 	}
 
 	var targetPG api.PgInfo
-	if targetSelector, err := unversioned.LabelSelectorAsSelector(&k8sNetworkPolicySpec.PodSelector); err == nil {
+	if targetSelector, err := metav1.LabelSelectorAsSelector(&k8sNetworkPolicySpec.PodSelector); err == nil {
 		if targetPG, ok = policyGroupMap[targetSelector.String()]; !ok {
 			return nil, fmt.Errorf("Target Pod policy group information missing %+v", targetSelector.String())
 		}
@@ -77,7 +77,7 @@ func CreateNuagePGPolicy(
 	for _, ingressRule := range k8sNetworkPolicySpec.Ingress {
 		for _, from := range ingressRule.From {
 			var fromPG api.PgInfo
-			if sourceSelector, err := unversioned.LabelSelectorAsSelector(from.PodSelector); err == nil {
+			if sourceSelector, err := metav1.LabelSelectorAsSelector(from.PodSelector); err == nil {
 				if fromPG, ok = policyGroupMap[sourceSelector.String()]; !ok {
 					return nil, fmt.Errorf("Policy group missing for %s", sourceSelector.String())
 				}
