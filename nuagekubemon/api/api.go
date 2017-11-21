@@ -21,7 +21,6 @@ package api
 import (
 	"fmt"
 	"github.com/golang/glog"
-	kapi "k8s.io/kubernetes/pkg/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/apis/networking"
 )
@@ -139,10 +138,10 @@ type EtcdPodSubnet struct {
 }
 
 type GetPod func(string, string) (*PodEvent, error)
-type FilterPods func(*kapi.ListOptions, string) (*[]*PodEvent, error)
-type FilterNamespaces func(*kapi.ListOptions) (*[]*NamespaceEvent, error)
-type FilterServices func(*kapi.ListOptions) (*[]*ServiceEvent, error)
-type FilterNetworkPolicies func(*kapi.ListOptions) (*[]*NetworkPolicyEvent, error)
+type FilterPods func(*metav1.ListOptions, string) (*[]*PodEvent, error)
+type FilterNamespaces func(*metav1.ListOptions) (*[]*NamespaceEvent, error)
+type FilterServices func(*metav1.ListOptions) (*[]*ServiceEvent, error)
+type FilterNetworkPolicies func(*metav1.ListOptions) (*[]*NetworkPolicyEvent, error)
 
 type ClusterClientCallBacks struct {
 	FilterPods FilterPods

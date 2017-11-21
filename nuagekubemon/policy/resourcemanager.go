@@ -25,7 +25,6 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy/translator"
 	"github.com/nuagenetworks/nuagepolicyapi/implementer"
 	"github.com/nuagenetworks/nuagepolicyapi/policies"
-	kapi "k8s.io/kubernetes/pkg/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
@@ -259,7 +258,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 					rm.policyPgMap[pe.Name][targetSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: pe.Policy.PodSelector}
 					//get pods for this selector and add them to pg.
 					var podList []string
-					if pods, err := rm.clusterClientCallBacks.FilterPods(&kapi.ListOptions{LabelSelector: podTargetSelector, FieldSelector: fields.Everything()}, ""); err == nil {
+					if pods, err := rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: podTargetSelector, FieldSelector: fields.Everything()}, ""); err == nil {
 						for _, pod := range *pods {
 							podList = append(podList, pod.Name)
 						}
@@ -290,7 +289,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 								rm.policyPgMap[pe.Name][sourceSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: *from.PodSelector}
 								//get pods for this selector and add them to pg.
 								var podList []string
-								if pods, err := rm.clusterClientCallBacks.FilterPods(&kapi.ListOptions{LabelSelector: sourceSelector, FieldSelector: fields.Everything()}, ""); err == nil {
+								if pods, err := rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: sourceSelector, FieldSelector: fields.Everything()}, ""); err == nil {
 									for _, pod := range *pods {
 										podList = append(podList, pod.Name)
 									}
