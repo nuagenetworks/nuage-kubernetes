@@ -184,8 +184,11 @@ You need to have Git installed on your Ansible host machine. Perform the followi
           logLevel: 0
           # Parameters related to the nuage monitor REST server
           nuageMonServer:
-          URL: 0.0.0.0:9443
-          certificateDirectory: /usr/share/nuagekubemon
+              URL: 0.0.0.0:9443
+              certificateDirectory: /usr/share/nuagekubemon
+              clientCA: ""
+              serverCertificate: ""
+              serverKey: ""
 
 Make sure to set the etcd config correctly if there is an external etcd cluster. If the etcd cluster is not using TLS certificates, do not set the ca, certFile & keyFile parameters. Also, if etcd is running locally on the master, use the localhost IP as shown below. If the etcd cluster is setup using FQDN, set the URL to the FQDN hostname. Also, make sure to check the protocol for the etcd cluster and set http or https accordingly.
 
