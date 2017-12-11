@@ -340,7 +340,11 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 		return err
 	}
 	// TODO: if TLS setup is unsucessful, serve over http instead
-	go nvsdc.restServer.ListenAndServeTLS(serverCert, serverKey)
+	go func() {
+		if err := nvsdc.restServer.ListenAndServeTLS(serverCert, serverKey); err != nil {
+			glog.Errorf("Starting rest server failed with error: %v", err)
+		}
+	}()
 	return nil
 }
 
@@ -1255,7 +1259,7 @@ func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.Container
 				}
 			} else {
 				// Something went wrong with parsing the x-nuage-count header
-				return nil, errors.New("Invalid X-Nuage-Count: " + err.Error())
+				return nil, errors.New("Invalid x-nuage-count: " + err.Error())
 			}
 			// Update headers to get the next page
 			page++
@@ -1323,7 +1327,7 @@ func (nvsdc *NuageVsdClient) GetVsdObjects(objectUrl string, objType int) (*[]in
 				}
 			} else {
 				// Something went wrong with parsing the x-nuage-count header
-				return nil, errors.New("Invalid X-Nuage-Count: " + err.Error())
+				return nil, errors.New("Invalid x-nuage-count: " + err.Error())
 			}
 			// Update headers to get the next page
 			page++
@@ -1420,7 +1424,7 @@ func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.Containe
 				}
 			} else {
 				// Something went wrong with parsing the x-nuage-count header
-				return nil, errors.New("Invalid X-Nuage-Count: " + err.Error())
+				return nil, errors.New("Invalid x-nuage-count: " + err.Error())
 			}
 			// Update headers to get the next page
 			page++
@@ -1485,7 +1489,7 @@ func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgId string, podsList []string
 				}
 			} else {
 				// Something went wrong with parsing the x-nuage-count header
-				return errors.New("Invalid X-Nuage-Count: " + err.Error())
+				return errors.New("Invalid x-nuage-count: " + err.Error())
 			}
 			// Update headers to get the next page
 			page++
@@ -1810,27 +1814,38 @@ func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
 	}
 	emptySubnets := resp.EtcdData.([]*api.EtcdSubnetMetadata)
 
-	for _, subnetInfo := range emptySubnets {
-		//delete subnet on vsd
-		if err := nvsdc.DeleteSubnet(subnetInfo.ID); err != nil {
-			glog.Errorf("delete subnet(%s) failed: %v", subnetInfo.ID, err)
+	go func(emptySubnets []*api.EtcdSubnetMetadata) {
+		for len(emptySubnets) > 0 {
+			delRetrySubnets := make([]*api.EtcdSubnetMetadata, 0, 100)
+			for _, subnetInfo := range emptySubnets {
+				//delete subnet on vsd
+				if err := nvsdc.DeleteSubnet(subnetInfo.ID); err != nil {
+					glog.Errorf("delete subnet(%s) failed: %v", subnetInfo.ID, err)
+					delRetrySubnets = append(delRetrySubnets, subnetInfo)
+					continue
+				}
+				//release cidr from local pool
+				subnet, err := IPv4SubnetFromString(subnetInfo.CIDR)
+				if err != nil {
+					glog.Errorf("subnet cidr from string(%s) failed: %v", subnetInfo.CIDR, err)
+					continue
+				}
+				if err := nvsdc.pool.Free(subnet); err != nil {
+					glog.Errorf("free subnet cidr(%s) failed: %v", subnet.String(), err)
+				}
+				//release cidr in etcd
+				etcdSubnet := &api.EtcdSubnetMetadata{CIDR: subnetInfo.CIDR}
+				resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdFreeSubnetCIDR, etcdSubnet)
+				if resp.Error != nil {
+					glog.Errorf("etcd free subnet cidr(%s) failed: %v", subnetInfo.CIDR, resp.Error)
+				}
+			}
+			if len(delRetrySubnets) > 0 {
+				emptySubnets = delRetrySubnets
+				time.Sleep(time.Second)
+			}
 		}
-		//release cidr from local pool
-		subnet, err := IPv4SubnetFromString(subnetInfo.CIDR)
-		if err != nil {
-			glog.Errorf("subnet cidr from string(%s) failed: %v", subnetInfo.CIDR, err)
-			continue
-		}
-		if err := nvsdc.pool.Free(subnet); err != nil {
-			glog.Errorf("free subnet cidr(%s) failed: %v", subnet.String(), err)
-		}
-		//release cidr in etcd
-		etcdSubnet := &api.EtcdSubnetMetadata{CIDR: subnetInfo.CIDR}
-		resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdFreeSubnetCIDR, etcdSubnet)
-		if resp.Error != nil {
-			glog.Errorf("etcd free subnet cidr(%s) failed: %v", subnetInfo.CIDR, resp.Error)
-		}
-	}
+	}(emptySubnets)
 
 	return nil
 }
