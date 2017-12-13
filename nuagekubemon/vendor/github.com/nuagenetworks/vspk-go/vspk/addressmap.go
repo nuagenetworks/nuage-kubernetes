@@ -38,10 +38,19 @@ var AddressMapIdentity = bambou.Identity{
 // AddressMapsList represents a list of AddressMaps
 type AddressMapsList []*AddressMap
 
-// AddressMapsAncestor is the interface of an ancestor of a AddressMap must implement.
+// AddressMapsAncestor is the interface that an ancestor of a AddressMap must implement.
+// An Ancestor is defined as an entity that has AddressMap as a descendant.
+// An Ancestor can get a list of its child AddressMaps, but not necessarily create one.
 type AddressMapsAncestor interface {
 	AddressMaps(*bambou.FetchingInfo) (AddressMapsList, *bambou.Error)
-	CreateAddressMaps(*AddressMap) *bambou.Error
+}
+
+// AddressMapsParent is the interface that a parent of a AddressMap must implement.
+// A Parent is defined as an entity that has AddressMap as a child.
+// A Parent is an Ancestor which can create a AddressMap.
+type AddressMapsParent interface {
+	AddressMapsAncestor
+	CreateAddressMap(*AddressMap) *bambou.Error
 }
 
 // AddressMap represents the model of a addressmap
@@ -137,12 +146,6 @@ func (o *AddressMap) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bam
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the AddressMap
-func (o *AddressMap) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the AddressMap

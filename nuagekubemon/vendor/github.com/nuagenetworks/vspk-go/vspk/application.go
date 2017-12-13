@@ -38,10 +38,19 @@ var ApplicationIdentity = bambou.Identity{
 // ApplicationsList represents a list of Applications
 type ApplicationsList []*Application
 
-// ApplicationsAncestor is the interface of an ancestor of a Application must implement.
+// ApplicationsAncestor is the interface that an ancestor of a Application must implement.
+// An Ancestor is defined as an entity that has Application as a descendant.
+// An Ancestor can get a list of its child Applications, but not necessarily create one.
 type ApplicationsAncestor interface {
 	Applications(*bambou.FetchingInfo) (ApplicationsList, *bambou.Error)
-	CreateApplications(*Application) *bambou.Error
+}
+
+// ApplicationsParent is the interface that a parent of a Application must implement.
+// A Parent is defined as an entity that has Application as a child.
+// A Parent is an Ancestor which can create a Application.
+type ApplicationsParent interface {
+	ApplicationsAncestor
+	CreateApplication(*Application) *bambou.Error
 }
 
 // Application represents the model of a application
@@ -75,7 +84,14 @@ type Application struct {
 // NewApplication returns a new *Application
 func NewApplication() *Application {
 
-	return &Application{}
+	return &Application{
+		ReadOnly:               false,
+		PerformanceMonitorType: "FIRST_PACKET",
+		EnablePPS:              false,
+		PostClassificationPath: "ANY",
+		PreClassificationPath:  "DEFAULT",
+		Protocol:               "NONE",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -134,15 +150,4 @@ func (o *Application) ApplicationBindings(info *bambou.FetchingInfo) (Applicatio
 	var list ApplicationBindingsList
 	err := bambou.CurrentSession().FetchChildren(o, ApplicationBindingIdentity, &list, info)
 	return list, err
-}
-
-// AssignApplicationBindings assigns the list of ApplicationBindings to the Application
-func (o *Application) AssignApplicationBindings(children ApplicationBindingsList) *bambou.Error {
-
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
-
-	return bambou.CurrentSession().AssignChildren(o, list, ApplicationBindingIdentity)
 }

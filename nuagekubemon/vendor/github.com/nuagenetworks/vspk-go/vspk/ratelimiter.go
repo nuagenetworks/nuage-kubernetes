@@ -38,10 +38,19 @@ var RateLimiterIdentity = bambou.Identity{
 // RateLimitersList represents a list of RateLimiters
 type RateLimitersList []*RateLimiter
 
-// RateLimitersAncestor is the interface of an ancestor of a RateLimiter must implement.
+// RateLimitersAncestor is the interface that an ancestor of a RateLimiter must implement.
+// An Ancestor is defined as an entity that has RateLimiter as a descendant.
+// An Ancestor can get a list of its child RateLimiters, but not necessarily create one.
 type RateLimitersAncestor interface {
 	RateLimiters(*bambou.FetchingInfo) (RateLimitersList, *bambou.Error)
-	CreateRateLimiters(*RateLimiter) *bambou.Error
+}
+
+// RateLimitersParent is the interface that a parent of a RateLimiter must implement.
+// A Parent is defined as an entity that has RateLimiter as a child.
+// A Parent is an Ancestor which can create a RateLimiter.
+type RateLimitersParent interface {
+	RateLimitersAncestor
+	CreateRateLimiter(*RateLimiter) *bambou.Error
 }
 
 // RateLimiter represents the model of a ratelimiter

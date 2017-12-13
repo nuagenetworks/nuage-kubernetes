@@ -38,10 +38,19 @@ var GatewayIdentity = bambou.Identity{
 // GatewaysList represents a list of Gateways
 type GatewaysList []*Gateway
 
-// GatewaysAncestor is the interface of an ancestor of a Gateway must implement.
+// GatewaysAncestor is the interface that an ancestor of a Gateway must implement.
+// An Ancestor is defined as an entity that has Gateway as a descendant.
+// An Ancestor can get a list of its child Gateways, but not necessarily create one.
 type GatewaysAncestor interface {
 	Gateways(*bambou.FetchingInfo) (GatewaysList, *bambou.Error)
-	CreateGateways(*Gateway) *bambou.Error
+}
+
+// GatewaysParent is the interface that a parent of a Gateway must implement.
+// A Parent is defined as an entity that has Gateway as a child.
+// A Parent is an Ancestor which can create a Gateway.
+type GatewaysParent interface {
+	GatewaysAncestor
+	CreateGateway(*Gateway) *bambou.Error
 }
 
 // Gateway represents the model of a gateway
@@ -120,12 +129,6 @@ func (o *Gateway) PATNATPools(info *bambou.FetchingInfo) (PATNATPoolsList, *bamb
 	return list, err
 }
 
-// CreatePATNATPool creates a new child PATNATPool under the Gateway
-func (o *Gateway) CreatePATNATPool(child *PATNATPool) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Permissions retrieves the list of child Permissions of the Gateway
 func (o *Gateway) Permissions(info *bambou.FetchingInfo) (PermissionsList, *bambou.Error) {
 
@@ -174,12 +177,6 @@ func (o *Gateway) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) 
 	var list AlarmsList
 	err := bambou.CurrentSession().FetchChildren(o, AlarmIdentity, &list, info)
 	return list, err
-}
-
-// CreateAlarm creates a new child Alarm under the Gateway
-func (o *Gateway) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the Gateway
@@ -244,10 +241,4 @@ func (o *Gateway) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.E
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Gateway
-func (o *Gateway) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

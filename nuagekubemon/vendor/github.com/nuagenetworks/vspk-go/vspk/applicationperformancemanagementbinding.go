@@ -38,10 +38,19 @@ var ApplicationperformancemanagementbindingIdentity = bambou.Identity{
 // ApplicationperformancemanagementbindingsList represents a list of Applicationperformancemanagementbindings
 type ApplicationperformancemanagementbindingsList []*Applicationperformancemanagementbinding
 
-// ApplicationperformancemanagementbindingsAncestor is the interface of an ancestor of a Applicationperformancemanagementbinding must implement.
+// ApplicationperformancemanagementbindingsAncestor is the interface that an ancestor of a Applicationperformancemanagementbinding must implement.
+// An Ancestor is defined as an entity that has Applicationperformancemanagementbinding as a descendant.
+// An Ancestor can get a list of its child Applicationperformancemanagementbindings, but not necessarily create one.
 type ApplicationperformancemanagementbindingsAncestor interface {
 	Applicationperformancemanagementbindings(*bambou.FetchingInfo) (ApplicationperformancemanagementbindingsList, *bambou.Error)
-	CreateApplicationperformancemanagementbindings(*Applicationperformancemanagementbinding) *bambou.Error
+}
+
+// ApplicationperformancemanagementbindingsParent is the interface that a parent of a Applicationperformancemanagementbinding must implement.
+// A Parent is defined as an entity that has Applicationperformancemanagementbinding as a child.
+// A Parent is an Ancestor which can create a Applicationperformancemanagementbinding.
+type ApplicationperformancemanagementbindingsParent interface {
+	ApplicationperformancemanagementbindingsAncestor
+	CreateApplicationperformancemanagementbinding(*Applicationperformancemanagementbinding) *bambou.Error
 }
 
 // Applicationperformancemanagementbinding represents the model of a applicationperformancemanagementbinding
@@ -58,7 +67,9 @@ type Applicationperformancemanagementbinding struct {
 // NewApplicationperformancemanagementbinding returns a new *Applicationperformancemanagementbinding
 func NewApplicationperformancemanagementbinding() *Applicationperformancemanagementbinding {
 
-	return &Applicationperformancemanagementbinding{}
+	return &Applicationperformancemanagementbinding{
+		ReadOnly: false,
+	}
 }
 
 // Identity returns the Identity of the object.

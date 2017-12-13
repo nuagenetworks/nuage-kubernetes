@@ -38,10 +38,19 @@ var AddressRangeIdentity = bambou.Identity{
 // AddressRangesList represents a list of AddressRanges
 type AddressRangesList []*AddressRange
 
-// AddressRangesAncestor is the interface of an ancestor of a AddressRange must implement.
+// AddressRangesAncestor is the interface that an ancestor of a AddressRange must implement.
+// An Ancestor is defined as an entity that has AddressRange as a descendant.
+// An Ancestor can get a list of its child AddressRanges, but not necessarily create one.
 type AddressRangesAncestor interface {
 	AddressRanges(*bambou.FetchingInfo) (AddressRangesList, *bambou.Error)
-	CreateAddressRanges(*AddressRange) *bambou.Error
+}
+
+// AddressRangesParent is the interface that a parent of a AddressRange must implement.
+// A Parent is defined as an entity that has AddressRange as a child.
+// A Parent is an Ancestor which can create a AddressRange.
+type AddressRangesParent interface {
+	AddressRangesAncestor
+	CreateAddressRange(*AddressRange) *bambou.Error
 }
 
 // AddressRange represents the model of a addressrange
@@ -137,10 +146,4 @@ func (o *AddressRange) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bam
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the AddressRange
-func (o *AddressRange) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

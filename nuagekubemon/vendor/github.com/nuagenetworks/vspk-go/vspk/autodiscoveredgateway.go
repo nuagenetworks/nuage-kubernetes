@@ -38,10 +38,19 @@ var AutoDiscoveredGatewayIdentity = bambou.Identity{
 // AutoDiscoveredGatewaysList represents a list of AutoDiscoveredGateways
 type AutoDiscoveredGatewaysList []*AutoDiscoveredGateway
 
-// AutoDiscoveredGatewaysAncestor is the interface of an ancestor of a AutoDiscoveredGateway must implement.
+// AutoDiscoveredGatewaysAncestor is the interface that an ancestor of a AutoDiscoveredGateway must implement.
+// An Ancestor is defined as an entity that has AutoDiscoveredGateway as a descendant.
+// An Ancestor can get a list of its child AutoDiscoveredGateways, but not necessarily create one.
 type AutoDiscoveredGatewaysAncestor interface {
 	AutoDiscoveredGateways(*bambou.FetchingInfo) (AutoDiscoveredGatewaysList, *bambou.Error)
-	CreateAutoDiscoveredGateways(*AutoDiscoveredGateway) *bambou.Error
+}
+
+// AutoDiscoveredGatewaysParent is the interface that a parent of a AutoDiscoveredGateway must implement.
+// A Parent is defined as an entity that has AutoDiscoveredGateway as a child.
+// A Parent is an Ancestor which can create a AutoDiscoveredGateway.
+type AutoDiscoveredGatewaysParent interface {
+	AutoDiscoveredGatewaysAncestor
+	CreateAutoDiscoveredGateway(*AutoDiscoveredGateway) *bambou.Error
 }
 
 // AutoDiscoveredGateway represents the model of a autodiscoveredgateway
@@ -114,12 +123,6 @@ func (o *AutoDiscoveredGateway) WANServices(info *bambou.FetchingInfo) (WANServi
 	return list, err
 }
 
-// CreateWANService creates a new child WANService under the AutoDiscoveredGateway
-func (o *AutoDiscoveredGateway) CreateWANService(child *WANService) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Metadatas retrieves the list of child Metadatas of the AutoDiscoveredGateway
 func (o *AutoDiscoveredGateway) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
 
@@ -156,12 +159,6 @@ func (o *AutoDiscoveredGateway) Ports(info *bambou.FetchingInfo) (PortsList, *ba
 	return list, err
 }
 
-// CreatePort creates a new child Port under the AutoDiscoveredGateway
-func (o *AutoDiscoveredGateway) CreatePort(child *Port) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // NSPorts retrieves the list of child NSPorts of the AutoDiscoveredGateway
 func (o *AutoDiscoveredGateway) NSPorts(info *bambou.FetchingInfo) (NSPortsList, *bambou.Error) {
 
@@ -170,22 +167,10 @@ func (o *AutoDiscoveredGateway) NSPorts(info *bambou.FetchingInfo) (NSPortsList,
 	return list, err
 }
 
-// CreateNSPort creates a new child NSPort under the AutoDiscoveredGateway
-func (o *AutoDiscoveredGateway) CreateNSPort(child *NSPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the AutoDiscoveredGateway
 func (o *AutoDiscoveredGateway) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the AutoDiscoveredGateway
-func (o *AutoDiscoveredGateway) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

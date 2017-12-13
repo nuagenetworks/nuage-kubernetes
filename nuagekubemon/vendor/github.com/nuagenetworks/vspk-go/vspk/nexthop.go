@@ -38,10 +38,19 @@ var NextHopIdentity = bambou.Identity{
 // NextHopsList represents a list of NextHops
 type NextHopsList []*NextHop
 
-// NextHopsAncestor is the interface of an ancestor of a NextHop must implement.
+// NextHopsAncestor is the interface that an ancestor of a NextHop must implement.
+// An Ancestor is defined as an entity that has NextHop as a descendant.
+// An Ancestor can get a list of its child NextHops, but not necessarily create one.
 type NextHopsAncestor interface {
 	NextHops(*bambou.FetchingInfo) (NextHopsList, *bambou.Error)
-	CreateNextHops(*NextHop) *bambou.Error
+}
+
+// NextHopsParent is the interface that a parent of a NextHop must implement.
+// A Parent is defined as an entity that has NextHop as a child.
+// A Parent is an Ancestor which can create a NextHop.
+type NextHopsParent interface {
+	NextHopsAncestor
+	CreateNextHop(*NextHop) *bambou.Error
 }
 
 // NextHop represents the model of a nexthop

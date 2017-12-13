@@ -38,10 +38,19 @@ var IKESubnetIdentity = bambou.Identity{
 // IKESubnetsList represents a list of IKESubnets
 type IKESubnetsList []*IKESubnet
 
-// IKESubnetsAncestor is the interface of an ancestor of a IKESubnet must implement.
+// IKESubnetsAncestor is the interface that an ancestor of a IKESubnet must implement.
+// An Ancestor is defined as an entity that has IKESubnet as a descendant.
+// An Ancestor can get a list of its child IKESubnets, but not necessarily create one.
 type IKESubnetsAncestor interface {
 	IKESubnets(*bambou.FetchingInfo) (IKESubnetsList, *bambou.Error)
-	CreateIKESubnets(*IKESubnet) *bambou.Error
+}
+
+// IKESubnetsParent is the interface that a parent of a IKESubnet must implement.
+// A Parent is defined as an entity that has IKESubnet as a child.
+// A Parent is an Ancestor which can create a IKESubnet.
+type IKESubnetsParent interface {
+	IKESubnetsAncestor
+	CreateIKESubnet(*IKESubnet) *bambou.Error
 }
 
 // IKESubnet represents the model of a ikesubnet

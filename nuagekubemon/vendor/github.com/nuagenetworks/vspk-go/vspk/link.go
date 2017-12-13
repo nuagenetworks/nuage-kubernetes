@@ -38,10 +38,19 @@ var LinkIdentity = bambou.Identity{
 // LinksList represents a list of Links
 type LinksList []*Link
 
-// LinksAncestor is the interface of an ancestor of a Link must implement.
+// LinksAncestor is the interface that an ancestor of a Link must implement.
+// An Ancestor is defined as an entity that has Link as a descendant.
+// An Ancestor can get a list of its child Links, but not necessarily create one.
 type LinksAncestor interface {
 	Links(*bambou.FetchingInfo) (LinksList, *bambou.Error)
-	CreateLinks(*Link) *bambou.Error
+}
+
+// LinksParent is the interface that a parent of a Link must implement.
+// A Parent is defined as an entity that has Link as a child.
+// A Parent is an Ancestor which can create a Link.
+type LinksParent interface {
+	LinksAncestor
+	CreateLink(*Link) *bambou.Error
 }
 
 // Link represents the model of a link
@@ -67,7 +76,9 @@ type Link struct {
 // NewLink returns a new *Link
 func NewLink() *Link {
 
-	return &Link{}
+	return &Link{
+		AcceptanceCriteria: "ALL",
+	}
 }
 
 // Identity returns the Identity of the object.

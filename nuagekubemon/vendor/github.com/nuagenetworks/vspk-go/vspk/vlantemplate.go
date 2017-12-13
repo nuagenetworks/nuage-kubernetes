@@ -38,10 +38,19 @@ var VLANTemplateIdentity = bambou.Identity{
 // VLANTemplatesList represents a list of VLANTemplates
 type VLANTemplatesList []*VLANTemplate
 
-// VLANTemplatesAncestor is the interface of an ancestor of a VLANTemplate must implement.
+// VLANTemplatesAncestor is the interface that an ancestor of a VLANTemplate must implement.
+// An Ancestor is defined as an entity that has VLANTemplate as a descendant.
+// An Ancestor can get a list of its child VLANTemplates, but not necessarily create one.
 type VLANTemplatesAncestor interface {
 	VLANTemplates(*bambou.FetchingInfo) (VLANTemplatesList, *bambou.Error)
-	CreateVLANTemplates(*VLANTemplate) *bambou.Error
+}
+
+// VLANTemplatesParent is the interface that a parent of a VLANTemplate must implement.
+// A Parent is defined as an entity that has VLANTemplate as a child.
+// A Parent is an Ancestor which can create a VLANTemplate.
+type VLANTemplatesParent interface {
+	VLANTemplatesAncestor
+	CreateVLANTemplate(*VLANTemplate) *bambou.Error
 }
 
 // VLANTemplate represents the model of a vlantemplate
@@ -56,6 +65,7 @@ type VLANTemplate struct {
 	EntityScope                 string `json:"entityScope,omitempty"`
 	AssociatedEgressQOSPolicyID string `json:"associatedEgressQOSPolicyID,omitempty"`
 	AssociatedVSCProfileID      string `json:"associatedVSCProfileID,omitempty"`
+	DucVlan                     bool   `json:"ducVlan"`
 	ExternalID                  string `json:"externalID,omitempty"`
 }
 

@@ -38,10 +38,19 @@ var VCenterIdentity = bambou.Identity{
 // VCentersList represents a list of VCenters
 type VCentersList []*VCenter
 
-// VCentersAncestor is the interface of an ancestor of a VCenter must implement.
+// VCentersAncestor is the interface that an ancestor of a VCenter must implement.
+// An Ancestor is defined as an entity that has VCenter as a descendant.
+// An Ancestor can get a list of its child VCenters, but not necessarily create one.
 type VCentersAncestor interface {
 	VCenters(*bambou.FetchingInfo) (VCentersList, *bambou.Error)
-	CreateVCenters(*VCenter) *bambou.Error
+}
+
+// VCentersParent is the interface that a parent of a VCenter must implement.
+// A Parent is defined as an entity that has VCenter as a child.
+// A Parent is an Ancestor which can create a VCenter.
+type VCentersParent interface {
+	VCentersAncestor
+	CreateVCenter(*VCenter) *bambou.Error
 }
 
 // VCenter represents the model of a vcenter
@@ -50,6 +59,7 @@ type VCenter struct {
 	ParentID                         string `json:"parentID,omitempty"`
 	ParentType                       string `json:"parentType,omitempty"`
 	Owner                            string `json:"owner,omitempty"`
+	VRSConfigurationTimeLimit        int    `json:"VRSConfigurationTimeLimit,omitempty"`
 	VRequireNuageMetadata            bool   `json:"vRequireNuageMetadata"`
 	Name                             string `json:"name,omitempty"`
 	Password                         string `json:"password,omitempty"`
@@ -82,6 +92,7 @@ type VCenter struct {
 	DhcpRelayServer                  string `json:"dhcpRelayServer,omitempty"`
 	MirrorNetworkPortgroup           string `json:"mirrorNetworkPortgroup,omitempty"`
 	SiteId                           string `json:"siteId,omitempty"`
+	OldAgencyName                    string `json:"oldAgencyName,omitempty"`
 	AllowDataDHCP                    bool   `json:"allowDataDHCP"`
 	AllowMgmtDHCP                    bool   `json:"allowMgmtDHCP"`
 	FlowEvictionThreshold            int    `json:"flowEvictionThreshold,omitempty"`
@@ -99,6 +110,10 @@ type VCenter struct {
 	NovaMetadataSharedSecret         string `json:"novaMetadataSharedSecret,omitempty"`
 	NovaRegionName                   string `json:"novaRegionName,omitempty"`
 	IpAddress                        string `json:"ipAddress,omitempty"`
+	UpgradePackagePassword           string `json:"upgradePackagePassword,omitempty"`
+	UpgradePackageURL                string `json:"upgradePackageURL,omitempty"`
+	UpgradePackageUsername           string `json:"upgradePackageUsername,omitempty"`
+	UpgradeScriptTimeLimit           int    `json:"upgradeScriptTimeLimit,omitempty"`
 	PrimaryNuageController           string `json:"primaryNuageController,omitempty"`
 	VrsConfigID                      string `json:"vrsConfigID,omitempty"`
 	VrsPassword                      string `json:"vrsPassword,omitempty"`
@@ -130,7 +145,9 @@ type VCenter struct {
 // NewVCenter returns a new *VCenter
 func NewVCenter() *VCenter {
 
-	return &VCenter{}
+	return &VCenter{
+		DestinationMirrorPort: "no_mirror",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -211,14 +228,6 @@ func (o *VCenter) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the VCenter
-func (o *VCenter) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the VCenter
 func (o *VCenter) CreateJob(child *Job) *bambou.Error {
 
@@ -259,10 +268,4 @@ func (o *VCenter) Autodiscovereddatacenters(info *bambou.FetchingInfo) (Autodisc
 	var list AutodiscovereddatacentersList
 	err := bambou.CurrentSession().FetchChildren(o, AutodiscovereddatacenterIdentity, &list, info)
 	return list, err
-}
-
-// CreateAutodiscovereddatacenter creates a new child Autodiscovereddatacenter under the VCenter
-func (o *VCenter) CreateAutodiscovereddatacenter(child *Autodiscovereddatacenter) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

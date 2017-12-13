@@ -38,10 +38,19 @@ var HSCIdentity = bambou.Identity{
 // HSCsList represents a list of HSCs
 type HSCsList []*HSC
 
-// HSCsAncestor is the interface of an ancestor of a HSC must implement.
+// HSCsAncestor is the interface that an ancestor of a HSC must implement.
+// An Ancestor is defined as an entity that has HSC as a descendant.
+// An Ancestor can get a list of its child HSCs, but not necessarily create one.
 type HSCsAncestor interface {
 	HSCs(*bambou.FetchingInfo) (HSCsList, *bambou.Error)
-	CreateHSCs(*HSC) *bambou.Error
+}
+
+// HSCsParent is the interface that a parent of a HSC must implement.
+// A Parent is defined as an entity that has HSC as a child.
+// A Parent is an Ancestor which can create a HSC.
+type HSCsParent interface {
+	HSCsAncestor
+	CreateHSC(*HSC) *bambou.Error
 }
 
 // HSC represents the model of a hsc
@@ -140,24 +149,12 @@ func (o *HSC) BGPPeers(info *bambou.FetchingInfo) (BGPPeersList, *bambou.Error) 
 	return list, err
 }
 
-// CreateBGPPeer creates a new child BGPPeer under the HSC
-func (o *HSC) CreateBGPPeer(child *BGPPeer) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Alarms retrieves the list of child Alarms of the HSC
 func (o *HSC) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 
 	var list AlarmsList
 	err := bambou.CurrentSession().FetchChildren(o, AlarmIdentity, &list, info)
 	return list, err
-}
-
-// CreateAlarm creates a new child Alarm under the HSC
-func (o *HSC) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the HSC
@@ -174,14 +171,6 @@ func (o *HSC) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the HSC
-func (o *HSC) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the HSC
 func (o *HSC) CreateJob(child *Job) *bambou.Error {
 
@@ -196,12 +185,6 @@ func (o *HSC) MonitoringPorts(info *bambou.FetchingInfo) (MonitoringPortsList, *
 	return list, err
 }
 
-// CreateMonitoringPort creates a new child MonitoringPort under the HSC
-func (o *HSC) CreateMonitoringPort(child *MonitoringPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VRSs retrieves the list of child VRSs of the HSC
 func (o *HSC) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
 
@@ -210,22 +193,10 @@ func (o *HSC) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVRS creates a new child VRS under the HSC
-func (o *HSC) CreateVRS(child *VRS) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the HSC
 func (o *HSC) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the HSC
-func (o *HSC) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

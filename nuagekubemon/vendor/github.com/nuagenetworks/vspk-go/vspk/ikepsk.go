@@ -38,10 +38,19 @@ var IKEPSKIdentity = bambou.Identity{
 // IKEPSKsList represents a list of IKEPSKs
 type IKEPSKsList []*IKEPSK
 
-// IKEPSKsAncestor is the interface of an ancestor of a IKEPSK must implement.
+// IKEPSKsAncestor is the interface that an ancestor of a IKEPSK must implement.
+// An Ancestor is defined as an entity that has IKEPSK as a descendant.
+// An Ancestor can get a list of its child IKEPSKs, but not necessarily create one.
 type IKEPSKsAncestor interface {
 	IKEPSKs(*bambou.FetchingInfo) (IKEPSKsList, *bambou.Error)
-	CreateIKEPSKs(*IKEPSK) *bambou.Error
+}
+
+// IKEPSKsParent is the interface that a parent of a IKEPSK must implement.
+// A Parent is defined as an entity that has IKEPSK as a child.
+// A Parent is an Ancestor which can create a IKEPSK.
+type IKEPSKsParent interface {
+	IKEPSKsAncestor
+	CreateIKEPSK(*IKEPSK) *bambou.Error
 }
 
 // IKEPSK represents the model of a ikepsk

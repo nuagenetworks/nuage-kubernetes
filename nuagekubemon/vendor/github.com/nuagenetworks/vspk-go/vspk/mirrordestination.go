@@ -38,10 +38,19 @@ var MirrorDestinationIdentity = bambou.Identity{
 // MirrorDestinationsList represents a list of MirrorDestinations
 type MirrorDestinationsList []*MirrorDestination
 
-// MirrorDestinationsAncestor is the interface of an ancestor of a MirrorDestination must implement.
+// MirrorDestinationsAncestor is the interface that an ancestor of a MirrorDestination must implement.
+// An Ancestor is defined as an entity that has MirrorDestination as a descendant.
+// An Ancestor can get a list of its child MirrorDestinations, but not necessarily create one.
 type MirrorDestinationsAncestor interface {
 	MirrorDestinations(*bambou.FetchingInfo) (MirrorDestinationsList, *bambou.Error)
-	CreateMirrorDestinations(*MirrorDestination) *bambou.Error
+}
+
+// MirrorDestinationsParent is the interface that a parent of a MirrorDestination must implement.
+// A Parent is defined as an entity that has MirrorDestination as a child.
+// A Parent is an Ancestor which can create a MirrorDestination.
+type MirrorDestinationsParent interface {
+	MirrorDestinationsAncestor
+	CreateMirrorDestination(*MirrorDestination) *bambou.Error
 }
 
 // MirrorDestination represents the model of a mirrordestination
@@ -122,12 +131,6 @@ func (o *MirrorDestination) EgressACLEntryTemplates(info *bambou.FetchingInfo) (
 	return list, err
 }
 
-// CreateEgressACLEntryTemplate creates a new child EgressACLEntryTemplate under the MirrorDestination
-func (o *MirrorDestination) CreateEgressACLEntryTemplate(child *EgressACLEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the MirrorDestination
 func (o *MirrorDestination) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -150,12 +153,6 @@ func (o *MirrorDestination) IngressACLEntryTemplates(info *bambou.FetchingInfo) 
 	return list, err
 }
 
-// CreateIngressACLEntryTemplate creates a new child IngressACLEntryTemplate under the MirrorDestination
-func (o *MirrorDestination) CreateIngressACLEntryTemplate(child *IngressACLEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // IngressAdvFwdEntryTemplates retrieves the list of child IngressAdvFwdEntryTemplates of the MirrorDestination
 func (o *MirrorDestination) IngressAdvFwdEntryTemplates(info *bambou.FetchingInfo) (IngressAdvFwdEntryTemplatesList, *bambou.Error) {
 
@@ -164,22 +161,10 @@ func (o *MirrorDestination) IngressAdvFwdEntryTemplates(info *bambou.FetchingInf
 	return list, err
 }
 
-// CreateIngressAdvFwdEntryTemplate creates a new child IngressAdvFwdEntryTemplate under the MirrorDestination
-func (o *MirrorDestination) CreateIngressAdvFwdEntryTemplate(child *IngressAdvFwdEntryTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VPortMirrors retrieves the list of child VPortMirrors of the MirrorDestination
 func (o *MirrorDestination) VPortMirrors(info *bambou.FetchingInfo) (VPortMirrorsList, *bambou.Error) {
 
 	var list VPortMirrorsList
 	err := bambou.CurrentSession().FetchChildren(o, VPortMirrorIdentity, &list, info)
 	return list, err
-}
-
-// CreateVPortMirror creates a new child VPortMirror under the MirrorDestination
-func (o *MirrorDestination) CreateVPortMirror(child *VPortMirror) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

@@ -38,10 +38,19 @@ var EgressACLEntryTemplateIdentity = bambou.Identity{
 // EgressACLEntryTemplatesList represents a list of EgressACLEntryTemplates
 type EgressACLEntryTemplatesList []*EgressACLEntryTemplate
 
-// EgressACLEntryTemplatesAncestor is the interface of an ancestor of a EgressACLEntryTemplate must implement.
+// EgressACLEntryTemplatesAncestor is the interface that an ancestor of a EgressACLEntryTemplate must implement.
+// An Ancestor is defined as an entity that has EgressACLEntryTemplate as a descendant.
+// An Ancestor can get a list of its child EgressACLEntryTemplates, but not necessarily create one.
 type EgressACLEntryTemplatesAncestor interface {
 	EgressACLEntryTemplates(*bambou.FetchingInfo) (EgressACLEntryTemplatesList, *bambou.Error)
-	CreateEgressACLEntryTemplates(*EgressACLEntryTemplate) *bambou.Error
+}
+
+// EgressACLEntryTemplatesParent is the interface that a parent of a EgressACLEntryTemplate must implement.
+// A Parent is defined as an entity that has EgressACLEntryTemplate as a child.
+// A Parent is an Ancestor which can create a EgressACLEntryTemplate.
+type EgressACLEntryTemplatesParent interface {
+	EgressACLEntryTemplatesAncestor
+	CreateEgressACLEntryTemplate(*EgressACLEntryTemplate) *bambou.Error
 }
 
 // EgressACLEntryTemplate represents the model of a egressaclentrytemplate
@@ -89,12 +98,12 @@ type EgressACLEntryTemplate struct {
 func NewEgressACLEntryTemplate() *EgressACLEntryTemplate {
 
 	return &EgressACLEntryTemplate{
-		Protocol:     "6",
-		EtherType:    "0x0800",
 		DSCP:         "*",
-		LocationType: "ANY",
 		Action:       "FORWARD",
 		NetworkType:  "ANY",
+		LocationType: "ANY",
+		Protocol:     "6",
+		EtherType:    "0x0800",
 	}
 }
 
@@ -162,14 +171,6 @@ func (o *EgressACLEntryTemplate) CreateGlobalMetadata(child *GlobalMetadata) *ba
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the EgressACLEntryTemplate
-func (o *EgressACLEntryTemplate) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the EgressACLEntryTemplate
 func (o *EgressACLEntryTemplate) CreateJob(child *Job) *bambou.Error {
 
@@ -182,10 +183,4 @@ func (o *EgressACLEntryTemplate) Statistics(info *bambou.FetchingInfo) (Statisti
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the EgressACLEntryTemplate
-func (o *EgressACLEntryTemplate) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

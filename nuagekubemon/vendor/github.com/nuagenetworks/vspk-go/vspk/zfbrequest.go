@@ -38,10 +38,19 @@ var ZFBRequestIdentity = bambou.Identity{
 // ZFBRequestsList represents a list of ZFBRequests
 type ZFBRequestsList []*ZFBRequest
 
-// ZFBRequestsAncestor is the interface of an ancestor of a ZFBRequest must implement.
+// ZFBRequestsAncestor is the interface that an ancestor of a ZFBRequest must implement.
+// An Ancestor is defined as an entity that has ZFBRequest as a descendant.
+// An Ancestor can get a list of its child ZFBRequests, but not necessarily create one.
 type ZFBRequestsAncestor interface {
 	ZFBRequests(*bambou.FetchingInfo) (ZFBRequestsList, *bambou.Error)
-	CreateZFBRequests(*ZFBRequest) *bambou.Error
+}
+
+// ZFBRequestsParent is the interface that a parent of a ZFBRequest must implement.
+// A Parent is defined as an entity that has ZFBRequest as a child.
+// A Parent is an Ancestor which can create a ZFBRequest.
+type ZFBRequestsParent interface {
+	ZFBRequestsAncestor
+	CreateZFBRequest(*ZFBRequest) *bambou.Error
 }
 
 // ZFBRequest represents the model of a zfbrequest
@@ -142,14 +151,6 @@ func (o *ZFBRequest) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatas
 func (o *ZFBRequest) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// Jobs retrieves the list of child Jobs of the ZFBRequest
-func (o *ZFBRequest) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
 }
 
 // CreateJob creates a new child Job under the ZFBRequest

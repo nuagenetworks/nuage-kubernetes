@@ -38,10 +38,19 @@ var VCenterEAMConfigIdentity = bambou.Identity{
 // VCenterEAMConfigsList represents a list of VCenterEAMConfigs
 type VCenterEAMConfigsList []*VCenterEAMConfig
 
-// VCenterEAMConfigsAncestor is the interface of an ancestor of a VCenterEAMConfig must implement.
+// VCenterEAMConfigsAncestor is the interface that an ancestor of a VCenterEAMConfig must implement.
+// An Ancestor is defined as an entity that has VCenterEAMConfig as a descendant.
+// An Ancestor can get a list of its child VCenterEAMConfigs, but not necessarily create one.
 type VCenterEAMConfigsAncestor interface {
 	VCenterEAMConfigs(*bambou.FetchingInfo) (VCenterEAMConfigsList, *bambou.Error)
-	CreateVCenterEAMConfigs(*VCenterEAMConfig) *bambou.Error
+}
+
+// VCenterEAMConfigsParent is the interface that a parent of a VCenterEAMConfig must implement.
+// A Parent is defined as an entity that has VCenterEAMConfig as a child.
+// A Parent is an Ancestor which can create a VCenterEAMConfig.
+type VCenterEAMConfigsParent interface {
+	VCenterEAMConfigsAncestor
+	CreateVCenterEAMConfig(*VCenterEAMConfig) *bambou.Error
 }
 
 // VCenterEAMConfig represents the model of a eamconfig

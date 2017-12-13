@@ -1,3 +1,25 @@
+etcd v3.2.7 (2017-09-01)
+- fix server-side auth so concurrent auth operations do not return old revision error
+- fix concurrency/stm Put with serializable snapshot
+  - use store revision from first fetch to resolve write conflicts instead of modified revision
+
+etcd v3.2.6 (2017-08-21)
+- fix watch restore from snapshot
+- fix etcd_debugging_mvcc_keys_total inconsistency
+- fix multiple URLs for '--listen-peer-urls' flag
+- add 'enable-pprof' to etcd configuration file format
+
+etcd v3.2.5 (2017-08-04)
+- use reverse lookup to match wildcard DNS SAN
+- return non-zero exit code on unhealthy 'endpoint health'
+- fix unreachable /metrics endpoint when '--enable-v2=false'
+- fix grpcproxy to respect 'PrevKv' flag
+- add container registry 'gcr.io/etcd-development/etcd'
+
+etcd v3.2.4 (2017-07-19)
+- do not block on active client stream when stopping server
+- fix gRPC proxy Snapshot RPC error handling
+
 etcd v3.2.3 (2017-07-14)
 - let clients establish unlimited streams
 - add docker tags for minor versions

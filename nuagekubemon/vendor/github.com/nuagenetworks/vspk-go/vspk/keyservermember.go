@@ -38,10 +38,19 @@ var KeyServerMemberIdentity = bambou.Identity{
 // KeyServerMembersList represents a list of KeyServerMembers
 type KeyServerMembersList []*KeyServerMember
 
-// KeyServerMembersAncestor is the interface of an ancestor of a KeyServerMember must implement.
+// KeyServerMembersAncestor is the interface that an ancestor of a KeyServerMember must implement.
+// An Ancestor is defined as an entity that has KeyServerMember as a descendant.
+// An Ancestor can get a list of its child KeyServerMembers, but not necessarily create one.
 type KeyServerMembersAncestor interface {
 	KeyServerMembers(*bambou.FetchingInfo) (KeyServerMembersList, *bambou.Error)
-	CreateKeyServerMembers(*KeyServerMember) *bambou.Error
+}
+
+// KeyServerMembersParent is the interface that a parent of a KeyServerMember must implement.
+// A Parent is defined as an entity that has KeyServerMember as a child.
+// A Parent is an Ancestor which can create a KeyServerMember.
+type KeyServerMembersParent interface {
+	KeyServerMembersAncestor
+	CreateKeyServerMember(*KeyServerMember) *bambou.Error
 }
 
 // KeyServerMember represents the model of a keyservermember

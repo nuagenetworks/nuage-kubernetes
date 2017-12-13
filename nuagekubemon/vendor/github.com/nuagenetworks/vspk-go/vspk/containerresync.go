@@ -38,10 +38,19 @@ var ContainerResyncIdentity = bambou.Identity{
 // ContainerResyncsList represents a list of ContainerResyncs
 type ContainerResyncsList []*ContainerResync
 
-// ContainerResyncsAncestor is the interface of an ancestor of a ContainerResync must implement.
+// ContainerResyncsAncestor is the interface that an ancestor of a ContainerResync must implement.
+// An Ancestor is defined as an entity that has ContainerResync as a descendant.
+// An Ancestor can get a list of its child ContainerResyncs, but not necessarily create one.
 type ContainerResyncsAncestor interface {
 	ContainerResyncs(*bambou.FetchingInfo) (ContainerResyncsList, *bambou.Error)
-	CreateContainerResyncs(*ContainerResync) *bambou.Error
+}
+
+// ContainerResyncsParent is the interface that a parent of a ContainerResync must implement.
+// A Parent is defined as an entity that has ContainerResync as a child.
+// A Parent is an Ancestor which can create a ContainerResync.
+type ContainerResyncsParent interface {
+	ContainerResyncsAncestor
+	CreateContainerResync(*ContainerResync) *bambou.Error
 }
 
 // ContainerResync represents the model of a containerresync

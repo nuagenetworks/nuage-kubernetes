@@ -38,10 +38,19 @@ var FloatingIPACLTemplateEntryIdentity = bambou.Identity{
 // FloatingIPACLTemplateEntriesList represents a list of FloatingIPACLTemplateEntries
 type FloatingIPACLTemplateEntriesList []*FloatingIPACLTemplateEntry
 
-// FloatingIPACLTemplateEntriesAncestor is the interface of an ancestor of a FloatingIPACLTemplateEntry must implement.
+// FloatingIPACLTemplateEntriesAncestor is the interface that an ancestor of a FloatingIPACLTemplateEntry must implement.
+// An Ancestor is defined as an entity that has FloatingIPACLTemplateEntry as a descendant.
+// An Ancestor can get a list of its child FloatingIPACLTemplateEntries, but not necessarily create one.
 type FloatingIPACLTemplateEntriesAncestor interface {
 	FloatingIPACLTemplateEntries(*bambou.FetchingInfo) (FloatingIPACLTemplateEntriesList, *bambou.Error)
-	CreateFloatingIPACLTemplateEntries(*FloatingIPACLTemplateEntry) *bambou.Error
+}
+
+// FloatingIPACLTemplateEntriesParent is the interface that a parent of a FloatingIPACLTemplateEntry must implement.
+// A Parent is defined as an entity that has FloatingIPACLTemplateEntry as a child.
+// A Parent is an Ancestor which can create a FloatingIPACLTemplateEntry.
+type FloatingIPACLTemplateEntriesParent interface {
+	FloatingIPACLTemplateEntriesAncestor
+	CreateFloatingIPACLTemplateEntry(*FloatingIPACLTemplateEntry) *bambou.Error
 }
 
 // FloatingIPACLTemplateEntry represents the model of a egressfloatingipaclentrytemplate

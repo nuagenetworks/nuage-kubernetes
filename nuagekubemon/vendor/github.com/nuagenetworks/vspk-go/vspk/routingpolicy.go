@@ -38,10 +38,19 @@ var RoutingPolicyIdentity = bambou.Identity{
 // RoutingPoliciesList represents a list of RoutingPolicies
 type RoutingPoliciesList []*RoutingPolicy
 
-// RoutingPoliciesAncestor is the interface of an ancestor of a RoutingPolicy must implement.
+// RoutingPoliciesAncestor is the interface that an ancestor of a RoutingPolicy must implement.
+// An Ancestor is defined as an entity that has RoutingPolicy as a descendant.
+// An Ancestor can get a list of its child RoutingPolicies, but not necessarily create one.
 type RoutingPoliciesAncestor interface {
 	RoutingPolicies(*bambou.FetchingInfo) (RoutingPoliciesList, *bambou.Error)
-	CreateRoutingPolicies(*RoutingPolicy) *bambou.Error
+}
+
+// RoutingPoliciesParent is the interface that a parent of a RoutingPolicy must implement.
+// A Parent is defined as an entity that has RoutingPolicy as a child.
+// A Parent is an Ancestor which can create a RoutingPolicy.
+type RoutingPoliciesParent interface {
+	RoutingPoliciesAncestor
+	CreateRoutingPolicy(*RoutingPolicy) *bambou.Error
 }
 
 // RoutingPolicy represents the model of a routingpolicy

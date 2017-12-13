@@ -38,10 +38,19 @@ var VSDIdentity = bambou.Identity{
 // VSDsList represents a list of VSDs
 type VSDsList []*VSD
 
-// VSDsAncestor is the interface of an ancestor of a VSD must implement.
+// VSDsAncestor is the interface that an ancestor of a VSD must implement.
+// An Ancestor is defined as an entity that has VSD as a descendant.
+// An Ancestor can get a list of its child VSDs, but not necessarily create one.
 type VSDsAncestor interface {
 	VSDs(*bambou.FetchingInfo) (VSDsList, *bambou.Error)
-	CreateVSDs(*VSD) *bambou.Error
+}
+
+// VSDsParent is the interface that a parent of a VSD must implement.
+// A Parent is defined as an entity that has VSD as a child.
+// A Parent is an Ancestor which can create a VSD.
+type VSDsParent interface {
+	VSDsAncestor
+	CreateVSD(*VSD) *bambou.Error
 }
 
 // VSD represents the model of a vsd
@@ -140,12 +149,6 @@ func (o *VSD) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the VSD
-func (o *VSD) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the VSD
 func (o *VSD) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -158,14 +161,6 @@ func (o *VSD) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *
 func (o *VSD) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// Jobs retrieves the list of child Jobs of the VSD
-func (o *VSD) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
 }
 
 // CreateJob creates a new child Job under the VSD
@@ -182,22 +177,10 @@ func (o *VSD) VSDComponents(info *bambou.FetchingInfo) (VSDComponentsList, *bamb
 	return list, err
 }
 
-// CreateVSDComponent creates a new child VSDComponent under the VSD
-func (o *VSD) CreateVSDComponent(child *VSDComponent) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the VSD
 func (o *VSD) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the VSD
-func (o *VSD) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

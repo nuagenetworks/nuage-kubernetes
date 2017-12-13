@@ -38,10 +38,19 @@ var IKECertificateIdentity = bambou.Identity{
 // IKECertificatesList represents a list of IKECertificates
 type IKECertificatesList []*IKECertificate
 
-// IKECertificatesAncestor is the interface of an ancestor of a IKECertificate must implement.
+// IKECertificatesAncestor is the interface that an ancestor of a IKECertificate must implement.
+// An Ancestor is defined as an entity that has IKECertificate as a descendant.
+// An Ancestor can get a list of its child IKECertificates, but not necessarily create one.
 type IKECertificatesAncestor interface {
 	IKECertificates(*bambou.FetchingInfo) (IKECertificatesList, *bambou.Error)
-	CreateIKECertificates(*IKECertificate) *bambou.Error
+}
+
+// IKECertificatesParent is the interface that a parent of a IKECertificate must implement.
+// A Parent is defined as an entity that has IKECertificate as a child.
+// A Parent is an Ancestor which can create a IKECertificate.
+type IKECertificatesParent interface {
+	IKECertificatesAncestor
+	CreateIKECertificate(*IKECertificate) *bambou.Error
 }
 
 // IKECertificate represents the model of a ikecertificate

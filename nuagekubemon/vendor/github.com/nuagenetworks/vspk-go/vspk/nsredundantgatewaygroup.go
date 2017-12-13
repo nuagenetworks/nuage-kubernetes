@@ -38,10 +38,19 @@ var NSRedundantGatewayGroupIdentity = bambou.Identity{
 // NSRedundantGatewayGroupsList represents a list of NSRedundantGatewayGroups
 type NSRedundantGatewayGroupsList []*NSRedundantGatewayGroup
 
-// NSRedundantGatewayGroupsAncestor is the interface of an ancestor of a NSRedundantGatewayGroup must implement.
+// NSRedundantGatewayGroupsAncestor is the interface that an ancestor of a NSRedundantGatewayGroup must implement.
+// An Ancestor is defined as an entity that has NSRedundantGatewayGroup as a descendant.
+// An Ancestor can get a list of its child NSRedundantGatewayGroups, but not necessarily create one.
 type NSRedundantGatewayGroupsAncestor interface {
 	NSRedundantGatewayGroups(*bambou.FetchingInfo) (NSRedundantGatewayGroupsList, *bambou.Error)
-	CreateNSRedundantGatewayGroups(*NSRedundantGatewayGroup) *bambou.Error
+}
+
+// NSRedundantGatewayGroupsParent is the interface that a parent of a NSRedundantGatewayGroup must implement.
+// A Parent is defined as an entity that has NSRedundantGatewayGroup as a child.
+// A Parent is an Ancestor which can create a NSRedundantGatewayGroup.
+type NSRedundantGatewayGroupsParent interface {
+	NSRedundantGatewayGroupsAncestor
+	CreateNSRedundantGatewayGroup(*NSRedundantGatewayGroup) *bambou.Error
 }
 
 // NSRedundantGatewayGroup represents the model of a nsgredundancygroup
@@ -74,7 +83,11 @@ type NSRedundantGatewayGroup struct {
 // NewNSRedundantGatewayGroup returns a new *NSRedundantGatewayGroup
 func NewNSRedundantGatewayGroup() *NSRedundantGatewayGroup {
 
-	return &NSRedundantGatewayGroup{}
+	return &NSRedundantGatewayGroup{
+		HeartbeatInterval:        500,
+		HeartbeatVLANID:          4094,
+		ConsecutiveFailuresCount: 3,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -135,12 +148,6 @@ func (o *NSRedundantGatewayGroup) Alarms(info *bambou.FetchingInfo) (AlarmsList,
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the NSRedundantGatewayGroup
-func (o *NSRedundantGatewayGroup) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the NSRedundantGatewayGroup
 func (o *NSRedundantGatewayGroup) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -163,12 +170,6 @@ func (o *NSRedundantGatewayGroup) NSGateways(info *bambou.FetchingInfo) (NSGatew
 	return list, err
 }
 
-// CreateNSGateway creates a new child NSGateway under the NSRedundantGatewayGroup
-func (o *NSRedundantGatewayGroup) CreateNSGateway(child *NSGateway) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // RedundantPorts retrieves the list of child RedundantPorts of the NSRedundantGatewayGroup
 func (o *NSRedundantGatewayGroup) RedundantPorts(info *bambou.FetchingInfo) (RedundantPortsList, *bambou.Error) {
 
@@ -189,10 +190,4 @@ func (o *NSRedundantGatewayGroup) EventLogs(info *bambou.FetchingInfo) (EventLog
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the NSRedundantGatewayGroup
-func (o *NSRedundantGatewayGroup) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

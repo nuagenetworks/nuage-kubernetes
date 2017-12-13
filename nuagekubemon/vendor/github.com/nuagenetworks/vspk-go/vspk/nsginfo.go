@@ -38,10 +38,19 @@ var NSGInfoIdentity = bambou.Identity{
 // NSGInfosList represents a list of NSGInfos
 type NSGInfosList []*NSGInfo
 
-// NSGInfosAncestor is the interface of an ancestor of a NSGInfo must implement.
+// NSGInfosAncestor is the interface that an ancestor of a NSGInfo must implement.
+// An Ancestor is defined as an entity that has NSGInfo as a descendant.
+// An Ancestor can get a list of its child NSGInfos, but not necessarily create one.
 type NSGInfosAncestor interface {
 	NSGInfos(*bambou.FetchingInfo) (NSGInfosList, *bambou.Error)
-	CreateNSGInfos(*NSGInfo) *bambou.Error
+}
+
+// NSGInfosParent is the interface that a parent of a NSGInfo must implement.
+// A Parent is defined as an entity that has NSGInfo as a child.
+// A Parent is an Ancestor which can create a NSGInfo.
+type NSGInfosParent interface {
+	NSGInfosAncestor
+	CreateNSGInfo(*NSGInfo) *bambou.Error
 }
 
 // NSGInfo represents the model of a nsginfo

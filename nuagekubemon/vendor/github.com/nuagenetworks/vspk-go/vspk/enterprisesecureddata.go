@@ -38,10 +38,19 @@ var EnterpriseSecuredDataIdentity = bambou.Identity{
 // EnterpriseSecuredDatasList represents a list of EnterpriseSecuredDatas
 type EnterpriseSecuredDatasList []*EnterpriseSecuredData
 
-// EnterpriseSecuredDatasAncestor is the interface of an ancestor of a EnterpriseSecuredData must implement.
+// EnterpriseSecuredDatasAncestor is the interface that an ancestor of a EnterpriseSecuredData must implement.
+// An Ancestor is defined as an entity that has EnterpriseSecuredData as a descendant.
+// An Ancestor can get a list of its child EnterpriseSecuredDatas, but not necessarily create one.
 type EnterpriseSecuredDatasAncestor interface {
 	EnterpriseSecuredDatas(*bambou.FetchingInfo) (EnterpriseSecuredDatasList, *bambou.Error)
-	CreateEnterpriseSecuredDatas(*EnterpriseSecuredData) *bambou.Error
+}
+
+// EnterpriseSecuredDatasParent is the interface that a parent of a EnterpriseSecuredData must implement.
+// A Parent is defined as an entity that has EnterpriseSecuredData as a child.
+// A Parent is an Ancestor which can create a EnterpriseSecuredData.
+type EnterpriseSecuredDatasParent interface {
+	EnterpriseSecuredDatasAncestor
+	CreateEnterpriseSecuredData(*EnterpriseSecuredData) *bambou.Error
 }
 
 // EnterpriseSecuredData represents the model of a enterprisesecureddata

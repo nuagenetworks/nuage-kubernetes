@@ -38,10 +38,19 @@ var PATNATPoolIdentity = bambou.Identity{
 // PATNATPoolsList represents a list of PATNATPools
 type PATNATPoolsList []*PATNATPool
 
-// PATNATPoolsAncestor is the interface of an ancestor of a PATNATPool must implement.
+// PATNATPoolsAncestor is the interface that an ancestor of a PATNATPool must implement.
+// An Ancestor is defined as an entity that has PATNATPool as a descendant.
+// An Ancestor can get a list of its child PATNATPools, but not necessarily create one.
 type PATNATPoolsAncestor interface {
 	PATNATPools(*bambou.FetchingInfo) (PATNATPoolsList, *bambou.Error)
-	CreatePATNATPools(*PATNATPool) *bambou.Error
+}
+
+// PATNATPoolsParent is the interface that a parent of a PATNATPool must implement.
+// A Parent is defined as an entity that has PATNATPool as a child.
+// A Parent is an Ancestor which can create a PATNATPool.
+type PATNATPoolsParent interface {
+	PATNATPoolsAncestor
+	CreatePATNATPool(*PATNATPool) *bambou.Error
 }
 
 // PATNATPool represents the model of a patnatpool
@@ -189,12 +198,6 @@ func (o *PATNATPool) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bam
 	return list, err
 }
 
-// CreateStatistics creates a new child Statistics under the PATNATPool
-func (o *PATNATPool) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the PATNATPool
 func (o *PATNATPool) StatisticsPolicies(info *bambou.FetchingInfo) (StatisticsPoliciesList, *bambou.Error) {
 
@@ -215,10 +218,4 @@ func (o *PATNATPool) BulkStatistics(info *bambou.FetchingInfo) (BulkStatisticsLi
 	var list BulkStatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, BulkStatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateBulkStatistics creates a new child BulkStatistics under the PATNATPool
-func (o *PATNATPool) CreateBulkStatistics(child *BulkStatistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

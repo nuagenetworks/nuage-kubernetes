@@ -38,10 +38,19 @@ var ZoneIdentity = bambou.Identity{
 // ZonesList represents a list of Zones
 type ZonesList []*Zone
 
-// ZonesAncestor is the interface of an ancestor of a Zone must implement.
+// ZonesAncestor is the interface that an ancestor of a Zone must implement.
+// An Ancestor is defined as an entity that has Zone as a descendant.
+// An Ancestor can get a list of its child Zones, but not necessarily create one.
 type ZonesAncestor interface {
 	Zones(*bambou.FetchingInfo) (ZonesList, *bambou.Error)
-	CreateZones(*Zone) *bambou.Error
+}
+
+// ZonesParent is the interface that a parent of a Zone must implement.
+// A Parent is defined as an entity that has Zone as a child.
+// A Parent is an Ancestor which can create a Zone.
+type ZonesParent interface {
+	ZonesAncestor
+	CreateZone(*Zone) *bambou.Error
 }
 
 // Zone represents the model of a zone
@@ -76,8 +85,9 @@ type Zone struct {
 func NewZone() *Zone {
 
 	return &Zone{
-		Multicast:       "INHERITED",
+		DPI:             "INHERITED",
 		MaintenanceMode: "DISABLED",
+		Multicast:       "INHERITED",
 	}
 }
 
@@ -195,24 +205,12 @@ func (o *Zone) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the Zone
-func (o *Zone) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // VMInterfaces retrieves the list of child VMInterfaces of the Zone
 func (o *Zone) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bambou.Error) {
 
 	var list VMInterfacesList
 	err := bambou.CurrentSession().FetchChildren(o, VMInterfaceIdentity, &list, info)
 	return list, err
-}
-
-// CreateVMInterface creates a new child VMInterface under the Zone
-func (o *Zone) CreateVMInterface(child *VMInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Containers retrieves the list of child Containers of the Zone
@@ -223,24 +221,12 @@ func (o *Zone) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Er
 	return list, err
 }
 
-// CreateContainer creates a new child Container under the Zone
-func (o *Zone) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // ContainerInterfaces retrieves the list of child ContainerInterfaces of the Zone
 func (o *Zone) ContainerInterfaces(info *bambou.FetchingInfo) (ContainerInterfacesList, *bambou.Error) {
 
 	var list ContainerInterfacesList
 	err := bambou.CurrentSession().FetchChildren(o, ContainerInterfaceIdentity, &list, info)
 	return list, err
-}
-
-// CreateContainerInterface creates a new child ContainerInterface under the Zone
-func (o *Zone) CreateContainerInterface(child *ContainerInterface) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // QOSs retrieves the list of child QOSs of the Zone
@@ -265,12 +251,6 @@ func (o *Zone) VPorts(info *bambou.FetchingInfo) (VPortsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVPort creates a new child VPort under the Zone
-func (o *Zone) CreateVPort(child *VPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Groups retrieves the list of child Groups of the Zone
 func (o *Zone) Groups(info *bambou.FetchingInfo) (GroupsList, *bambou.Error) {
 
@@ -279,24 +259,12 @@ func (o *Zone) Groups(info *bambou.FetchingInfo) (GroupsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateGroup creates a new child Group under the Zone
-func (o *Zone) CreateGroup(child *Group) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Statistics retrieves the list of child Statistics of the Zone
 func (o *Zone) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.Error) {
 
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the Zone
-func (o *Zone) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // StatisticsPolicies retrieves the list of child StatisticsPolicies of the Zone
@@ -333,10 +301,4 @@ func (o *Zone) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Erro
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Zone
-func (o *Zone) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

@@ -38,10 +38,19 @@ var EnterpriseNetworkIdentity = bambou.Identity{
 // EnterpriseNetworksList represents a list of EnterpriseNetworks
 type EnterpriseNetworksList []*EnterpriseNetwork
 
-// EnterpriseNetworksAncestor is the interface of an ancestor of a EnterpriseNetwork must implement.
+// EnterpriseNetworksAncestor is the interface that an ancestor of a EnterpriseNetwork must implement.
+// An Ancestor is defined as an entity that has EnterpriseNetwork as a descendant.
+// An Ancestor can get a list of its child EnterpriseNetworks, but not necessarily create one.
 type EnterpriseNetworksAncestor interface {
 	EnterpriseNetworks(*bambou.FetchingInfo) (EnterpriseNetworksList, *bambou.Error)
-	CreateEnterpriseNetworks(*EnterpriseNetwork) *bambou.Error
+}
+
+// EnterpriseNetworksParent is the interface that a parent of a EnterpriseNetwork must implement.
+// A Parent is defined as an entity that has EnterpriseNetwork as a child.
+// A Parent is an Ancestor which can create a EnterpriseNetwork.
+type EnterpriseNetworksParent interface {
+	EnterpriseNetworksAncestor
+	CreateEnterpriseNetwork(*EnterpriseNetwork) *bambou.Error
 }
 
 // EnterpriseNetwork represents the model of a enterprisenetwork
@@ -157,10 +166,4 @@ func (o *EnterpriseNetwork) EventLogs(info *bambou.FetchingInfo) (EventLogsList,
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the EnterpriseNetwork
-func (o *EnterpriseNetwork) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
