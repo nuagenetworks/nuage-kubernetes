@@ -63,17 +63,19 @@ func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	kubeConfig, err := loader.ClientConfig()
 	if err != nil {
-		glog.Infof("Got an error: %s while loading the kube config", err)
+		glog.Errorf("Got an error: %s while loading the kube config", err)
 	}
 	// This is an internal client which is shared by most controllers, so boost default QPS
 	// TODO: this should be configured by the caller, not in this method.
-	kubeConfig.QPS = 100.0
-	kubeConfig.Burst = 200
-	kubeConfig.WrapTransport = DefaultClientTransport
+	if kubeConfig != nil {
+		kubeConfig.QPS = 100.0
+		kubeConfig.Burst = 200
+		kubeConfig.WrapTransport = DefaultClientTransport
+	}
 	nosc.kubeConfig = kubeConfig
 	kubeClient, err := kclient.New(nosc.kubeConfig)
 	if err != nil {
-		glog.Infof("Got an error: %s while creating the kube client", err)
+		glog.Errorf("Got an error: %s while creating the kube client", err)
 	}
 	nosc.kubeClient = kubeClient
 }

@@ -67,7 +67,7 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
 .. Note:: set-up passwordless **ssh** between Ansible node and cluster nodes.
    
-3. Copy the nuage-ose-rhel-install-5-1-2.tar file shipped with Nuage 5.1.2 Release to a host machine where Ansible is run.
+3. Copy the nuage-ose-rhel-install-<version>.tar file shipped with the specific Nuage Release to a host machine where Ansible is run.
 
 4. Untar the above image
 
@@ -82,6 +82,8 @@ You need to have Git installed on your Ansible machine. Perform the following ta
       
 5. Run the patch-nuage-openshift-ansible.sh script to clone the ansible repo and set up Nuage changes.
 
+   .. Note:: The tag version may change based on the Nuage release you use.
+   
    ::
 
       [root@ansible-mc ~]# ./patch-nuage-openshift-ansible.sh 
@@ -111,9 +113,14 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 Setup
 ----------
 
-1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
+1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide.
+   
+   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
+   
+   For Nuage releases 5.2.1 and later, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_. 
 
- .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
+   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
+
 
 1. Load the following docker images on your master node:
 
@@ -196,7 +203,7 @@ Installation for a Single Master
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
-  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5
+  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5'
   
 ::
 
@@ -325,8 +332,8 @@ Nuage OpenShift only supports HA configuration method described in this section.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets.
 
-   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5
-
+   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5'
+  
     ::
     
         # Create an OSEv3 group that contains the masters and nodes groups
