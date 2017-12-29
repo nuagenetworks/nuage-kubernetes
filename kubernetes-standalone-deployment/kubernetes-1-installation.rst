@@ -447,8 +447,8 @@ Installing the VSP components for a Single Master
     
 2. Verify that all the Nuage monitor, CNI and VRS pods are up and running:
 
-   ::
+::
    
-      `kubectl get pods -n kube-system`      
+    kubectl get pods -n kube-system      
      
 
