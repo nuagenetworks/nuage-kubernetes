@@ -10,7 +10,7 @@ Setup etcd
  2. Fill in the etcd cluster specific information in the etcd.env file
  3. For the first node, generate the token manually using the link in the etcd.env file
  4. For the 2nd & 3rd node in the cluster, set the CURRENT_NODE accordingly
- 5. Once etcd.env is populated correctl, run the setup-etcd.sh script as shown below.
+ 5. Once etcd.env is populated correctly, run the setup-etcd.sh script as shown below.
  6. Status of the etcd service can be checked using `service etcd status` command
  
  ```
