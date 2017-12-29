@@ -433,10 +433,14 @@ Update the **image** parameter in **nuage-kubernetes/daemonset-templates/nuage-i
         - name: install-nuage-infra
           image: nuage/infra:<nuage-version>
 
-       
+Label all the masters using the following command:
 
-Installing the VSP components for a Single Master 
---------------------------------------------------
+::
+
+      kubectl label nodes <master hostname or IP> install-monitor="true"
+
+Installing the VSP components
+------------------------------
 
 1. After updating all the 3 daemonset files with the correct values, the daemonsets can be created using the following commands:
 
