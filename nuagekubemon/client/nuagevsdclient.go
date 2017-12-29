@@ -32,6 +32,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 )
@@ -287,22 +288,22 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 	}
 	certDir := restServerCfg.CertificateDirectory
 	if certDir == "" {
-		certDir = "/etc/kubernetes/pki"
+		certDir = "/usr/share/" + os.Args[0]
 	}
 
 	clientCA := restServerCfg.ClientCA
 	if clientCA == "" {
-		clientCA = certDir + "/ca.crt"
+		clientCA = certDir + "/nuageMonCA.crt"
 	}
 	glog.Infof("Using %s as rest server CA", clientCA)
 	serverCert := restServerCfg.ServerCertificate
 	if serverCert == "" {
-		serverCert = certDir + "/apiserver-kubelet-client.crt"
+		serverCert = certDir + "/nuageMonServer.crt"
 	}
 	glog.Infof("Using %s as rest server cert", serverCert)
 	serverKey := restServerCfg.ServerKey
 	if serverKey == "" {
-		serverKey = certDir + "/apiserver-kubelet-client.key"
+		serverKey = certDir + "/nuageMonServer.key"
 	}
 	glog.Infof("Using %s as rest server key", serverKey)
 	CAPool := x509.NewCertPool()
