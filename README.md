@@ -21,9 +21,10 @@ Follow this release pattern and you can't go wrong:
  |       5.0              |         1.6.4              |         5.0                |
  |      5.1.1             |  HA 1.6.6/Standalone 1.7.4 |        tags/v5.1.1-1       |
  |      5.1.2             |  HA 1.6.6/Standalone 1.7.4 |        tags/v5.1.2-1       |
+ |      5.2.1             |  HA 1.9.0/Standalone 1.9.0 |        tags/v5.2.1-2       |
  
  Kubernetes-version implies version of kubeadm, kubelet and kubectl componenets. In case, you want to install a particular kubernetes release, you can do
- `yum install -y kubeadm-1.6.6 kubelet-1.6.6 kubectl-1.6.6 docker kubernetes-cni`
+ `yum install -y kubeadm-1.9.0 kubelet-1.9.0 kubectl-1.9.0 docker kubernetes-cni`
  
  This should install the required version of kubernetes components along with the required version of docker.
  
