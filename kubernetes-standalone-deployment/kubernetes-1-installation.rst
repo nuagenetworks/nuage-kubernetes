@@ -227,7 +227,7 @@ Set the parameter to 1 in order to allow nuagekubemon to automagically create a 
                 serviceNetworkCIDR: 192.168.0.0/16
                 hostSubnetLength: 8
 
-Make sure the **image** parameter is correctly set to the Nuagekubemon docker images version pre-loaded on master nodes:
+Make sure the **image** parameter is correctly set to the Nuage monitor docker images version pre-loaded on master nodes:
 
 ::
 
@@ -309,6 +309,7 @@ The kubernetes-cert-dir mount path needs to be set if the user has specified the
 Make sure the **image** parameter is correctly set to the Nuage CNI docker image version pre-loaded on the slave nodes:
 
 ::
+
       containers:
         # This container installs Nuage CNI binaries
         # and CNI network config file on each node.
