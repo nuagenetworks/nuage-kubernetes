@@ -3,7 +3,7 @@
 
 # Config
 DOCKER_VERSION="1.12.6"
-KUBE_VERSION="v1.6.4"
+KUBE_VERSION="v1.9.0"
 
 # Load per node config
 source master.env
@@ -81,7 +81,7 @@ yum update -y
 yum install -y docker-engine-$DOCKER_VERSION yum-versionlock
 yum versionlock add docker-engine
 
-yum install -y bind-utils kubelet-1.6.6 kubeadm-1.6.6 kubectl-1.6.6 kubernetes-cni 
+yum install -y bind-utils kubelet-1.9.0 kubeadm-1.9.0 kubectl-1.9.0 kubernetes-cni 
 
 #unset http_proxy
 #unset https_proxy
