@@ -52,6 +52,8 @@ Pre-Installation Steps in VSD
 
 
 	.. Note:: The above command generates the client certificates for the "k8s-admin" user and copies it to the /etc/kubernetes/pki or any specified directory of the k8s master node where daemonsets are going to be created. This certificate information is used by the nuagekubemon (nuage k8S monitor) to securely communicate with the VSD.
+	
+	.. Note:: In case of Kubernetes HA install, the certificates generated above need to be copied in the /etc/kubernetes/pki (or the folder which holds all the kubernetes certs) on all the masters
 
 4. To complete the steps provided in the Kubeadm installer guide, go `here <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_. 
 
