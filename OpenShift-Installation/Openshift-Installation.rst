@@ -125,9 +125,9 @@ Setup
 
 1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide.
    
-   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
+   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html>`_.
    
-   For Nuage releases 5.2.1 and later, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_. 
+   For Nuage releases 5.2.1 and later, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html>`_. 
 
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
 
