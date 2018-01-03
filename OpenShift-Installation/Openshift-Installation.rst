@@ -23,6 +23,16 @@ You only need to install Ansible once on a machine and it can manage the master 
 
 .. Note:: SSH Protocol does not require a password.
 
+The Ansible Version to be used is 2.3. To check or install ansible version 2.3, follow the below steps:
+
+    ::
+
+         [root@ansible-host ~]# ansible --version
+         ansible 2.4.2.0
+         
+         [root@ansible-host ~]# sudo pip install ansible==2.3
+         
+         
 OpenShift DaemonSet for Nuage installation
 ===========================================
 
