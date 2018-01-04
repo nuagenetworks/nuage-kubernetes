@@ -52,7 +52,7 @@ yum update -y
 yum install -y docker-engine-$DOCKER_VERSION yum-versionlock
 yum versionlock add docker-engine
 
-yum install -y kubelet-1.6.6 kubeadm-1.6.6 kubectl-1.6.6 kubernetes-cni
+yum install -y kubelet-1.9.0 kubeadm-1.9.0 kubectl-1.9.0 kubernetes-cni
 
 #unset http_proxy
 #unset https_proxy
