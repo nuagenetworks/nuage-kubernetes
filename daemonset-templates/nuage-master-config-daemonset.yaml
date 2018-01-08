@@ -8,7 +8,7 @@ data:
   # This will generate the required Nuage monitor configuration
   # on master nodes
   monitor_yaml_config: |
-      kubeConfig: /usr/share/nuagekubemon/nuage.kubeconfig
+      kubeConfig: /usr/share/vsp-k8s/nuage.kubeconfig
 
       masterConfig: /usr/share/nuagekubemon/net-config.yaml
       # URL of the VSD Architect
@@ -20,9 +20,9 @@ data:
       # Name of the domain in which pods will reside
       domainName: kubernetes
       # VSD generated user certificate file location on master node
-      userCertificateFile: /usr/share/nuagekubemon/k8s-admin.pem
+      userCertificateFile: /etc/kubernetes/pki/k8s-admin.pem
       # VSD generated user key file location on master node
-      userKeyFile: /usr/share/nuagekubemon/k8s-admin-Key.pem
+      userKeyFile: /etc/kubernetes/pki/k8s-admin-Key.pem
       # Location where logs should be saved
       log_dir: /var/log/nuagekubemon
       # Monitor rest server paramters
@@ -32,7 +32,7 @@ data:
       # Parameters related to the nuage monitor REST server
       nuageMonServer:
           URL: 0.0.0.0:9443
-          certificateDirectory: /usr/share/nuagekubemon
+          certificateDirectory: /etc/kubernetes/pki
           clientCA: ""
           serverCertificate: ""
           serverKey: ""
@@ -119,6 +119,8 @@ spec:
               name: cni-log-dir
             - mountPath: /usr/share
               name: usr-share-dir
+            - mountPath: /etc/kubernetes/pki/
+              name: kubernetes-cert-dir
       volumes:
         - name: cni-log-dir
           hostPath:
@@ -126,3 +128,6 @@ spec:
         - name: usr-share-dir
           hostPath:
             path: /usr/share
+        - name: kubernetes-cert-dir
+          hostPath:
+            path: /etc/kubernetes/pki/
