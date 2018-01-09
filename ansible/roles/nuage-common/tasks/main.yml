@@ -1,0 +1,29 @@
+---
+- name: Delete the stale server certificate CA and serial files on all nodes
+  file: path="/usr/share/nuage-k8s-ca/{{ item }}" state=absent
+  with_items:
+    - nuageMonCA.crt
+    - nuageMonCA.key
+    - nuageMonCA.serial.txt
+    - openssl.cnf
+  ignore_errors: yes
+
+- name: Delete the stale server certificate key files on all nodes
+  file: path="/usr/share/nuagekubemon/{{ item }}" state=absent
+  with_items:
+    - nuage.kubeconfig
+    - nuageMonServer.crt
+    - nuageMonServer.key
+    - nuageMonCA.crt
+    - nuage-serviceaccount.yaml
+  ignore_errors: yes
+
+- name: Delete the stale client certificate key files on all nodes
+  file: path="/usr/share/vsp-k8s/{{ item }}" state=absent
+  with_items:
+    - nuage.kubeconfig
+    - nuageMonClient.crt
+    - nuageMonServer.key
+    - nuageMonClient.key
+    - vsp-k8s.yaml
+  ignore_errors: yes
