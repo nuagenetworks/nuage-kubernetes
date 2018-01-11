@@ -21,11 +21,11 @@ data:
       # Bridge name for the docker bridge
       dockerBridgeName: docker0
       # Certificate for connecting to the kubemon REST API
-      nuageMonClientCert: /usr/share/vsp-k8s/nuageMonClient.crt
+      nuageMonClientCert: /var/lib/kubelet/pki/kubelet-client.crt
       # Key to the certificate in restClientCert
-      nuageMonClientKey: /usr/share/vsp-k8s/nuageMonClient.key
+      nuageMonClientKey: /var/lib/kubelet/pki/kubelet-client.key
       # CA certificate for verifying the master's rest server
-      nuageMonServerCA: /usr/share/vsp-k8s/nuageMonCA.crt
+      nuageMonServerCA: /etc/kubernetes/pki/ca.crt
       # Nuage vport mtu size
       interfaceMTU: 1460
       # Service CIDR
@@ -104,12 +104,16 @@ spec:
             # Nuage cluster network CIDR for iptables configuration
             - name: NUAGE_CLUSTER_NW_CIDR
               value: "70.70.0.0/16"
+            # Kubernetes Master api-server URL
+            - name: MASTER_API_SERVER_URL
+              value: "https://<master-ip>:6443"
+            # nuage user service account token string
+            - name: NUAGE_TOKEN
+              value: "Add Kubernetes generated nuage service account token here"
           volumeMounts:
-            - mountPath: /host/opt/cni/bin
+            - mountPath: /host/opt
               name: cni-bin-dir
-            - mountPath: /host/etc/cni/net.d
-              name: cni-net-dir
-            - mountPath: /etc/default
+            - mountPath: /host/etc
               name: cni-yaml-dir
             - mountPath: /var/run
               name: var-run-dir
@@ -117,16 +121,17 @@ spec:
               name: cni-log-dir
             - mountPath: /usr/share
               name: usr-share-dir
+            - mountPath: /etc/kubernetes/pki/
+              name: kubernetes-ca-dir
+            - mountPath: /var/lib/kubelet/pki/
+              name: kubernetes-cert-dir
       volumes:
         - name: cni-bin-dir
           hostPath:
-            path: /opt/cni/bin
-        - name: cni-net-dir
-          hostPath:
-            path: /etc/cni/net.d
+            path: /opt
         - name: cni-yaml-dir
           hostPath:
-            path: /etc/default
+            path: /etc
         - name: var-run-dir
           hostPath:
             path: /var/run
@@ -136,6 +141,12 @@ spec:
         - name: usr-share-dir
           hostPath:
             path: /usr/share
+        - name: kubernetes-ca-dir
+          hostPath:
+            path: /etc/kubernetes/pki/
+        - name: kubernetes-cert-dir
+          hostPath:
+            path: /var/lib/kubelet/pki/
 
 ---
 
