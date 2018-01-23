@@ -26,13 +26,8 @@ data:
       nuageMonClientKey: /var/lib/kubelet/pki/kubelet-client.key
       # CA certificate for verifying the master's rest server
       nuageMonServerCA: /etc/kubernetes/pki/ca.crt
-      # Nuage vport mtu size
-      interfaceMTU: 1460
       # Service CIDR
       serviceCIDR: 192.168.0.0/16
-      # Logging level for the plugin
-      # allowed options are: "dbg", "info", "warn", "err", "emer", "off"
-      logLevel: dbg
 
   # This will generate the required Nuage CNI yaml configuration
   cni_yaml_config: |
