@@ -31,3 +31,24 @@ Follow this release pattern and you can't go wrong:
  This should install the required version of kubernetes components along with the required version of docker.
  
  ..Note: Ansible version supported is 2.3.0.0 for Nuage ansible playbook with Kubernetes
+
+# nuage-openshift
+
+Follow the below table for Nuage-Openshift on RHEL server:
+
+ |   Nuage-VSP-version    |    Openshift-version	      |      Ansible Version       |
+ | -----------------------|----------------------------|----------------------------|
+ |       5.0              |         3.5.5.5            |            2.3             |
+ |      5.1.1             |         3.5.5.5            |            2.3             |
+ |      5.1.2             |         3.5.5.5            |            2.3             |
+ |      5.2.1             |         3.6.173.0.5        |            2.3             |
+ 
+Follow the below table for Nuage-Openshift on RHEL Atomic host:
+ 
+ |   Nuage-VSP-version    |    Openshift-version	      |      Ansible Version       |
+ | -----------------------|----------------------------|----------------------------|
+ |       5.0              |         3.5.5.5            |            2.3             |
+ |      5.1.1             |         3.5.5.5            |            2.3             |
+ |      5.1.2             |         3.5.5.5            |            2.3             |
+ |      5.2.1             |         3.6.173.0.5        |            2.3             |
+ 
