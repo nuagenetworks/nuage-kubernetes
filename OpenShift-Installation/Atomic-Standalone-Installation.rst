@@ -245,7 +245,7 @@ Installation for a Single Master
     nuage_monitor_image_version=<version>
     nuage_vrs_image_version=<version>
     nuage_cni_image_version=<version>
-    nuage_infra_image_version=<version>
+    nuage_infra_container_image_version=<version>
     
     enterprise=openshift
     domain=openshift
