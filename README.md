@@ -42,6 +42,7 @@ Follow the below table for Nuage-Openshift on RHEL server:
  |      5.1.1             |         3.5.5.5            |            2.3             |
  |      5.1.2             |         3.5.5.5            |            2.3             |
  |      5.2.1             |         3.6.173.0.5        |            2.3             |
+ |      5.2.2             |         3.7.9              |            2.3             |
  
 Follow the below table for Nuage-Openshift on RHEL Atomic host:
  
@@ -51,4 +52,4 @@ Follow the below table for Nuage-Openshift on RHEL Atomic host:
  |      5.1.1             |         3.5.5.5            |            2.3             |
  |      5.1.2             |         3.5.5.5            |            2.3             |
  |      5.2.1             |         3.6.173.0.5        |            2.3             |
- 
+ |      5.2.2             |         3.7.9              |            2.4             |
