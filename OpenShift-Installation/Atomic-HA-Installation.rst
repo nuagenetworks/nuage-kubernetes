@@ -11,7 +11,7 @@ OpenShift Installation on Atomic Hosts - HA
 Supported Platforms
 ====================
 
-The VSP integration with OpenShift is supported on RHEL Atomic hosts (VERSION 7.3).
+The VSP integration with OpenShift is supported on RHEL Atomic hosts (VERSION 7.4).
 
 The installation procedure in this section is for VSP integration with OpenShift when the master nodes are RHEL Server hosts and slave nodes are RHEL Atomic hosts. This guide documents the installation procedure for Atomic High-Availability/Multi-Master Installation.
 
@@ -69,13 +69,13 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
    .. Note:: set-up passwordless ssh between Ansible node and cluster nodes.
 
-3. Copy the nuage-ose-rhel-install-<version>.tar.gz file shipped with the specfic Nuage Release to a host machine where Ansible is run.
+3. Copy the  nuage-ose-atomic-install-<version>.tar.gz file shipped with the specfic Nuage Release to a host machine where Ansible is run.
 
 4. Unzip and Untar the above image
 
   ::
       
-       [root@ansible-host ~]# tar -xvf nuage-ose-rhel-install.tar 
+       [root@ansible-host ~]# tar -xvf nuage-ose-atomic-install-<version>.tar 
        etcd_certificates.yml
        nuage-infra-pod-config-daemonset.j2
        nuage-openshift-ansible.diff
@@ -119,9 +119,11 @@ Setup
    
    For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
    
-   For Nuage releases 5.2.1 and later, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_. 
+   For Nuage release 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_. 
 
-   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
+   For Nuage release 5.2.2, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html/>`_. 
+
+   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
 
 2. Load the following docker images on your master node:
 
@@ -170,41 +172,17 @@ Setup
       nuage/vrs                                                  <version>           0f83ba129dc2        14 hours ago        505.8 MB
       nuage/infra                                                <version>           53580dde0343        13 days ago         1.13 MB
       nuage/cni                                                  <version>           01be44d6d037        5 weeks ago         399.1 MB
-      registry.access.redhat.com/openshift3/ose-haproxy-router   v3.5.5.5            0da1e83a3dc6        6 months ago        775.2 MB
-      registry.access.redhat.com/openshift3/node                 v3.5.5.5            2a27de91c442        6 months ago        981.4 MB
-      registry.access.redhat.com/openshift3/ose-deployer         v3.5.5.5            fe58ee8f8ced        6 months ago        755.7 MB
-      registry.access.redhat.com/openshift3/ose-pod              v3.5.5.5            b717234be287        6 months ago        205.6 MB
-   
-
-Including the ansible.cfg File
---------------------------------
-
-1. Add a file ansible.cfg in openshift-ansible directory with the following contents:
-
-   ::
-   
-       [defaults]
-       # Add the roles directory to the roles path
-       roles_path = roles/
-       
-       # Set the log_path
-       log_path = ~/ansible_logs/ansible.log
-       
-       [ssh_connection]
-       pipelining = True
-       
-
-2. Make sure the directory specified for the log_path exists.
+      rhel                                                        latest             25717bbe3120        3 months ago        195.9 MB
 
 
 Installation for Multi-Master
 -----------------------------------
 
-1. Create a nodes file for Ansible configuration for a single master (RHEL Server) in the openshift-ansible directory with the contents shown below.
+1. Create a nodes file for Ansible configuration on a master (RHEL Server) in the openshift-ansible directory with the contents shown below.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
-  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.5. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5'
+  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.7.9. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5'
   
 ::
 
@@ -219,12 +197,14 @@ Installation for Multi-Master
     [OSEv3:vars]
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
+    openshift_enable_service_catalog=false
     openshift_master_portal_net=172.30.0.0/16
     osm_cluster_network_cidr=70.70.0.0/16
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
-    openshift_pkg_version=-3.5.5.5
+    openshift_pkg_version=-3.7.9
     slave_base_host_type=is_atomic
+    uplink_interface=eth0
     openshift_disable_check=disk_availability,memory_availability,package_version,docker_storage,docker_image_availability
     
     # If ansible_ssh_user is not root, ansible_sudo must be set to true
@@ -241,7 +221,7 @@ Installation for Multi-Master
     vsp_version=v5_0
     
     # The below versions should match the TAG version in the output of 'docker images' on the nodes. See point 2 above
-    # Example: nuage_monitor_image_version=5.1.2-70
+    # Example: nuage_monitor_image_version=5.2.2-70
     nuage_monitor_image_version=<version>
     nuage_vrs_image_version=<version>
     nuage_cni_image_version=<version>
