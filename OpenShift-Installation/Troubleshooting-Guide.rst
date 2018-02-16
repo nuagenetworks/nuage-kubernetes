@@ -25,7 +25,7 @@ If Openshift ansible installation fails, first check the nodes/inventory file as
    lb
    [OSEv3:vars]
    # Currently Nuage Integration only works with Openshift Version 3.5. It is preferred to use 3.5.5.5
-   openshift_pkg_version=-3.5.5.5
+   openshift_pkg_version=-3.7.9
    # Mandatory for Nuage Integration
    openshift_use_openshift_sdn=False
    openshift_use_nuage=True
@@ -35,10 +35,10 @@ If Openshift ansible installation fails, first check the nodes/inventory file as
    vsd_api_url=https://10.31.45.137:7443
    vsp_version=v5_0
    # Are the below version correct ? Are these images loaded on the nodes via docker load -i ?
-   nuage_monitor_image_version=5.1.2-63
-   nuage_vrs_image_version=5.1.2-70
-   nuage_cni_image_version=5.1.2-63
-   nuage_infra_container_image_version=v5.1.2
+   nuage_monitor_image_version=5.2.2-63
+   nuage_vrs_image_version=5.2.2-70
+   nuage_cni_image_version=5.2.2-63
+   nuage_infra_image_version=v5.2.2
    # User must create this enterprise on VSD
    enterprise=openshift_scale
    # Below domain will be created by nuage-monitor running on the master nodes
@@ -431,6 +431,8 @@ Delete and redeploy the registry pod.
 
 1. Delete the docker-registry and router dc, rc, pod, and svc:
 
+   ::  
+   
       oc delete dc/router; oc delete svc router; oc delete pod router-1-deploy
       
       oc delete dc/docker-registry; oc delete svc docker-registry
@@ -439,6 +441,8 @@ Delete and redeploy the registry pod.
 
 2. Delete and re-create the service accounts and role bindings.
 
+   ::  
+   
       oc delete serviceaccount router;
       
       oadm policy remove-cluster-role-from-user cluster-reader system:serviceaccount:default:router
@@ -455,6 +459,8 @@ Delete and redeploy the registry pod.
 
 3. Redeploy the docker-registry and router pod using the following commands:
 
+   ::  
+   
       oadm router router --replicas=1  --service-account=router
       
       oadm registry --config=/etc/origin/master/admin.kubeconfig
@@ -462,10 +468,7 @@ Delete and redeploy the registry pod.
 4. Restart the Openshift master service
 
    :: 
-      For Standalone Master:
-      systemctl restart atomic-openshift-master
-
-      For Multiple Masters/HA:
+   
       systemctl restart atomic-openshift-master-api atomic-openshift-master-controllers
 
 .. Note:: Every time the registry is recreated, its service IP changes and you need to restart the OpenShift master service.
