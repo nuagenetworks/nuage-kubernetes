@@ -1,0 +1,4 @@
+---
+nuage_master_monitor_dir: /usr/share/nuage-openshift-monitor
+nuage_master_ca_dir: /usr/share/nuage-openshift-ca
+nuage_master_ca_crt_dir: /usr/share/nuage-openshift-certificates

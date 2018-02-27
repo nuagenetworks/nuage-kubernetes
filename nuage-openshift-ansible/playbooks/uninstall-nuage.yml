@@ -1,0 +1,19 @@
+---
+# This playbook cleans up Nuage services on
+# an OpenShift cluster
+
+# Un-install Nuage on master nodes
+- hosts:
+    - masters
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage_master_uninstall }
+
+# Un-install Nuage on master and slave nodes
+- hosts:
+    - nodes
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage_node_uninstall }

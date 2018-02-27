@@ -1,0 +1,35 @@
+---
+- name: Detect Host Operating System Type
+  stat:
+    path: /run/ostree-booted
+  register: host_ostree_booted
+
+- name: Set fact openshift_is_atomic
+  set_fact:
+    openshift_is_atomic: "{{ host_ostree_booted.stat.exists }}"
+
+- name: Set the Nuage certificates directory facts to handle Atomic host cleanup
+  set_fact:
+    nuage_master_monitor_dir: /var/usr/share/nuage-openshift-monitor
+    nuage_master_ca_crt_dir: /var/usr/share/nuage-openshift-certificates
+    nuage_master_ca_dir: /var/usr/share/nuage-openshift-ca
+  when: openshift_is_atomic | bool
+
+- name: Cleanup Nuage monitor, CNI, VRS and infra daemon set pods
+  shell: oc delete -f "{{ item }}"
+  with_items:
+    - "{{ nuage_master_monitor_dir }}/nuage-master-config-daemonset.yaml"
+    - "{{ nuage_master_monitor_dir }}/nuage-node-config-daemonset.yaml"
+    - "{{ nuage_master_monitor_dir }}/nuage-infra-pod-config-daemonset.yaml"
+  ignore_errors: True
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Cleaning up Nuage components from master nodes
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ nuage_master_ca_dir }}"
+    - "{{ nuage_master_monitor_dir }}"
+    - "{{ nuage_master_ca_crt_dir }}"
+  ignore_errors: True

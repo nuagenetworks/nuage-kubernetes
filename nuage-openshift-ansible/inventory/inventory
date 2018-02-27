@@ -1,0 +1,91 @@
+# Create an OSEv3 group that contains the masters and nodes groups
+[OSEv3.1:children]
+masters
+nodes
+etcd
+lb
+
+# Set variables common for all OSEv3 hosts
+[OSEv3:vars]
+# SSH user, this user should allow ssh based auth without requiring a password
+ansible_ssh_user=root
+openshift_master_portal_net=172.30.0.0/16
+osm_cluster_network_cidr=70.70.0.0/16
+deployment_type=openshift-enterprise
+osm_host_subnet_length=10
+openshift_pkg_version=-3.7.9
+master_api_server_url=https://127.0.0.1:6443
+
+# Set type of host to differentiate
+# atomic and RHEL OSE installation
+slave_base_host_type=is_rhel
+master_base_host_type=is_rhel
+
+# If ansible_ssh_user is not root, ansible_sudo must be set to true
+#ansible_sudo=true
+
+deployment_type=openshift-enterprise
+openshift_disable_check=disk_availability,memory_availability,package_version,docker_storage,docker_image_availability
+
+# Nuage specific parameters
+openshift_use_openshift_sdn=False
+openshift_use_nuage=True
+openshift.common._use_nuage=True
+os_sdn_network_plugin_name=cni
+vsd_api_url=https://<VSD-IP/VSD-Hostname>:7443
+vsp_version=v5_0
+
+# The below versions should match the TAG version in the output of 'docker images' on the nodes. See point 2 above
+# Example: nuage_monitor_image_version=5.1.2-70
+nuage_monitor_image_version=<version>
+nuage_vrs_image_version=<version>
+nuage_cni_image_version=<version>
+nuage_infra_image_version=<version>
+
+enterprise=openshift
+domain=openshift
+vsc_active_ip=10.100.100.101
+vsc_standby_ip=10.100.100.102
+uplink_interface=eth0
+nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
+nuage_interface_mtu=1450
+# auto scale subnets feature
+# 0 => disabled(default)
+# 1 => enabled
+auto_scale_subnets=0
+
+# VSD user in the admin group
+vsd_user=ose-admin
+# Complete local host path to the VSD user certificate file
+vsd_user_cert_file=/usr/local/ose-admin.pem
+# Complete local host path to the VSD user key file
+vsd_user_key_file=/usr/local/ose-admin-Key.pem
+
+# Set 'make-iptables-util-chains' flag as 'false' while starting kubelet
+# NOTE: This is a mandatory parameter and Nuage Integration does not work if not set
+openshift_node_kubelet_args={'max-pods': ['110'], 'image-gc-high-threshold': ['90'], 'image-gc-low-threshold': ['80'], 'make-iptables-util-chains': ['false']}
+
+# Required for Nuage Monitor REST server and HA
+openshift_master_cluster_method=native
+nuage_openshift_monitor_rest_server_port=9443
+openshift_master_cluster_hostname=lb.nuageopenshift.com
+openshift_master_cluster_public_hostname=lb.nuageopenshift.com
+
+# host group for masters
+[masters]
+master1.nuageopenshift.com
+master2.nuageopenshift.com
+
+# Specify load balancer host
+[lb]
+lb.nuageopenshift.com
+
+[etcd]
+etcd.nuageopenshift.com
+
+# host group for nodes
+[nodes]
+node1.nuageopenshift.com openshift_schedulable=True openshift_node_labels="{'region': 'infra'}"
+node2.nuageopenshift.com
+master1.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
+master2.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"

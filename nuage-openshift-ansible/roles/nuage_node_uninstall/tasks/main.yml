@@ -1,0 +1,27 @@
+---
+- name: Detect Host Operating System Type
+  stat:
+    path: /run/ostree-booted
+  register: host_ostree_booted
+
+- name: Set fact openshift_is_atomic
+  set_fact:
+    openshift_is_atomic: "{{ host_ostree_booted.stat.exists }}"
+
+- name: Set the Nuage CNI config facts to handle Atomic host cleanup
+  set_fact:
+    nuage_node_bin_dir: /var/opt/cni/bin
+    nuage_node_plugin_dir: /var/usr/share/vsp-openshift
+    nuage_node_cni_netconf_dir: /var/etc/cni/net.d/
+  when: openshift_is_atomic | bool
+
+- name: Cleaning up Nuage components from slave nodes
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ nuage_node_plugin_dir }}"
+    - "{{ nuage_node_bin_dir }}/nuage-cni-openshift"
+    - "{{ nuage_node_cni_netconf_dir }}/nuage-net.conf"
+    - /etc/default/nuage-cni.yaml
+  ignore_errors: True

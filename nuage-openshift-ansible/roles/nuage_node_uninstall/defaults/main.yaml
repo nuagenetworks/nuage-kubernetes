@@ -1,0 +1,4 @@
+---
+nuage_node_plugin_dir: /usr/share/vsp-openshift
+nuage_node_bin_dir: /opt/cni/bin
+nuage_node_cni_netconf_dir: /etc/cni/net.d/
