@@ -1,0 +1,19 @@
+---
+# This playbook deploys Nuage services on
+# an OpenShift cluster
+
+# Install Nuage on master nodes
+- hosts:
+    - masters
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage_master }
+
+# Install Nuage on master and slave nodes
+- hosts:
+    - nodes
+  become: yes
+  serial: 1
+  roles:
+      - { role: nuage_node }
