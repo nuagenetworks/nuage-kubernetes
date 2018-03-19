@@ -2059,19 +2059,6 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			glog.Errorf("Invalid ID for zone %s", nsEvent.Name)
 			return err
 		case id != "" && err == nil:
-			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err = nvsdc.CreatePrivilegedZoneAcls(id)
-				if err != nil {
-					glog.Error("Got an error when creating default zone's ACL entries")
-					return err
-				}
-			} else {
-				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, id)
-				if err != nil {
-					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
-					return err
-				}
-			}
 			namespace.ZoneID = id
 			return nil
 		}
