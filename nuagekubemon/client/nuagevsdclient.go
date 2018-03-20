@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -68,6 +69,7 @@ type NamespaceData struct {
 	Name           string
 	Subnets        *SubnetNode
 	NeedsNewSubnet bool
+	defaultPolicy  networkPolicyType
 	numSubnets     int //used for naming new subnets (nsname-0, nsname-1, etc.)
 }
 
@@ -83,6 +85,14 @@ type SubnetNode struct {
 	ActiveIPs  int //Number of IP addresses that are accounted for in this subnet.
 	Next       *SubnetNode
 }
+
+type networkPolicyType int
+
+const (
+	noPolicy networkPolicyType = iota
+	allowAll
+	denyAll
+)
 
 func NewNuageVsdClient(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdChannel chan *api.EtcdEvent) *NuageVsdClient {
 	nvsdc := new(NuageVsdClient)
@@ -1964,7 +1974,10 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
-	nvsdc.resourceManager.HandleNsEvent(nsEvent)
+	nsDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
+	if nsPolicyChanged {
+		nvsdc.resourceManager.HandleNsEvent(nsEvent)
+	}
 	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
@@ -1973,7 +1986,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			namespace := NamespaceData{
-				Name: nsEvent.Name,
+				Name:          nsEvent.Name,
+				defaultPolicy: nsDefaultPolicy,
 			}
 
 			zoneMetadata := &api.EtcdZoneMetadata{Name: nsEvent.Name}
@@ -2655,6 +2669,23 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 		}
 	}
 	return nil
+}
+
+func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) (networkPolicyType, bool) {
+	newPolicy := allowAll
+	if annotation, ok := nsEvent.Annotations["net.beta.kubernetes.io/network-policy"]; ok {
+		if strings.Compare(annotation, "{\"ingress\": {\"isolation\": \"DefaultDeny\"}}") == 0 {
+			newPolicy = denyAll
+		}
+	}
+
+	if _, ok := nvsdc.namespaces[nsEvent.Name]; !ok {
+		return newPolicy, true
+	}
+	if newPolicy != nvsdc.namespaces[nsEvent.Name].defaultPolicy {
+		return newPolicy, true
+	}
+	return newPolicy, false
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
