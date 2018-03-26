@@ -38,10 +38,19 @@ var RedundancyGroupIdentity = bambou.Identity{
 // RedundancyGroupsList represents a list of RedundancyGroups
 type RedundancyGroupsList []*RedundancyGroup
 
-// RedundancyGroupsAncestor is the interface of an ancestor of a RedundancyGroup must implement.
+// RedundancyGroupsAncestor is the interface that an ancestor of a RedundancyGroup must implement.
+// An Ancestor is defined as an entity that has RedundancyGroup as a descendant.
+// An Ancestor can get a list of its child RedundancyGroups, but not necessarily create one.
 type RedundancyGroupsAncestor interface {
 	RedundancyGroups(*bambou.FetchingInfo) (RedundancyGroupsList, *bambou.Error)
-	CreateRedundancyGroups(*RedundancyGroup) *bambou.Error
+}
+
+// RedundancyGroupsParent is the interface that a parent of a RedundancyGroup must implement.
+// A Parent is defined as an entity that has RedundancyGroup as a child.
+// A Parent is an Ancestor which can create a RedundancyGroup.
+type RedundancyGroupsParent interface {
+	RedundancyGroupsAncestor
+	CreateRedundancyGroup(*RedundancyGroup) *bambou.Error
 }
 
 // RedundancyGroup represents the model of a redundancygroup
@@ -118,12 +127,6 @@ func (o *RedundancyGroup) Gateways(info *bambou.FetchingInfo) (GatewaysList, *ba
 	return list, err
 }
 
-// CreateGateway creates a new child Gateway under the RedundancyGroup
-func (o *RedundancyGroup) CreateGateway(child *Gateway) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Permissions retrieves the list of child Permissions of the RedundancyGroup
 func (o *RedundancyGroup) Permissions(info *bambou.FetchingInfo) (PermissionsList, *bambou.Error) {
 
@@ -172,12 +175,6 @@ func (o *RedundancyGroup) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou
 	var list AlarmsList
 	err := bambou.CurrentSession().FetchChildren(o, AlarmIdentity, &list, info)
 	return list, err
-}
-
-// CreateAlarm creates a new child Alarm under the RedundancyGroup
-func (o *RedundancyGroup) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the RedundancyGroup
@@ -242,10 +239,4 @@ func (o *RedundancyGroup) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the RedundancyGroup
-func (o *RedundancyGroup) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

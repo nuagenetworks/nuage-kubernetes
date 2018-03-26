@@ -38,10 +38,19 @@ var NetworkPerformanceMeasurementIdentity = bambou.Identity{
 // NetworkPerformanceMeasurementsList represents a list of NetworkPerformanceMeasurements
 type NetworkPerformanceMeasurementsList []*NetworkPerformanceMeasurement
 
-// NetworkPerformanceMeasurementsAncestor is the interface of an ancestor of a NetworkPerformanceMeasurement must implement.
+// NetworkPerformanceMeasurementsAncestor is the interface that an ancestor of a NetworkPerformanceMeasurement must implement.
+// An Ancestor is defined as an entity that has NetworkPerformanceMeasurement as a descendant.
+// An Ancestor can get a list of its child NetworkPerformanceMeasurements, but not necessarily create one.
 type NetworkPerformanceMeasurementsAncestor interface {
 	NetworkPerformanceMeasurements(*bambou.FetchingInfo) (NetworkPerformanceMeasurementsList, *bambou.Error)
-	CreateNetworkPerformanceMeasurements(*NetworkPerformanceMeasurement) *bambou.Error
+}
+
+// NetworkPerformanceMeasurementsParent is the interface that a parent of a NetworkPerformanceMeasurement must implement.
+// A Parent is defined as an entity that has NetworkPerformanceMeasurement as a child.
+// A Parent is an Ancestor which can create a NetworkPerformanceMeasurement.
+type NetworkPerformanceMeasurementsParent interface {
+	NetworkPerformanceMeasurementsAncestor
+	CreateNetworkPerformanceMeasurement(*NetworkPerformanceMeasurement) *bambou.Error
 }
 
 // NetworkPerformanceMeasurement represents the model of a networkperformancemeasurement
@@ -59,7 +68,9 @@ type NetworkPerformanceMeasurement struct {
 // NewNetworkPerformanceMeasurement returns a new *NetworkPerformanceMeasurement
 func NewNetworkPerformanceMeasurement() *NetworkPerformanceMeasurement {
 
-	return &NetworkPerformanceMeasurement{}
+	return &NetworkPerformanceMeasurement{
+		ReadOnly: false,
+	}
 }
 
 // Identity returns the Identity of the object.

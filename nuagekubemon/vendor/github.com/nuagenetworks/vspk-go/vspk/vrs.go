@@ -38,10 +38,19 @@ var VRSIdentity = bambou.Identity{
 // VRSsList represents a list of VRSs
 type VRSsList []*VRS
 
-// VRSsAncestor is the interface of an ancestor of a VRS must implement.
+// VRSsAncestor is the interface that an ancestor of a VRS must implement.
+// An Ancestor is defined as an entity that has VRS as a descendant.
+// An Ancestor can get a list of its child VRSs, but not necessarily create one.
 type VRSsAncestor interface {
 	VRSs(*bambou.FetchingInfo) (VRSsList, *bambou.Error)
-	CreateVRSs(*VRS) *bambou.Error
+}
+
+// VRSsParent is the interface that a parent of a VRS must implement.
+// A Parent is defined as an entity that has VRS as a child.
+// A Parent is an Ancestor which can create a VRS.
+type VRSsParent interface {
+	VRSsAncestor
+	CreateVRS(*VRS) *bambou.Error
 }
 
 // VRS represents the model of a vrs
@@ -165,12 +174,6 @@ func (o *VRS) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the VRS
-func (o *VRS) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the VRS
 func (o *VRS) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -193,20 +196,6 @@ func (o *VRS) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVM creates a new child VM under the VRS
-func (o *VRS) CreateVM(child *VM) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// Jobs retrieves the list of child Jobs of the VRS
-func (o *VRS) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the VRS
 func (o *VRS) CreateJob(child *Job) *bambou.Error {
 
@@ -221,24 +210,12 @@ func (o *VRS) MonitoringPorts(info *bambou.FetchingInfo) (MonitoringPortsList, *
 	return list, err
 }
 
-// CreateMonitoringPort creates a new child MonitoringPort under the VRS
-func (o *VRS) CreateMonitoringPort(child *MonitoringPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Containers retrieves the list of child Containers of the VRS
 func (o *VRS) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Error) {
 
 	var list ContainersList
 	err := bambou.CurrentSession().FetchChildren(o, ContainerIdentity, &list, info)
 	return list, err
-}
-
-// CreateContainer creates a new child Container under the VRS
-func (o *VRS) CreateContainer(child *Container) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // VPorts retrieves the list of child VPorts of the VRS
@@ -249,40 +226,6 @@ func (o *VRS) VPorts(info *bambou.FetchingInfo) (VPortsList, *bambou.Error) {
 	return list, err
 }
 
-// CreateVPort creates a new child VPort under the VRS
-func (o *VRS) CreateVPort(child *VPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// HSCs retrieves the list of child HSCs of the VRS
-func (o *VRS) HSCs(info *bambou.FetchingInfo) (HSCsList, *bambou.Error) {
-
-	var list HSCsList
-	err := bambou.CurrentSession().FetchChildren(o, HSCIdentity, &list, info)
-	return list, err
-}
-
-// CreateHSC creates a new child HSC under the VRS
-func (o *VRS) CreateHSC(child *HSC) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// VSCs retrieves the list of child VSCs of the VRS
-func (o *VRS) VSCs(info *bambou.FetchingInfo) (VSCsList, *bambou.Error) {
-
-	var list VSCsList
-	err := bambou.CurrentSession().FetchChildren(o, VSCIdentity, &list, info)
-	return list, err
-}
-
-// CreateVSC creates a new child VSC under the VRS
-func (o *VRS) CreateVSC(child *VSC) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // MultiNICVPorts retrieves the list of child MultiNICVPorts of the VRS
 func (o *VRS) MultiNICVPorts(info *bambou.FetchingInfo) (MultiNICVPortsList, *bambou.Error) {
 
@@ -291,22 +234,10 @@ func (o *VRS) MultiNICVPorts(info *bambou.FetchingInfo) (MultiNICVPortsList, *ba
 	return list, err
 }
 
-// CreateMultiNICVPort creates a new child MultiNICVPort under the VRS
-func (o *VRS) CreateMultiNICVPort(child *MultiNICVPort) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the VRS
 func (o *VRS) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the VRS
-func (o *VRS) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

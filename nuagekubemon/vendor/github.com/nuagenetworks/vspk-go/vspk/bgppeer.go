@@ -38,10 +38,19 @@ var BGPPeerIdentity = bambou.Identity{
 // BGPPeersList represents a list of BGPPeers
 type BGPPeersList []*BGPPeer
 
-// BGPPeersAncestor is the interface of an ancestor of a BGPPeer must implement.
+// BGPPeersAncestor is the interface that an ancestor of a BGPPeer must implement.
+// An Ancestor is defined as an entity that has BGPPeer as a descendant.
+// An Ancestor can get a list of its child BGPPeers, but not necessarily create one.
 type BGPPeersAncestor interface {
 	BGPPeers(*bambou.FetchingInfo) (BGPPeersList, *bambou.Error)
-	CreateBGPPeers(*BGPPeer) *bambou.Error
+}
+
+// BGPPeersParent is the interface that a parent of a BGPPeer must implement.
+// A Parent is defined as an entity that has BGPPeer as a child.
+// A Parent is an Ancestor which can create a BGPPeer.
+type BGPPeersParent interface {
+	BGPPeersAncestor
+	CreateBGPPeer(*BGPPeer) *bambou.Error
 }
 
 // BGPPeer represents the model of a bgppeer

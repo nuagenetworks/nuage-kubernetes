@@ -595,20 +595,20 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 	var watchChan clientv3.WatchChan
 	var err error
 	var getResp *clientv3.GetResponse
-	nuageEtcdRetry(
-		func() error {
-			getResp, err = nuageetcd.client.Get(context.Background(), key)
-			return err
-		})
-	if err != nil {
-		glog.Errorf("fetching key %s from etcd failed: %v", key, err)
-		return "", err
-	}
-	if len(getResp.Kvs) != 0 && transform(getResp.Kvs[0].Value) != "" {
-		return transform(getResp.Kvs[0].Value), nil
-	}
-
 	for {
+		nuageEtcdRetry(
+			func() error {
+				getResp, err = nuageetcd.client.Get(context.Background(), key)
+				return err
+			})
+		if err != nil {
+			glog.Errorf("fetching key %s from etcd failed: %v", key, err)
+			return "", err
+		}
+		if len(getResp.Kvs) != 0 && transform(getResp.Kvs[0].Value) != "" {
+			return transform(getResp.Kvs[0].Value), nil
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		nuageEtcdRetry(
 			func() error {

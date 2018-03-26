@@ -38,10 +38,19 @@ var VsgRedundantPortIdentity = bambou.Identity{
 // VsgRedundantPortsList represents a list of VsgRedundantPorts
 type VsgRedundantPortsList []*VsgRedundantPort
 
-// VsgRedundantPortsAncestor is the interface of an ancestor of a VsgRedundantPort must implement.
+// VsgRedundantPortsAncestor is the interface that an ancestor of a VsgRedundantPort must implement.
+// An Ancestor is defined as an entity that has VsgRedundantPort as a descendant.
+// An Ancestor can get a list of its child VsgRedundantPorts, but not necessarily create one.
 type VsgRedundantPortsAncestor interface {
 	VsgRedundantPorts(*bambou.FetchingInfo) (VsgRedundantPortsList, *bambou.Error)
-	CreateVsgRedundantPorts(*VsgRedundantPort) *bambou.Error
+}
+
+// VsgRedundantPortsParent is the interface that a parent of a VsgRedundantPort must implement.
+// A Parent is defined as an entity that has VsgRedundantPort as a child.
+// A Parent is an Ancestor which can create a VsgRedundantPort.
+type VsgRedundantPortsParent interface {
+	VsgRedundantPortsAncestor
+	CreateVsgRedundantPort(*VsgRedundantPort) *bambou.Error
 }
 
 // VsgRedundantPort represents the model of a vsgredundantport
@@ -157,12 +166,6 @@ func (o *VsgRedundantPort) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambo
 	var list AlarmsList
 	err := bambou.CurrentSession().FetchChildren(o, AlarmIdentity, &list, info)
 	return list, err
-}
-
-// CreateAlarm creates a new child Alarm under the VsgRedundantPort
-func (o *VsgRedundantPort) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the VsgRedundantPort

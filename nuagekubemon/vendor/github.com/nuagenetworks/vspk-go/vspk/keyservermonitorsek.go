@@ -38,10 +38,19 @@ var KeyServerMonitorSEKIdentity = bambou.Identity{
 // KeyServerMonitorSEKsList represents a list of KeyServerMonitorSEKs
 type KeyServerMonitorSEKsList []*KeyServerMonitorSEK
 
-// KeyServerMonitorSEKsAncestor is the interface of an ancestor of a KeyServerMonitorSEK must implement.
+// KeyServerMonitorSEKsAncestor is the interface that an ancestor of a KeyServerMonitorSEK must implement.
+// An Ancestor is defined as an entity that has KeyServerMonitorSEK as a descendant.
+// An Ancestor can get a list of its child KeyServerMonitorSEKs, but not necessarily create one.
 type KeyServerMonitorSEKsAncestor interface {
 	KeyServerMonitorSEKs(*bambou.FetchingInfo) (KeyServerMonitorSEKsList, *bambou.Error)
-	CreateKeyServerMonitorSEKs(*KeyServerMonitorSEK) *bambou.Error
+}
+
+// KeyServerMonitorSEKsParent is the interface that a parent of a KeyServerMonitorSEK must implement.
+// A Parent is defined as an entity that has KeyServerMonitorSEK as a child.
+// A Parent is an Ancestor which can create a KeyServerMonitorSEK.
+type KeyServerMonitorSEKsParent interface {
+	KeyServerMonitorSEKsAncestor
+	CreateKeyServerMonitorSEK(*KeyServerMonitorSEK) *bambou.Error
 }
 
 // KeyServerMonitorSEK represents the model of a keyservermonitorsek

@@ -38,10 +38,19 @@ var ApplicationBindingIdentity = bambou.Identity{
 // ApplicationBindingsList represents a list of ApplicationBindings
 type ApplicationBindingsList []*ApplicationBinding
 
-// ApplicationBindingsAncestor is the interface of an ancestor of a ApplicationBinding must implement.
+// ApplicationBindingsAncestor is the interface that an ancestor of a ApplicationBinding must implement.
+// An Ancestor is defined as an entity that has ApplicationBinding as a descendant.
+// An Ancestor can get a list of its child ApplicationBindings, but not necessarily create one.
 type ApplicationBindingsAncestor interface {
 	ApplicationBindings(*bambou.FetchingInfo) (ApplicationBindingsList, *bambou.Error)
-	CreateApplicationBindings(*ApplicationBinding) *bambou.Error
+}
+
+// ApplicationBindingsParent is the interface that a parent of a ApplicationBinding must implement.
+// A Parent is defined as an entity that has ApplicationBinding as a child.
+// A Parent is an Ancestor which can create a ApplicationBinding.
+type ApplicationBindingsParent interface {
+	ApplicationBindingsAncestor
+	CreateApplicationBinding(*ApplicationBinding) *bambou.Error
 }
 
 // ApplicationBinding represents the model of a applicationbinding
@@ -58,7 +67,9 @@ type ApplicationBinding struct {
 // NewApplicationBinding returns a new *ApplicationBinding
 func NewApplicationBinding() *ApplicationBinding {
 
-	return &ApplicationBinding{}
+	return &ApplicationBinding{
+		ReadOnly: false,
+	}
 }
 
 // Identity returns the Identity of the object.

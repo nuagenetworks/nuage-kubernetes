@@ -38,10 +38,19 @@ var FlowSecurityPolicyIdentity = bambou.Identity{
 // FlowSecurityPoliciesList represents a list of FlowSecurityPolicies
 type FlowSecurityPoliciesList []*FlowSecurityPolicy
 
-// FlowSecurityPoliciesAncestor is the interface of an ancestor of a FlowSecurityPolicy must implement.
+// FlowSecurityPoliciesAncestor is the interface that an ancestor of a FlowSecurityPolicy must implement.
+// An Ancestor is defined as an entity that has FlowSecurityPolicy as a descendant.
+// An Ancestor can get a list of its child FlowSecurityPolicies, but not necessarily create one.
 type FlowSecurityPoliciesAncestor interface {
 	FlowSecurityPolicies(*bambou.FetchingInfo) (FlowSecurityPoliciesList, *bambou.Error)
-	CreateFlowSecurityPolicies(*FlowSecurityPolicy) *bambou.Error
+}
+
+// FlowSecurityPoliciesParent is the interface that a parent of a FlowSecurityPolicy must implement.
+// A Parent is defined as an entity that has FlowSecurityPolicy as a child.
+// A Parent is an Ancestor which can create a FlowSecurityPolicy.
+type FlowSecurityPoliciesParent interface {
+	FlowSecurityPoliciesAncestor
+	CreateFlowSecurityPolicy(*FlowSecurityPolicy) *bambou.Error
 }
 
 // FlowSecurityPolicy represents the model of a flowsecuritypolicy
@@ -140,10 +149,4 @@ func (o *FlowSecurityPolicy) EventLogs(info *bambou.FetchingInfo) (EventLogsList
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the FlowSecurityPolicy
-func (o *FlowSecurityPolicy) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

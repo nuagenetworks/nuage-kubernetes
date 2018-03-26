@@ -38,10 +38,19 @@ var VCenterVRSConfigIdentity = bambou.Identity{
 // VCenterVRSConfigsList represents a list of VCenterVRSConfigs
 type VCenterVRSConfigsList []*VCenterVRSConfig
 
-// VCenterVRSConfigsAncestor is the interface of an ancestor of a VCenterVRSConfig must implement.
+// VCenterVRSConfigsAncestor is the interface that an ancestor of a VCenterVRSConfig must implement.
+// An Ancestor is defined as an entity that has VCenterVRSConfig as a descendant.
+// An Ancestor can get a list of its child VCenterVRSConfigs, but not necessarily create one.
 type VCenterVRSConfigsAncestor interface {
 	VCenterVRSConfigs(*bambou.FetchingInfo) (VCenterVRSConfigsList, *bambou.Error)
-	CreateVCenterVRSConfigs(*VCenterVRSConfig) *bambou.Error
+}
+
+// VCenterVRSConfigsParent is the interface that a parent of a VCenterVRSConfig must implement.
+// A Parent is defined as an entity that has VCenterVRSConfig as a child.
+// A Parent is an Ancestor which can create a VCenterVRSConfig.
+type VCenterVRSConfigsParent interface {
+	VCenterVRSConfigsAncestor
+	CreateVCenterVRSConfig(*VCenterVRSConfig) *bambou.Error
 }
 
 // VCenterVRSConfig represents the model of a vrsconfig

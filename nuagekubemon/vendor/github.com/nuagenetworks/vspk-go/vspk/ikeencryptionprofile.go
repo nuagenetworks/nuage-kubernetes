@@ -38,10 +38,19 @@ var IKEEncryptionprofileIdentity = bambou.Identity{
 // IKEEncryptionprofilesList represents a list of IKEEncryptionprofiles
 type IKEEncryptionprofilesList []*IKEEncryptionprofile
 
-// IKEEncryptionprofilesAncestor is the interface of an ancestor of a IKEEncryptionprofile must implement.
+// IKEEncryptionprofilesAncestor is the interface that an ancestor of a IKEEncryptionprofile must implement.
+// An Ancestor is defined as an entity that has IKEEncryptionprofile as a descendant.
+// An Ancestor can get a list of its child IKEEncryptionprofiles, but not necessarily create one.
 type IKEEncryptionprofilesAncestor interface {
 	IKEEncryptionprofiles(*bambou.FetchingInfo) (IKEEncryptionprofilesList, *bambou.Error)
-	CreateIKEEncryptionprofiles(*IKEEncryptionprofile) *bambou.Error
+}
+
+// IKEEncryptionprofilesParent is the interface that a parent of a IKEEncryptionprofile must implement.
+// A Parent is defined as an entity that has IKEEncryptionprofile as a child.
+// A Parent is an Ancestor which can create a IKEEncryptionprofile.
+type IKEEncryptionprofilesParent interface {
+	IKEEncryptionprofilesAncestor
+	CreateIKEEncryptionprofile(*IKEEncryptionprofile) *bambou.Error
 }
 
 // IKEEncryptionprofile represents the model of a ikeencryptionprofile
@@ -77,7 +86,18 @@ type IKEEncryptionprofile struct {
 // NewIKEEncryptionprofile returns a new *IKEEncryptionprofile
 func NewIKEEncryptionprofile() *IKEEncryptionprofile {
 
-	return &IKEEncryptionprofile{}
+	return &IKEEncryptionprofile{
+		DPDMode: "REPLY_ONLY",
+		IPsecAuthenticationAlgorithm:      "HMAC_SHA256",
+		IPsecEncryptionAlgorithm:          "AES256",
+		IPsecSALifetime:                   3600,
+		IPsecSAReplayWindowSize:           "WINDOW_SIZE_32",
+		ISAKMPAuthenticationMode:          "PRE_SHARED_KEY",
+		ISAKMPDiffieHelmanGroupIdentifier: "GROUP_5_1536_BIT_DH",
+		ISAKMPEncryptionAlgorithm:         "AES256",
+		ISAKMPEncryptionKeyLifetime:       28800,
+		ISAKMPHashAlgorithm:               "SHA256",
+	}
 }
 
 // Identity returns the Identity of the object.

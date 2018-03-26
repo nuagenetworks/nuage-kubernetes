@@ -38,10 +38,19 @@ var GatewayTemplateIdentity = bambou.Identity{
 // GatewayTemplatesList represents a list of GatewayTemplates
 type GatewayTemplatesList []*GatewayTemplate
 
-// GatewayTemplatesAncestor is the interface of an ancestor of a GatewayTemplate must implement.
+// GatewayTemplatesAncestor is the interface that an ancestor of a GatewayTemplate must implement.
+// An Ancestor is defined as an entity that has GatewayTemplate as a descendant.
+// An Ancestor can get a list of its child GatewayTemplates, but not necessarily create one.
 type GatewayTemplatesAncestor interface {
 	GatewayTemplates(*bambou.FetchingInfo) (GatewayTemplatesList, *bambou.Error)
-	CreateGatewayTemplates(*GatewayTemplate) *bambou.Error
+}
+
+// GatewayTemplatesParent is the interface that a parent of a GatewayTemplate must implement.
+// A Parent is defined as an entity that has GatewayTemplate as a child.
+// A Parent is an Ancestor which can create a GatewayTemplate.
+type GatewayTemplatesParent interface {
+	GatewayTemplatesAncestor
+	CreateGatewayTemplate(*GatewayTemplate) *bambou.Error
 }
 
 // GatewayTemplate represents the model of a gatewaytemplate

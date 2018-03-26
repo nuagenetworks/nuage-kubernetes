@@ -38,10 +38,19 @@ var FlowIdentity = bambou.Identity{
 // FlowsList represents a list of Flows
 type FlowsList []*Flow
 
-// FlowsAncestor is the interface of an ancestor of a Flow must implement.
+// FlowsAncestor is the interface that an ancestor of a Flow must implement.
+// An Ancestor is defined as an entity that has Flow as a descendant.
+// An Ancestor can get a list of its child Flows, but not necessarily create one.
 type FlowsAncestor interface {
 	Flows(*bambou.FetchingInfo) (FlowsList, *bambou.Error)
-	CreateFlows(*Flow) *bambou.Error
+}
+
+// FlowsParent is the interface that a parent of a Flow must implement.
+// A Parent is defined as an entity that has Flow as a child.
+// A Parent is an Ancestor which can create a Flow.
+type FlowsParent interface {
+	FlowsAncestor
+	CreateFlow(*Flow) *bambou.Error
 }
 
 // Flow represents the model of a flow
@@ -164,10 +173,4 @@ func (o *Flow) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Erro
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the Flow
-func (o *Flow) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

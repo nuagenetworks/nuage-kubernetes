@@ -38,10 +38,19 @@ var GlobalMetadataIdentity = bambou.Identity{
 // GlobalMetadatasList represents a list of GlobalMetadatas
 type GlobalMetadatasList []*GlobalMetadata
 
-// GlobalMetadatasAncestor is the interface of an ancestor of a GlobalMetadata must implement.
+// GlobalMetadatasAncestor is the interface that an ancestor of a GlobalMetadata must implement.
+// An Ancestor is defined as an entity that has GlobalMetadata as a descendant.
+// An Ancestor can get a list of its child GlobalMetadatas, but not necessarily create one.
 type GlobalMetadatasAncestor interface {
 	GlobalMetadatas(*bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error)
-	CreateGlobalMetadatas(*GlobalMetadata) *bambou.Error
+}
+
+// GlobalMetadatasParent is the interface that a parent of a GlobalMetadata must implement.
+// A Parent is defined as an entity that has GlobalMetadata as a child.
+// A Parent is an Ancestor which can create a GlobalMetadata.
+type GlobalMetadatasParent interface {
+	GlobalMetadatasAncestor
+	CreateGlobalMetadata(*GlobalMetadata) *bambou.Error
 }
 
 // GlobalMetadata represents the model of a globalmetadata
@@ -123,12 +132,6 @@ func (o *GlobalMetadata) MetadataTags(info *bambou.FetchingInfo) (MetadataTagsLi
 	var list MetadataTagsList
 	err := bambou.CurrentSession().FetchChildren(o, MetadataTagIdentity, &list, info)
 	return list, err
-}
-
-// CreateMetadataTag creates a new child MetadataTag under the GlobalMetadata
-func (o *GlobalMetadata) CreateMetadataTag(child *MetadataTag) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the GlobalMetadata

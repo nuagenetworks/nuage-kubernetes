@@ -38,10 +38,19 @@ var EnterpriseSecurityIdentity = bambou.Identity{
 // EnterpriseSecuritiesList represents a list of EnterpriseSecurities
 type EnterpriseSecuritiesList []*EnterpriseSecurity
 
-// EnterpriseSecuritiesAncestor is the interface of an ancestor of a EnterpriseSecurity must implement.
+// EnterpriseSecuritiesAncestor is the interface that an ancestor of a EnterpriseSecurity must implement.
+// An Ancestor is defined as an entity that has EnterpriseSecurity as a descendant.
+// An Ancestor can get a list of its child EnterpriseSecurities, but not necessarily create one.
 type EnterpriseSecuritiesAncestor interface {
 	EnterpriseSecurities(*bambou.FetchingInfo) (EnterpriseSecuritiesList, *bambou.Error)
-	CreateEnterpriseSecurities(*EnterpriseSecurity) *bambou.Error
+}
+
+// EnterpriseSecuritiesParent is the interface that a parent of a EnterpriseSecurity must implement.
+// A Parent is defined as an entity that has EnterpriseSecurity as a child.
+// A Parent is an Ancestor which can create a EnterpriseSecurity.
+type EnterpriseSecuritiesParent interface {
+	EnterpriseSecuritiesAncestor
+	CreateEnterpriseSecurity(*EnterpriseSecurity) *bambou.Error
 }
 
 // EnterpriseSecurity represents the model of a enterprisesecurity

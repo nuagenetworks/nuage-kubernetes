@@ -38,10 +38,19 @@ var ApplicationServiceIdentity = bambou.Identity{
 // ApplicationServicesList represents a list of ApplicationServices
 type ApplicationServicesList []*ApplicationService
 
-// ApplicationServicesAncestor is the interface of an ancestor of a ApplicationService must implement.
+// ApplicationServicesAncestor is the interface that an ancestor of a ApplicationService must implement.
+// An Ancestor is defined as an entity that has ApplicationService as a descendant.
+// An Ancestor can get a list of its child ApplicationServices, but not necessarily create one.
 type ApplicationServicesAncestor interface {
 	ApplicationServices(*bambou.FetchingInfo) (ApplicationServicesList, *bambou.Error)
-	CreateApplicationServices(*ApplicationService) *bambou.Error
+}
+
+// ApplicationServicesParent is the interface that a parent of a ApplicationService must implement.
+// A Parent is defined as an entity that has ApplicationService as a child.
+// A Parent is an Ancestor which can create a ApplicationService.
+type ApplicationServicesParent interface {
+	ApplicationServicesAncestor
+	CreateApplicationService(*ApplicationService) *bambou.Error
 }
 
 // ApplicationService represents the model of a applicationservice
@@ -67,10 +76,10 @@ type ApplicationService struct {
 func NewApplicationService() *ApplicationService {
 
 	return &ApplicationService{
-		EtherType: "0x0800",
+		DSCP:      "*",
 		Direction: "REFLEXIVE",
 		Protocol:  "6",
-		DSCP:      "*",
+		EtherType: "0x0800",
 	}
 }
 
@@ -144,10 +153,4 @@ func (o *ApplicationService) EventLogs(info *bambou.FetchingInfo) (EventLogsList
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the ApplicationService
-func (o *ApplicationService) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

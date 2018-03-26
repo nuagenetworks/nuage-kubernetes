@@ -38,10 +38,19 @@ var BootstrapIdentity = bambou.Identity{
 // BootstrapsList represents a list of Bootstraps
 type BootstrapsList []*Bootstrap
 
-// BootstrapsAncestor is the interface of an ancestor of a Bootstrap must implement.
+// BootstrapsAncestor is the interface that an ancestor of a Bootstrap must implement.
+// An Ancestor is defined as an entity that has Bootstrap as a descendant.
+// An Ancestor can get a list of its child Bootstraps, but not necessarily create one.
 type BootstrapsAncestor interface {
 	Bootstraps(*bambou.FetchingInfo) (BootstrapsList, *bambou.Error)
-	CreateBootstraps(*Bootstrap) *bambou.Error
+}
+
+// BootstrapsParent is the interface that a parent of a Bootstrap must implement.
+// A Parent is defined as an entity that has Bootstrap as a child.
+// A Parent is an Ancestor which can create a Bootstrap.
+type BootstrapsParent interface {
+	BootstrapsAncestor
+	CreateBootstrap(*Bootstrap) *bambou.Error
 }
 
 // Bootstrap represents the model of a bootstrap

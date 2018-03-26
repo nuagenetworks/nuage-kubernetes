@@ -1,5 +1,7 @@
-// Copyright (c) 2012-2015 Ugorji Nwoke. All rights reserved.
+// Copyright (c) 2012-2018 Ugorji Nwoke. All rights reserved.
 // Use of this source code is governed by a MIT license found in the LICENSE file.
+
+// +build ignore
 
 package codec
 
@@ -89,8 +91,9 @@ func (h *noopDrv) EncodeArrayStart(length int)             { h.start(true) }
 func (h *noopDrv) EncodeMapStart(length int)               { h.start(false) }
 func (h *noopDrv) EncodeEnd()                              { h.end() }
 
-func (h *noopDrv) EncodeString(c charEncoding, v string)      {}
-func (h *noopDrv) EncodeSymbol(v string)                      {}
+func (h *noopDrv) EncodeString(c charEncoding, v string) {}
+
+// func (h *noopDrv) EncodeSymbol(v string)                      {}
 func (h *noopDrv) EncodeStringBytes(c charEncoding, v []byte) {}
 
 func (h *noopDrv) EncodeExt(rv interface{}, xtag uint64, ext Ext, e *Encoder) {}
@@ -105,10 +108,9 @@ func (h *noopDrv) DecodeUint(bitsize uint8) (ui uint64)       { return uint64(h.
 func (h *noopDrv) DecodeFloat(chkOverflow32 bool) (f float64) { return float64(h.m(95)) }
 func (h *noopDrv) DecodeBool() (b bool)                       { return h.m(2) == 0 }
 func (h *noopDrv) DecodeString() (s string)                   { return h.S[h.m(8)] }
+func (h *noopDrv) DecodeStringAsBytes() []byte                { return h.DecodeBytes(nil, true) }
 
-// func (h *noopDrv) DecodeStringAsBytes(bs []byte) []byte       { return h.DecodeBytes(bs) }
-
-func (h *noopDrv) DecodeBytes(bs []byte, isstring, zerocopy bool) []byte { return h.B[h.m(len(h.B))] }
+func (h *noopDrv) DecodeBytes(bs []byte, zerocopy bool) []byte { return h.B[h.m(len(h.B))] }
 
 func (h *noopDrv) ReadEnd() { h.end() }
 

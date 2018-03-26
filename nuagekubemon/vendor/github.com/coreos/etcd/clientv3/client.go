@@ -52,11 +52,9 @@ type Client struct {
 	conn     *grpc.ClientConn
 	dialerrc chan error
 
-	cfg              Config
-	creds            *credentials.TransportCredentials
-	balancer         *simpleBalancer
-	retryWrapper     retryRpcFunc
-	retryAuthWrapper retryRpcFunc
+	cfg      Config
+	creds    *credentials.TransportCredentials
+	balancer *simpleBalancer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -322,7 +320,7 @@ func (c *Client) dial(endpoint string, dopts ...grpc.DialOption) (*grpc.ClientCo
 		if err != nil {
 			if toErr(ctx, err) != rpctypes.ErrAuthNotEnabled {
 				if err == ctx.Err() && ctx.Err() != c.ctx.Err() {
-					err = grpc.ErrClientConnTimeout
+					err = context.DeadlineExceeded
 				}
 				return nil, err
 			}
@@ -387,8 +385,6 @@ func newClient(cfg *Config) (*Client, error) {
 		return nil, err
 	}
 	client.conn = conn
-	client.retryWrapper = client.newRetryWrapper()
-	client.retryAuthWrapper = client.newAuthRetryWrapper()
 
 	// wait for a connection
 	if cfg.DialTimeout > 0 {
@@ -401,7 +397,7 @@ func newClient(cfg *Config) (*Client, error) {
 		case <-waitc:
 		}
 		if !hasConn {
-			err := grpc.ErrClientConnTimeout
+			err := context.DeadlineExceeded
 			select {
 			case err = <-client.dialerrc:
 			default:
@@ -510,7 +506,6 @@ func toErr(ctx context.Context, err error) error {
 			err = ctx.Err()
 		}
 	case codes.Unavailable:
-		err = ErrNoAvailableEndpoints
 	case codes.FailedPrecondition:
 		err = grpc.ErrClientConnClosing
 	}

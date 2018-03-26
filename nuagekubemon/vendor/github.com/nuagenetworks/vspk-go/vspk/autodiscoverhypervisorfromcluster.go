@@ -38,10 +38,19 @@ var AutoDiscoverHypervisorFromClusterIdentity = bambou.Identity{
 // AutoDiscoverHypervisorFromClustersList represents a list of AutoDiscoverHypervisorFromClusters
 type AutoDiscoverHypervisorFromClustersList []*AutoDiscoverHypervisorFromCluster
 
-// AutoDiscoverHypervisorFromClustersAncestor is the interface of an ancestor of a AutoDiscoverHypervisorFromCluster must implement.
+// AutoDiscoverHypervisorFromClustersAncestor is the interface that an ancestor of a AutoDiscoverHypervisorFromCluster must implement.
+// An Ancestor is defined as an entity that has AutoDiscoverHypervisorFromCluster as a descendant.
+// An Ancestor can get a list of its child AutoDiscoverHypervisorFromClusters, but not necessarily create one.
 type AutoDiscoverHypervisorFromClustersAncestor interface {
 	AutoDiscoverHypervisorFromClusters(*bambou.FetchingInfo) (AutoDiscoverHypervisorFromClustersList, *bambou.Error)
-	CreateAutoDiscoverHypervisorFromClusters(*AutoDiscoverHypervisorFromCluster) *bambou.Error
+}
+
+// AutoDiscoverHypervisorFromClustersParent is the interface that a parent of a AutoDiscoverHypervisorFromCluster must implement.
+// A Parent is defined as an entity that has AutoDiscoverHypervisorFromCluster as a child.
+// A Parent is an Ancestor which can create a AutoDiscoverHypervisorFromCluster.
+type AutoDiscoverHypervisorFromClustersParent interface {
+	AutoDiscoverHypervisorFromClustersAncestor
+	CreateAutoDiscoverHypervisorFromCluster(*AutoDiscoverHypervisorFromCluster) *bambou.Error
 }
 
 // AutoDiscoverHypervisorFromCluster represents the model of a autodiscoveredhypervisor

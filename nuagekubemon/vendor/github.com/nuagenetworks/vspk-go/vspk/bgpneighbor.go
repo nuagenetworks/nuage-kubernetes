@@ -38,10 +38,19 @@ var BGPNeighborIdentity = bambou.Identity{
 // BGPNeighborsList represents a list of BGPNeighbors
 type BGPNeighborsList []*BGPNeighbor
 
-// BGPNeighborsAncestor is the interface of an ancestor of a BGPNeighbor must implement.
+// BGPNeighborsAncestor is the interface that an ancestor of a BGPNeighbor must implement.
+// An Ancestor is defined as an entity that has BGPNeighbor as a descendant.
+// An Ancestor can get a list of its child BGPNeighbors, but not necessarily create one.
 type BGPNeighborsAncestor interface {
 	BGPNeighbors(*bambou.FetchingInfo) (BGPNeighborsList, *bambou.Error)
-	CreateBGPNeighbors(*BGPNeighbor) *bambou.Error
+}
+
+// BGPNeighborsParent is the interface that a parent of a BGPNeighbor must implement.
+// A Parent is defined as an entity that has BGPNeighbor as a child.
+// A Parent is an Ancestor which can create a BGPNeighbor.
+type BGPNeighborsParent interface {
+	BGPNeighborsAncestor
+	CreateBGPNeighbor(*BGPNeighbor) *bambou.Error
 }
 
 // BGPNeighbor represents the model of a bgpneighbor

@@ -38,10 +38,19 @@ var ZFBAutoAssignmentIdentity = bambou.Identity{
 // ZFBAutoAssignmentsList represents a list of ZFBAutoAssignments
 type ZFBAutoAssignmentsList []*ZFBAutoAssignment
 
-// ZFBAutoAssignmentsAncestor is the interface of an ancestor of a ZFBAutoAssignment must implement.
+// ZFBAutoAssignmentsAncestor is the interface that an ancestor of a ZFBAutoAssignment must implement.
+// An Ancestor is defined as an entity that has ZFBAutoAssignment as a descendant.
+// An Ancestor can get a list of its child ZFBAutoAssignments, but not necessarily create one.
 type ZFBAutoAssignmentsAncestor interface {
 	ZFBAutoAssignments(*bambou.FetchingInfo) (ZFBAutoAssignmentsList, *bambou.Error)
-	CreateZFBAutoAssignments(*ZFBAutoAssignment) *bambou.Error
+}
+
+// ZFBAutoAssignmentsParent is the interface that a parent of a ZFBAutoAssignment must implement.
+// A Parent is defined as an entity that has ZFBAutoAssignment as a child.
+// A Parent is an Ancestor which can create a ZFBAutoAssignment.
+type ZFBAutoAssignmentsParent interface {
+	ZFBAutoAssignmentsAncestor
+	CreateZFBAutoAssignment(*ZFBAutoAssignment) *bambou.Error
 }
 
 // ZFBAutoAssignment represents the model of a zfbautoassignment

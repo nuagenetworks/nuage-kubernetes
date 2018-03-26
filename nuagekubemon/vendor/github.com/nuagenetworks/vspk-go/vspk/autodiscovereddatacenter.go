@@ -38,10 +38,19 @@ var AutodiscovereddatacenterIdentity = bambou.Identity{
 // AutodiscovereddatacentersList represents a list of Autodiscovereddatacenters
 type AutodiscovereddatacentersList []*Autodiscovereddatacenter
 
-// AutodiscovereddatacentersAncestor is the interface of an ancestor of a Autodiscovereddatacenter must implement.
+// AutodiscovereddatacentersAncestor is the interface that an ancestor of a Autodiscovereddatacenter must implement.
+// An Ancestor is defined as an entity that has Autodiscovereddatacenter as a descendant.
+// An Ancestor can get a list of its child Autodiscovereddatacenters, but not necessarily create one.
 type AutodiscovereddatacentersAncestor interface {
 	Autodiscovereddatacenters(*bambou.FetchingInfo) (AutodiscovereddatacentersList, *bambou.Error)
-	CreateAutodiscovereddatacenters(*Autodiscovereddatacenter) *bambou.Error
+}
+
+// AutodiscovereddatacentersParent is the interface that a parent of a Autodiscovereddatacenter must implement.
+// A Parent is defined as an entity that has Autodiscovereddatacenter as a child.
+// A Parent is an Ancestor which can create a Autodiscovereddatacenter.
+type AutodiscovereddatacentersParent interface {
+	AutodiscovereddatacentersAncestor
+	CreateAutodiscovereddatacenter(*Autodiscovereddatacenter) *bambou.Error
 }
 
 // Autodiscovereddatacenter represents the model of a autodiscovereddatacenter

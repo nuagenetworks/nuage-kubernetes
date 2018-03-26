@@ -38,10 +38,19 @@ var LicenseIdentity = bambou.Identity{
 // LicensesList represents a list of Licenses
 type LicensesList []*License
 
-// LicensesAncestor is the interface of an ancestor of a License must implement.
+// LicensesAncestor is the interface that an ancestor of a License must implement.
+// An Ancestor is defined as an entity that has License as a descendant.
+// An Ancestor can get a list of its child Licenses, but not necessarily create one.
 type LicensesAncestor interface {
 	Licenses(*bambou.FetchingInfo) (LicensesList, *bambou.Error)
-	CreateLicenses(*License) *bambou.Error
+}
+
+// LicensesParent is the interface that a parent of a License must implement.
+// A Parent is defined as an entity that has License as a child.
+// A Parent is an Ancestor which can create a License.
+type LicensesParent interface {
+	LicensesAncestor
+	CreateLicense(*License) *bambou.Error
 }
 
 // License represents the model of a license
@@ -160,10 +169,4 @@ func (o *License) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.E
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the License
-func (o *License) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

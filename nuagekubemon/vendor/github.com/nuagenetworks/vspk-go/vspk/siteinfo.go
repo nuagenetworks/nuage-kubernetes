@@ -38,10 +38,19 @@ var SiteInfoIdentity = bambou.Identity{
 // SiteInfosList represents a list of SiteInfos
 type SiteInfosList []*SiteInfo
 
-// SiteInfosAncestor is the interface of an ancestor of a SiteInfo must implement.
+// SiteInfosAncestor is the interface that an ancestor of a SiteInfo must implement.
+// An Ancestor is defined as an entity that has SiteInfo as a descendant.
+// An Ancestor can get a list of its child SiteInfos, but not necessarily create one.
 type SiteInfosAncestor interface {
 	SiteInfos(*bambou.FetchingInfo) (SiteInfosList, *bambou.Error)
-	CreateSiteInfos(*SiteInfo) *bambou.Error
+}
+
+// SiteInfosParent is the interface that a parent of a SiteInfo must implement.
+// A Parent is defined as an entity that has SiteInfo as a child.
+// A Parent is an Ancestor which can create a SiteInfo.
+type SiteInfosParent interface {
+	SiteInfosAncestor
+	CreateSiteInfo(*SiteInfo) *bambou.Error
 }
 
 // SiteInfo represents the model of a site

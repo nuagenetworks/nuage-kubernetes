@@ -38,10 +38,19 @@ var IngressExternalServiceTemplateEntryIdentity = bambou.Identity{
 // IngressExternalServiceTemplateEntriesList represents a list of IngressExternalServiceTemplateEntries
 type IngressExternalServiceTemplateEntriesList []*IngressExternalServiceTemplateEntry
 
-// IngressExternalServiceTemplateEntriesAncestor is the interface of an ancestor of a IngressExternalServiceTemplateEntry must implement.
+// IngressExternalServiceTemplateEntriesAncestor is the interface that an ancestor of a IngressExternalServiceTemplateEntry must implement.
+// An Ancestor is defined as an entity that has IngressExternalServiceTemplateEntry as a descendant.
+// An Ancestor can get a list of its child IngressExternalServiceTemplateEntries, but not necessarily create one.
 type IngressExternalServiceTemplateEntriesAncestor interface {
 	IngressExternalServiceTemplateEntries(*bambou.FetchingInfo) (IngressExternalServiceTemplateEntriesList, *bambou.Error)
-	CreateIngressExternalServiceTemplateEntries(*IngressExternalServiceTemplateEntry) *bambou.Error
+}
+
+// IngressExternalServiceTemplateEntriesParent is the interface that a parent of a IngressExternalServiceTemplateEntry must implement.
+// A Parent is defined as an entity that has IngressExternalServiceTemplateEntry as a child.
+// A Parent is an Ancestor which can create a IngressExternalServiceTemplateEntry.
+type IngressExternalServiceTemplateEntriesParent interface {
+	IngressExternalServiceTemplateEntriesAncestor
+	CreateIngressExternalServiceTemplateEntry(*IngressExternalServiceTemplateEntry) *bambou.Error
 }
 
 // IngressExternalServiceTemplateEntry represents the model of a ingressexternalserviceentrytemplate
@@ -155,14 +164,6 @@ func (o *IngressExternalServiceTemplateEntry) CreateGlobalMetadata(child *Global
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Jobs retrieves the list of child Jobs of the IngressExternalServiceTemplateEntry
-func (o *IngressExternalServiceTemplateEntry) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
-
-	var list JobsList
-	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
-	return list, err
-}
-
 // CreateJob creates a new child Job under the IngressExternalServiceTemplateEntry
 func (o *IngressExternalServiceTemplateEntry) CreateJob(child *Job) *bambou.Error {
 
@@ -175,10 +176,4 @@ func (o *IngressExternalServiceTemplateEntry) Statistics(info *bambou.FetchingIn
 	var list StatisticsList
 	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
-}
-
-// CreateStatistics creates a new child Statistics under the IngressExternalServiceTemplateEntry
-func (o *IngressExternalServiceTemplateEntry) CreateStatistics(child *Statistics) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

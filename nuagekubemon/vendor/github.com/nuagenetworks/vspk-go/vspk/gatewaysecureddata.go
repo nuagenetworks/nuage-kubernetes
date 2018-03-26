@@ -38,10 +38,19 @@ var GatewaySecuredDataIdentity = bambou.Identity{
 // GatewaySecuredDatasList represents a list of GatewaySecuredDatas
 type GatewaySecuredDatasList []*GatewaySecuredData
 
-// GatewaySecuredDatasAncestor is the interface of an ancestor of a GatewaySecuredData must implement.
+// GatewaySecuredDatasAncestor is the interface that an ancestor of a GatewaySecuredData must implement.
+// An Ancestor is defined as an entity that has GatewaySecuredData as a descendant.
+// An Ancestor can get a list of its child GatewaySecuredDatas, but not necessarily create one.
 type GatewaySecuredDatasAncestor interface {
 	GatewaySecuredDatas(*bambou.FetchingInfo) (GatewaySecuredDatasList, *bambou.Error)
-	CreateGatewaySecuredDatas(*GatewaySecuredData) *bambou.Error
+}
+
+// GatewaySecuredDatasParent is the interface that a parent of a GatewaySecuredData must implement.
+// A Parent is defined as an entity that has GatewaySecuredData as a child.
+// A Parent is an Ancestor which can create a GatewaySecuredData.
+type GatewaySecuredDatasParent interface {
+	GatewaySecuredDatasAncestor
+	CreateGatewaySecuredData(*GatewaySecuredData) *bambou.Error
 }
 
 // GatewaySecuredData represents the model of a gatewaysecureddata

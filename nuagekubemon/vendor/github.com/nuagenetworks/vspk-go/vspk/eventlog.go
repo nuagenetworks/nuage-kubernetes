@@ -38,10 +38,19 @@ var EventLogIdentity = bambou.Identity{
 // EventLogsList represents a list of EventLogs
 type EventLogsList []*EventLog
 
-// EventLogsAncestor is the interface of an ancestor of a EventLog must implement.
+// EventLogsAncestor is the interface that an ancestor of a EventLog must implement.
+// An Ancestor is defined as an entity that has EventLog as a descendant.
+// An Ancestor can get a list of its child EventLogs, but not necessarily create one.
 type EventLogsAncestor interface {
 	EventLogs(*bambou.FetchingInfo) (EventLogsList, *bambou.Error)
-	CreateEventLogs(*EventLog) *bambou.Error
+}
+
+// EventLogsParent is the interface that a parent of a EventLog must implement.
+// A Parent is defined as an entity that has EventLog as a child.
+// A Parent is an Ancestor which can create a EventLog.
+type EventLogsParent interface {
+	EventLogsAncestor
+	CreateEventLog(*EventLog) *bambou.Error
 }
 
 // EventLog represents the model of a eventlog

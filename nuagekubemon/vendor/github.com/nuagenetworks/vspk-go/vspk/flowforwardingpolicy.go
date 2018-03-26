@@ -38,10 +38,19 @@ var FlowForwardingPolicyIdentity = bambou.Identity{
 // FlowForwardingPoliciesList represents a list of FlowForwardingPolicies
 type FlowForwardingPoliciesList []*FlowForwardingPolicy
 
-// FlowForwardingPoliciesAncestor is the interface of an ancestor of a FlowForwardingPolicy must implement.
+// FlowForwardingPoliciesAncestor is the interface that an ancestor of a FlowForwardingPolicy must implement.
+// An Ancestor is defined as an entity that has FlowForwardingPolicy as a descendant.
+// An Ancestor can get a list of its child FlowForwardingPolicies, but not necessarily create one.
 type FlowForwardingPoliciesAncestor interface {
 	FlowForwardingPolicies(*bambou.FetchingInfo) (FlowForwardingPoliciesList, *bambou.Error)
-	CreateFlowForwardingPolicies(*FlowForwardingPolicy) *bambou.Error
+}
+
+// FlowForwardingPoliciesParent is the interface that a parent of a FlowForwardingPolicy must implement.
+// A Parent is defined as an entity that has FlowForwardingPolicy as a child.
+// A Parent is an Ancestor which can create a FlowForwardingPolicy.
+type FlowForwardingPoliciesParent interface {
+	FlowForwardingPoliciesAncestor
+	CreateFlowForwardingPolicy(*FlowForwardingPolicy) *bambou.Error
 }
 
 // FlowForwardingPolicy represents the model of a flowforwardingpolicy
@@ -138,10 +147,4 @@ func (o *FlowForwardingPolicy) EventLogs(info *bambou.FetchingInfo) (EventLogsLi
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the FlowForwardingPolicy
-func (o *FlowForwardingPolicy) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

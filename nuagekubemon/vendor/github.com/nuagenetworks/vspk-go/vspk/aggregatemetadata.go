@@ -38,10 +38,19 @@ var AggregateMetadataIdentity = bambou.Identity{
 // AggregateMetadatasList represents a list of AggregateMetadatas
 type AggregateMetadatasList []*AggregateMetadata
 
-// AggregateMetadatasAncestor is the interface of an ancestor of a AggregateMetadata must implement.
+// AggregateMetadatasAncestor is the interface that an ancestor of a AggregateMetadata must implement.
+// An Ancestor is defined as an entity that has AggregateMetadata as a descendant.
+// An Ancestor can get a list of its child AggregateMetadatas, but not necessarily create one.
 type AggregateMetadatasAncestor interface {
 	AggregateMetadatas(*bambou.FetchingInfo) (AggregateMetadatasList, *bambou.Error)
-	CreateAggregateMetadatas(*AggregateMetadata) *bambou.Error
+}
+
+// AggregateMetadatasParent is the interface that a parent of a AggregateMetadata must implement.
+// A Parent is defined as an entity that has AggregateMetadata as a child.
+// A Parent is an Ancestor which can create a AggregateMetadata.
+type AggregateMetadatasParent interface {
+	AggregateMetadatasAncestor
+	CreateAggregateMetadata(*AggregateMetadata) *bambou.Error
 }
 
 // AggregateMetadata represents the model of a aggregatemetadata

@@ -38,10 +38,19 @@ var DSCPForwardingClassMappingIdentity = bambou.Identity{
 // DSCPForwardingClassMappingsList represents a list of DSCPForwardingClassMappings
 type DSCPForwardingClassMappingsList []*DSCPForwardingClassMapping
 
-// DSCPForwardingClassMappingsAncestor is the interface of an ancestor of a DSCPForwardingClassMapping must implement.
+// DSCPForwardingClassMappingsAncestor is the interface that an ancestor of a DSCPForwardingClassMapping must implement.
+// An Ancestor is defined as an entity that has DSCPForwardingClassMapping as a descendant.
+// An Ancestor can get a list of its child DSCPForwardingClassMappings, but not necessarily create one.
 type DSCPForwardingClassMappingsAncestor interface {
 	DSCPForwardingClassMappings(*bambou.FetchingInfo) (DSCPForwardingClassMappingsList, *bambou.Error)
-	CreateDSCPForwardingClassMappings(*DSCPForwardingClassMapping) *bambou.Error
+}
+
+// DSCPForwardingClassMappingsParent is the interface that a parent of a DSCPForwardingClassMapping must implement.
+// A Parent is defined as an entity that has DSCPForwardingClassMapping as a child.
+// A Parent is an Ancestor which can create a DSCPForwardingClassMapping.
+type DSCPForwardingClassMappingsParent interface {
+	DSCPForwardingClassMappingsAncestor
+	CreateDSCPForwardingClassMapping(*DSCPForwardingClassMapping) *bambou.Error
 }
 
 // DSCPForwardingClassMapping represents the model of a dscpforwardingclassmapping

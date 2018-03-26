@@ -38,10 +38,19 @@ var EndPointIdentity = bambou.Identity{
 // EndPointsList represents a list of EndPoints
 type EndPointsList []*EndPoint
 
-// EndPointsAncestor is the interface of an ancestor of a EndPoint must implement.
+// EndPointsAncestor is the interface that an ancestor of a EndPoint must implement.
+// An Ancestor is defined as an entity that has EndPoint as a descendant.
+// An Ancestor can get a list of its child EndPoints, but not necessarily create one.
 type EndPointsAncestor interface {
 	EndPoints(*bambou.FetchingInfo) (EndPointsList, *bambou.Error)
-	CreateEndPoints(*EndPoint) *bambou.Error
+}
+
+// EndPointsParent is the interface that a parent of a EndPoint must implement.
+// A Parent is defined as an entity that has EndPoint as a child.
+// A Parent is an Ancestor which can create a EndPoint.
+type EndPointsParent interface {
+	EndPointsAncestor
+	CreateEndPoint(*EndPoint) *bambou.Error
 }
 
 // EndPoint represents the model of a endpoint
@@ -133,10 +142,4 @@ func (o *EndPoint) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the EndPoint
-func (o *EndPoint) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }

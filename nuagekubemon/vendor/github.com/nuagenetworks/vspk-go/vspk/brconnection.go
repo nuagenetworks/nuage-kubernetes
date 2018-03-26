@@ -38,23 +38,34 @@ var BRConnectionIdentity = bambou.Identity{
 // BRConnectionsList represents a list of BRConnections
 type BRConnectionsList []*BRConnection
 
-// BRConnectionsAncestor is the interface of an ancestor of a BRConnection must implement.
+// BRConnectionsAncestor is the interface that an ancestor of a BRConnection must implement.
+// An Ancestor is defined as an entity that has BRConnection as a descendant.
+// An Ancestor can get a list of its child BRConnections, but not necessarily create one.
 type BRConnectionsAncestor interface {
 	BRConnections(*bambou.FetchingInfo) (BRConnectionsList, *bambou.Error)
-	CreateBRConnections(*BRConnection) *bambou.Error
+}
+
+// BRConnectionsParent is the interface that a parent of a BRConnection must implement.
+// A Parent is defined as an entity that has BRConnection as a child.
+// A Parent is an Ancestor which can create a BRConnection.
+type BRConnectionsParent interface {
+	BRConnectionsAncestor
+	CreateBRConnection(*BRConnection) *bambou.Error
 }
 
 // BRConnection represents the model of a brconnections
 type BRConnection struct {
-	ID         string `json:"ID,omitempty"`
-	ParentID   string `json:"parentID,omitempty"`
-	ParentType string `json:"parentType,omitempty"`
-	Owner      string `json:"owner,omitempty"`
-	DNSAddress string `json:"DNSAddress,omitempty"`
-	Gateway    string `json:"gateway,omitempty"`
-	Address    string `json:"address,omitempty"`
-	Netmask    string `json:"netmask,omitempty"`
-	Mode       string `json:"mode,omitempty"`
+	ID                    string `json:"ID,omitempty"`
+	ParentID              string `json:"parentID,omitempty"`
+	ParentType            string `json:"parentType,omitempty"`
+	Owner                 string `json:"owner,omitempty"`
+	DNSAddress            string `json:"DNSAddress,omitempty"`
+	Gateway               string `json:"gateway,omitempty"`
+	Address               string `json:"address,omitempty"`
+	AdvertisementCriteria string `json:"advertisementCriteria,omitempty"`
+	Netmask               string `json:"netmask,omitempty"`
+	Mode                  string `json:"mode,omitempty"`
+	UplinkID              int    `json:"uplinkID,omitempty"`
 }
 
 // NewBRConnection returns a new *BRConnection

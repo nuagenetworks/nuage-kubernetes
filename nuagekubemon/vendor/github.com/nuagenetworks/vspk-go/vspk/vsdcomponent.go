@@ -38,10 +38,19 @@ var VSDComponentIdentity = bambou.Identity{
 // VSDComponentsList represents a list of VSDComponents
 type VSDComponentsList []*VSDComponent
 
-// VSDComponentsAncestor is the interface of an ancestor of a VSDComponent must implement.
+// VSDComponentsAncestor is the interface that an ancestor of a VSDComponent must implement.
+// An Ancestor is defined as an entity that has VSDComponent as a descendant.
+// An Ancestor can get a list of its child VSDComponents, but not necessarily create one.
 type VSDComponentsAncestor interface {
 	VSDComponents(*bambou.FetchingInfo) (VSDComponentsList, *bambou.Error)
-	CreateVSDComponents(*VSDComponent) *bambou.Error
+}
+
+// VSDComponentsParent is the interface that a parent of a VSDComponent must implement.
+// A Parent is defined as an entity that has VSDComponent as a child.
+// A Parent is an Ancestor which can create a VSDComponent.
+type VSDComponentsParent interface {
+	VSDComponentsAncestor
+	CreateVSDComponent(*VSDComponent) *bambou.Error
 }
 
 // VSDComponent represents the model of a component

@@ -38,10 +38,19 @@ var NSGatewayIdentity = bambou.Identity{
 // NSGatewaysList represents a list of NSGateways
 type NSGatewaysList []*NSGateway
 
-// NSGatewaysAncestor is the interface of an ancestor of a NSGateway must implement.
+// NSGatewaysAncestor is the interface that an ancestor of a NSGateway must implement.
+// An Ancestor is defined as an entity that has NSGateway as a descendant.
+// An Ancestor can get a list of its child NSGateways, but not necessarily create one.
 type NSGatewaysAncestor interface {
 	NSGateways(*bambou.FetchingInfo) (NSGatewaysList, *bambou.Error)
-	CreateNSGateways(*NSGateway) *bambou.Error
+}
+
+// NSGatewaysParent is the interface that a parent of a NSGateway must implement.
+// A Parent is defined as an entity that has NSGateway as a child.
+// A Parent is an Ancestor which can create a NSGateway.
+type NSGatewaysParent interface {
+	NSGatewaysAncestor
+	CreateNSGateway(*NSGateway) *bambou.Error
 }
 
 // NSGateway represents the model of a nsgateway
@@ -67,6 +76,7 @@ type NSGateway struct {
 	TemplateID                         string `json:"templateID,omitempty"`
 	Pending                            bool   `json:"pending"`
 	SerialNumber                       string `json:"serialNumber,omitempty"`
+	DerivedSSHServiceState             string `json:"derivedSSHServiceState,omitempty"`
 	PermittedAction                    string `json:"permittedAction,omitempty"`
 	Personality                        string `json:"personality,omitempty"`
 	Description                        string `json:"description,omitempty"`
@@ -90,7 +100,12 @@ type NSGateway struct {
 // NewNSGateway returns a new *NSGateway
 func NewNSGateway() *NSGateway {
 
-	return &NSGateway{}
+	return &NSGateway{
+		TPMStatus:                        "UNKNOWN",
+		SSHService:                       "INHERITED",
+		LastConfigurationReloadTimestamp: -1,
+		InheritedSSHServiceState:         "ENABLED",
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -135,12 +150,6 @@ func (o *NSGateway) GatewaySecurities(info *bambou.FetchingInfo) (GatewaySecurit
 	var list GatewaySecuritiesList
 	err := bambou.CurrentSession().FetchChildren(o, GatewaySecurityIdentity, &list, info)
 	return list, err
-}
-
-// CreateGatewaySecurity creates a new child GatewaySecurity under the NSGateway
-func (o *NSGateway) CreateGatewaySecurity(child *GatewaySecurity) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // PATNATPools retrieves the list of child PATNATPools of the NSGateway
@@ -198,12 +207,6 @@ func (o *NSGateway) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error
 	return list, err
 }
 
-// CreateAlarm creates a new child Alarm under the NSGateway
-func (o *NSGateway) CreateAlarm(child *Alarm) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the NSGateway
 func (o *NSGateway) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -226,24 +229,12 @@ func (o *NSGateway) InfrastructureConfigs(info *bambou.FetchingInfo) (Infrastruc
 	return list, err
 }
 
-// CreateInfrastructureConfig creates a new child InfrastructureConfig under the NSGateway
-func (o *NSGateway) CreateInfrastructureConfig(child *InfrastructureConfig) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EnterprisePermissions retrieves the list of child EnterprisePermissions of the NSGateway
 func (o *NSGateway) EnterprisePermissions(info *bambou.FetchingInfo) (EnterprisePermissionsList, *bambou.Error) {
 
 	var list EnterprisePermissionsList
 	err := bambou.CurrentSession().FetchChildren(o, EnterprisePermissionIdentity, &list, info)
 	return list, err
-}
-
-// CreateEnterprisePermission creates a new child EnterprisePermission under the NSGateway
-func (o *NSGateway) CreateEnterprisePermission(child *EnterprisePermission) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Jobs retrieves the list of child Jobs of the NSGateway
@@ -268,12 +259,6 @@ func (o *NSGateway) Locations(info *bambou.FetchingInfo) (LocationsList, *bambou
 	return list, err
 }
 
-// CreateLocation creates a new child Location under the NSGateway
-func (o *NSGateway) CreateLocation(child *Location) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Monitorscopes retrieves the list of child Monitorscopes of the NSGateway
 func (o *NSGateway) Monitorscopes(info *bambou.FetchingInfo) (MonitorscopesList, *bambou.Error) {
 
@@ -282,31 +267,11 @@ func (o *NSGateway) Monitorscopes(info *bambou.FetchingInfo) (MonitorscopesList,
 	return list, err
 }
 
-// CreateMonitorscope creates a new child Monitorscope under the NSGateway
-func (o *NSGateway) CreateMonitorscope(child *Monitorscope) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // Bootstraps retrieves the list of child Bootstraps of the NSGateway
 func (o *NSGateway) Bootstraps(info *bambou.FetchingInfo) (BootstrapsList, *bambou.Error) {
 
 	var list BootstrapsList
 	err := bambou.CurrentSession().FetchChildren(o, BootstrapIdentity, &list, info)
-	return list, err
-}
-
-// CreateBootstrap creates a new child Bootstrap under the NSGateway
-func (o *NSGateway) CreateBootstrap(child *Bootstrap) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// BootstrapActivations retrieves the list of child BootstrapActivations of the NSGateway
-func (o *NSGateway) BootstrapActivations(info *bambou.FetchingInfo) (BootstrapActivationsList, *bambou.Error) {
-
-	var list BootstrapActivationsList
-	err := bambou.CurrentSession().FetchChildren(o, BootstrapActivationIdentity, &list, info)
 	return list, err
 }
 
@@ -322,12 +287,6 @@ func (o *NSGateway) NSGInfos(info *bambou.FetchingInfo) (NSGInfosList, *bambou.E
 	var list NSGInfosList
 	err := bambou.CurrentSession().FetchChildren(o, NSGInfoIdentity, &list, info)
 	return list, err
-}
-
-// CreateNSGInfo creates a new child NSGInfo under the NSGateway
-func (o *NSGateway) CreateNSGInfo(child *NSGInfo) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // NSPorts retrieves the list of child NSPorts of the NSGateway
@@ -352,22 +311,10 @@ func (o *NSGateway) Subnets(info *bambou.FetchingInfo) (SubnetsList, *bambou.Err
 	return list, err
 }
 
-// CreateSubnet creates a new child Subnet under the NSGateway
-func (o *NSGateway) CreateSubnet(child *Subnet) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
 // EventLogs retrieves the list of child EventLogs of the NSGateway
 func (o *NSGateway) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// CreateEventLog creates a new child EventLog under the NSGateway
-func (o *NSGateway) CreateEventLog(child *EventLog) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
 }
