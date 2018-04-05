@@ -238,6 +238,10 @@ Installation for a Single Master
     uplink_interface=eth0
     nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
     nuage_interface_mtu=1450
+    # master_base_host_type => 'is_rhel_server' if RHEL server node or 'is_atomic' if RHEL atomic node
+    # slave_base_host_type => 'is_rhel_server' if RHEL server node or 'is_atomic' if RHEL atomic node
+    master_base_host_type=is_rhel_server
+    slave_base_host_type=is_rhel_server
     # auto scale subnets feature
     # 0 => disabled(default)
     # 1 => enabled
@@ -368,6 +372,10 @@ Nuage OpenShift only supports HA configuration method described in this section.
         uplink_interface=eth0
         nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
         nuage_interface_mtu=1450
+        # master_base_host_type => 'is_rhel_server' if RHEL server node or 'is_atomic' if RHEL atomic node
+        # slave_base_host_type => 'is_rhel_server' if RHEL server node or 'is_atomic' if RHEL atomic node
+        master_base_host_type=is_rhel_server
+        slave_base_host_type=is_rhel_server
         # auto scale subnets feature
         # 0 => disabled(default)
         # 1 => enabled

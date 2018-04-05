@@ -234,6 +234,10 @@ Installation for Multi-Master
     uplink_interface=eth0
     nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
     nuage_interface_mtu=1500
+    # master_base_host_type => 'is_rhel_server' if RHEL server node or 'is_atomic' if RHEL atomic node
+    # slave_base_host_type => 'is_rhel_server' if RHEL server node or 'is_atomic' if RHEL atomic node
+    master_base_host_type=is_rhel_server
+    slave_base_host_type=is_atomic
     # auto scale subnets feature
     # 0 => disabled(default)
     # 1 => enabled
