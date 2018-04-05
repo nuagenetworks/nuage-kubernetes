@@ -190,26 +190,30 @@ type VsdEnterprise struct {
 	Description string `json:"description"`
 	Name        string `json:"name"`
 	ID          string
+	ExternalID  string `json:"externalID"`
 }
 
 type VsdUser struct {
-	ID        string
-	UserName  string `json:"userName"`
-	Password  string `json:"password"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Email     string `json:"email"`
+	ID         string
+	UserName   string `json:"userName"`
+	Password   string `json:"password"`
+	FirstName  string `json:"firstName"`
+	LastName   string `json:"lastName"`
+	Email      string `json:"email"`
+	ExternalID string `json:"externalID"`
 }
 
 type VsdGroup struct {
-	ID   string
-	Role string `json:"role"`
+	ID         string
+	Role       string `json:"role"`
+	ExternalID string `json:"externalID"`
 }
 
 type VsdLicense struct {
-	ID        string
-	License   string `json:"license"`
-	LicenseId int    `json:"licenseID"`
+	ID         string
+	License    string `json:"license"`
+	LicenseId  int    `json:"licenseID"`
+	ExternalID string `json:"externalID"`
 }
 
 type VsdSubnet struct {
@@ -221,6 +225,7 @@ type VsdSubnet struct {
 	Description     string `json:"description"`
 	PATEnabled      string
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
+	ExternalID      string `json:"externalID"`
 }
 
 // Generic VSD object. Most json objects returned by the VSD REST API will fit
@@ -229,6 +234,7 @@ type VsdObject struct {
 	ID          string
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	ExternalID  string `json:"externalID"`
 }
 
 type VsdDomain struct {
@@ -238,6 +244,7 @@ type VsdDomain struct {
 	TemplateID      string `json:"templateID"`
 	PATEnabled      string
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
+	ExternalID      string `json:"externalID"`
 }
 
 type VsdAuthToken struct {
@@ -259,6 +266,7 @@ type VsdAclTemplate struct {
 	DefaultAllowNonIP bool   `json:"defaultAllowNonIP"`
 	Active            bool   `json:"active"`
 	Priority          int    `json:"priority"`
+	ExternalID        string `json:"externalID"`
 }
 
 type VsdAclEntry struct {
@@ -276,16 +284,18 @@ type VsdAclEntry struct {
 	Priority     int    `json:"priority"`
 	Protocol     string `json:"protocol"`
 	Reflexive    bool   `json:"reflexive"`
+	ExternalID   string `json:"externalID"`
 }
 
 const MAX_VSD_ACL_PRIORITY = 1000000000 //the maximum priority allowed in VSD is 1 billion.
 
 type VsdNetworkMacro struct {
-	ID      string
-	Name    string `json:"name"`
-	IPType  string `json:"IPType"`
-	Address string `json:"address"`
-	Netmask string `json:"netmask"`
+	ID         string
+	Name       string `json:"name"`
+	IPType     string `json:"IPType"`
+	Address    string `json:"address"`
+	Netmask    string `json:"netmask"`
+	ExternalID string `json:"externalID"`
 }
 
 func (lhs *VsdNetworkMacro) IsEqual(rhs *VsdNetworkMacro) bool {

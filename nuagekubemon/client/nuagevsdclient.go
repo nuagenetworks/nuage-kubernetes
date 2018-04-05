@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,7 @@ type NuageVsdClient struct {
 	privilegedProjectName              string
 	resourceManager                    *policy.ResourceManager
 	etcdChannel                        chan *api.EtcdEvent
+	externalID                         string //unique id to be attached with each object created by monitor
 }
 
 type NamespaceData struct {
@@ -170,6 +172,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	}
 	var err error
 	nvsdc.version = nkmConfig.NuageVspVersion
+	nvsdc.setExternalID()
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
@@ -363,6 +366,7 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 	payload := api.VsdObject{
 		Name:        domainTemplateName,
 		Description: "Auto-generated default domain template",
+		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domaintemplates"
@@ -531,6 +535,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 		Priority:     0,
 		Protocol:     "ANY",
 		Reflexive:    false,
+		ExternalID:   nvsdc.externalID,
 	}
 	_, err := nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
@@ -546,10 +551,11 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 		glog.Error("Error when creating ingress acl entry", err)
 	}
 	networkMacro := &api.VsdNetworkMacro{
-		Name:    `NetworkMacro for Service CIDR`,
-		IPType:  "IPV4",
-		Address: nvsdc.serviceNetwork.Address.String(),
-		Netmask: nvsdc.serviceNetwork.Netmask().String(),
+		Name:       `NetworkMacro for Service CIDR`,
+		IPType:     "IPV4",
+		Address:    nvsdc.serviceNetwork.Address.String(),
+		Netmask:    nvsdc.serviceNetwork.Netmask().String(),
+		ExternalID: nvsdc.externalID,
 	}
 	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
 	if err != nil {
@@ -581,6 +587,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 		Priority:     0,
 		Protocol:     "ANY",
 		Reflexive:    false,
+		ExternalID:   nvsdc.externalID,
 	}
 	_, err := nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
@@ -596,10 +603,11 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 		glog.Error("Error when creating egress acl entry", err)
 	}
 	networkMacro := &api.VsdNetworkMacro{
-		Name:    `NetworkMacro for Service CIDR`,
-		IPType:  "IPV4",
-		Address: nvsdc.serviceNetwork.Address.String(),
-		Netmask: nvsdc.serviceNetwork.Netmask().String(),
+		Name:       `NetworkMacro for Service CIDR`,
+		IPType:     "IPV4",
+		Address:    nvsdc.serviceNetwork.Address.String(),
+		Netmask:    nvsdc.serviceNetwork.Netmask().String(),
+		ExternalID: nvsdc.externalID,
 	}
 	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
 	if err != nil {
@@ -662,6 +670,7 @@ func (nvsdc *NuageVsdClient) CreateAclTemplate(domainID string, name string, pri
 		DefaultAllowNonIP: true,
 		Active:            true,
 		Priority:          priority,
+		ExternalID:        nvsdc.externalID,
 	}
 	e := api.RESTError{}
 
@@ -992,6 +1001,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		Description: "Auto-generated domain",
 		TemplateID:  domainTemplateID,
 		PATEnabled:  api.PATDisabled,
+		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domains"
@@ -1043,6 +1053,7 @@ func (nvsdc *NuageVsdClient) CreateZone(domainID, name string) (string, error) {
 	payload := api.VsdObject{
 		Name:        name,
 		Description: "Auto-generated zone for project \"" + name + "\"",
+		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "domains/" + domainID + "/zones"
@@ -1099,6 +1110,7 @@ func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subne
 		Description: "Auto-generated subnet",
 		Name:        name,
 		PATEnabled:  api.PATInherited,
+		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "zones/" + zoneID + "/subnets"
@@ -1588,6 +1600,7 @@ func (nvsdc *NuageVsdClient) CreatePolicyGroup(name string, description string) 
 		Name:        name,
 		Description: description,
 		Type:        "SOFTWARE",
+		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "domains/" + nvsdc.domainID + "/policygroups"
@@ -1930,10 +1943,11 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 			}
 		}
 		networkMacro := &api.VsdNetworkMacro{
-			Name:    `NetworkMacro for service ` + serviceEvent.Namespace + "--" + serviceEvent.Name,
-			IPType:  "IPV4",
-			Address: serviceEvent.ClusterIP,
-			Netmask: "255.255.255.255",
+			Name:       `NetworkMacro for service ` + serviceEvent.Namespace + "--" + serviceEvent.Name,
+			IPType:     "IPV4",
+			Address:    serviceEvent.ClusterIP,
+			Netmask:    "255.255.255.255",
+			ExternalID: nvsdc.externalID,
 		}
 		networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
 		if err != nil {
@@ -2203,6 +2217,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 		Priority:     1,
 		Protocol:     "ANY",
 		Reflexive:    false,
+		ExternalID:   nvsdc.externalID,
 	}
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
@@ -2271,6 +2286,7 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 		Priority:     300 + nvsdc.NextAvailablePriority(),
 		Protocol:     "ANY",
 		Reflexive:    false,
+		ExternalID:   nvsdc.externalID,
 	}
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
@@ -2287,6 +2303,19 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1 - 300)
 	}
 	return nil
+}
+
+//generate external ID to be used with all VSD objects
+func (nvsdc *NuageVsdClient) setExternalID() {
+	hostname, err := os.Hostname()
+	if err != nil {
+		glog.Warningf("Fetching hostname failed with error: %v.hostname cannot be used for external id", err)
+	}
+	nvsdc.externalID = path.Base(os.Args[0])
+	if hostname != "" {
+		nvsdc.externalID += "-" + hostname
+	}
+	glog.Infof("using external id %s when creating vsd objects", nvsdc.externalID)
 }
 
 func (nvsdc *NuageVsdClient) NextAvailablePriority() int {
@@ -2307,6 +2336,7 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 	payload := api.VsdObject{
 		Name:        "Service Group For Zone - " + zoneName,
 		Description: "Auto-generated network macro group for zone - " + zoneName,
+		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/networkmacrogroups"
