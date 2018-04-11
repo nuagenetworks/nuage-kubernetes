@@ -520,3 +520,145 @@ After the OpenShift nodes come up after the Ansible installation, perform the fo
              *A:Dut-H# configure vswitch-controller shutdown 
              *A:Dut-H# configure vswitch-controller no shutdown
 
+Uninstall a Nuage Openshift Cluster
+===================================================
+
+To uninstall the Nuage Openshift Cluster, delete the Nuage components manually and then uninstall Openshift using the ansible playbook.
+
+.. Note:: It is mandatory to delete all user created zones, subnets, policies etc on the Openshift Cluster and VSD manually before uninstalling the Openshift cluster. This is to ensure consistency between Nuage VSD & the Openshift cluster data.
+
+Follow the steps below to uninstall a Nuage Openshift cluster running on RHEL worker & RHEL master nodes.
+
+1. Delete any user created projects on the cluster and/or corresponding zones on the VSD
+
+         ::
+            
+               [root@ovs-master ~]# oc delete project sales
+               project "sales" deleted
+
+2. Delete the Nuage daemonsets
+
+         ::
+         
+               oc delete -f /etc/nuage-infra-pod-config-daemonset.yaml
+               oc delete -f /etc/nuage-node-config-daemonset.yaml
+               oc delete -f /etc/nuage-master-config-daemonset.yaml
+               
+3. Delete the files and directories listed below on the master nodes
+
+         :: 
+		
+               /usr/share/vsp-openshift/
+               /etc/default/nuage-cni.yaml 
+               /etc/nuage-infra-pod-config-daemonset.yaml
+               /etc/nuage-node-config-daemonset.yaml
+               /etc/nuage-master-config-daemonset.yaml
+               /usr/share/nuage-openshift-ca/           
+               /usr/share/nuage-openshift-certificates/ 
+               /usr/share/nuage-openshift-monitor/
+               /opt/cni/
+               /etc/cni/ 
+          
+4. Delete the files and directories listed below on the worker nodes
+
+           ::
+		
+               /usr/share/vsp-openshift/
+               /etc/default/openvswitch
+               /etc/default/nuage-cni.yaml
+               /opt/cni/
+               /etc/cni/
+               
+5. Run the Openshift ansible uninstall playbook
+ 
+           ::
+            
+               ansible-playbook -vvvv -i nodes playbooks/adhoc/uninstall.yml
+
+               PLAY RECAP 
+               *********************************************
+               ovs-master.mvdcdev08.us.alcatel-lucent.com : ok=56   changed=18   unreachable=0    failed=0   
+               ovs-worker1.mvdcdev08.us.alcatel-lucent.com : ok=33   changed=8    unreachable=0    failed=0   
+               ovs-worker2.mvdcdev08.us.alcatel-lucent.com : ok=33   changed=8    unreachable=0    failed=0   
+       
+6. Run the Openshift ansible install playbook
+      
+            ::
+               
+               ansible-playbook -vvvv -i nodes playbooks/byo/config.yml
+                
+               PLAY RECAP 
+               ************************************************
+               localhost                  : ok=12   changed=0    unreachable=0    failed=0   
+               ovs-master.mvdcdev08.us.alcatel-lucent.com : ok=577  changed=227  unreachable=0    failed=0   
+               ovs-worker1.mvdcdev08.us.alcatel-lucent.com : ok=199  changed=59   unreachable=0    failed=0   
+               ovs-worker2.mvdcdev08.us.alcatel-lucent.com : ok=189  changed=55   unreachable=0    failed=0   
+
+
+Follow the steps below to uninstall a Nuage Openshift cluster running on Atomic worker & RHEL master nodes.
+
+1. Delete any user created projects on the cluster and/or corresponding zones on the VSD
+
+         ::
+            
+               [root@ovs-master ~]# oc delete project sales
+               project "sales" deleted
+
+2. Delete the Nuage daemonsets
+
+         ::
+         
+               oc delete -f /etc/nuage-infra-pod-config-daemonset.yaml
+               oc delete -f /etc/nuage-node-config-daemonset.yaml
+               oc delete -f /etc/nuage-master-config-daemonset.yaml
+               
+3. Delete the files and directories listed below on the master nodes
+
+         :: 
+         
+               /var/usr/share/vsp-openshift/
+               /usr/share/vsp-openshift/
+               /etc/default/nuage-cni.yaml 
+               /etc/nuage-infra-pod-config-daemonset.yaml
+               /etc/nuage-node-config-daemonset.yaml
+               /etc/nuage-master-config-daemonset.yaml
+               /usr/share/nuage-openshift-ca/           
+               /usr/share/nuage-openshift-certificates/ 
+               /usr/share/nuage-openshift-monitor/
+               /opt/cni/
+               /etc/cni/ 
+          
+4. Delete the files and directories listed below on the worker nodes
+
+           ::
+           
+               /var/usr/share/vsp-openshift/
+               /etc/default/openvswitch
+               /etc/default/nuage-cni.yaml
+               /opt/cni/
+               /etc/cni/
+               
+5. Run the Openshift ansible uninstall playbook
+ 
+           ::
+            
+               ansible-playbook -vvvv -i nodes playbooks/adhoc/uninstall.yml
+
+               PLAY RECAP 
+               *********************************************
+               ovs-master.mvdcdev08.us.alcatel-lucent.com : ok=56   changed=18   unreachable=0    failed=0   
+               ovs-worker1.mvdcdev08.us.alcatel-lucent.com : ok=33   changed=8    unreachable=0    failed=0   
+               ovs-worker2.mvdcdev08.us.alcatel-lucent.com : ok=33   changed=8    unreachable=0    failed=0   
+       
+6. Run the Openshift ansible install playbook
+      
+            ::
+               
+               ansible-playbook -vvvv -i nodes playbooks/byo/config.yml
+                
+               PLAY RECAP 
+               ************************************************
+               localhost                  : ok=12   changed=0    unreachable=0    failed=0   
+               ovs-master.mvdcdev08.us.alcatel-lucent.com : ok=577  changed=227  unreachable=0    failed=0   
+               ovs-worker1.mvdcdev08.us.alcatel-lucent.com : ok=199  changed=59   unreachable=0    failed=0   
+               ovs-worker2.mvdcdev08.us.alcatel-lucent.com : ok=189  changed=55   unreachable=0    failed=0   
