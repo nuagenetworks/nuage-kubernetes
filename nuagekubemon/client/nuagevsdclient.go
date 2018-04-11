@@ -2339,7 +2339,7 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacroGroup(enterpriseID string, zoneNa
 		ExternalID:  nvsdc.externalID,
 	}
 	e := api.RESTError{}
-	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/networkmacrogroups"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/networkmacrogroups" + "?responseChoice=1"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
 	logPOSTRequest(reqUrl, payload)
 	logPOSTResponse(resp, &e)
@@ -2524,7 +2524,7 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacro *api.VsdNetworkMacro) (string, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/enterprisenetworks"
+	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/enterprisenetworks" + "?responseChoice=1"
 	resp, err := nvsdc.session.Post(reqUrl, networkMacro, &result, &e)
 	logPOSTRequest(reqUrl, networkMacro)
 	logPOSTResponse(resp, &e)
@@ -2607,7 +2607,7 @@ func (nvsdc *NuageVsdClient) UpdateNetworkMacro(networkMacro *api.VsdNetworkMacr
 	if networkMacro == nil {
 		return errors.New("No network macro specified")
 	}
-	url := nvsdc.url + "enterprisenetworks/" + networkMacro.ID
+	url := nvsdc.url + "enterprisenetworks/" + networkMacro.ID + "?responseChoice=1"
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Put(url, networkMacro, nil, &e)
 	if err != nil || resp.Status() != http.StatusNoContent {
@@ -2684,7 +2684,7 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 	nvsdc.session.Header.Del("X-Nuage-PageSize")
 	nvsdc.session.Header.Del("X-Nuage-Page")
 	resp, err := nvsdc.session.Put(nvsdc.url+"networkmacrogroups/"+
-		networkMacroGroupID+"/enterprisenetworks", &networkMacroIDList, nil, &e)
+		networkMacroGroupID+"/enterprisenetworks"+"?responseChoice=1", &networkMacroIDList, nil, &e)
 	if err != nil {
 		glog.Error("Error when adding network macro to the network macro group", err)
 		return err
