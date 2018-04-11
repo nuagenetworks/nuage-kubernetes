@@ -525,7 +525,7 @@ Uninstall a Nuage Openshift Cluster
 
 To uninstall the Nuage Openshift Cluster, delete the Nuage components manually and then uninstall Openshift using the ansible playbook.
 
-.. Note:: It is mandatory to delete all user created zones, subnets, policies etc on the Openshift Cluster and VSD manually before uninstalling the Openshift cluster. This is to ensure consistency between Nuage VSD & the Openshift cluster data.
+.. Note:: It is mandatory to delete all user created zones, subnets, policies etc on the Openshift Cluster and VSD Domain manually before uninstalling the Openshift cluster. This is to ensure consistency between Nuage VSD & the Openshift cluster data.
 
 Follow the steps below to uninstall a Nuage Openshift cluster running on RHEL worker & RHEL master nodes.
 
