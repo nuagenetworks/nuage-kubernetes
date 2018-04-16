@@ -40,9 +40,9 @@ const (
 )
 
 const (
-	PATEnabled   = "ENABLED"
-	PATInherited = "INHERITED"
-	PATDisabled  = "DISABLED"
+	UnderlaySupportEnabled   = "ENABLED"
+	UnderlaySupportInherited = "INHERITED"
+	UnderlaySupportDisabled  = "DISABLED"
 )
 
 const (
@@ -242,7 +242,6 @@ type VsdDomain struct {
 	Name            string `json:"name"`
 	Description     string `json:"description"`
 	TemplateID      string `json:"templateID"`
-	PATEnabled      string
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
 	ExternalID      string `json:"externalID"`
 }

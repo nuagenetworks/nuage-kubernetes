@@ -245,7 +245,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		return
 	}
 	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
-		domainTemplateID, nkmConfig.DomainName)
+		domainTemplateID, nkmConfig.DomainName, nkmConfig.UnderlaySupport)
 	if err != nil {
 		glog.Error(err)
 		return
@@ -994,14 +994,17 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
+func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name, underlaySupport string) (string, error) {
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
-		Name:        name,
-		Description: "Auto-generated domain",
-		TemplateID:  domainTemplateID,
-		PATEnabled:  api.PATDisabled,
-		ExternalID:  nvsdc.externalID,
+		Name:            name,
+		Description:     "Auto-generated domain",
+		TemplateID:      domainTemplateID,
+		UnderlayEnabled: api.UnderlaySupportDisabled,
+		ExternalID:      nvsdc.externalID,
+	}
+	if underlaySupport == "1" {
+		payload.UnderlayEnabled = api.UnderlaySupportEnabled
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domains"
@@ -1104,13 +1107,13 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subnet) (string, error) {
 	result := make([]api.VsdSubnet, 1)
 	payload := api.VsdSubnet{
-		IPType:      "IPV4",
-		Address:     subnet.Address.String(),
-		Netmask:     subnet.Netmask().String(),
-		Description: "Auto-generated subnet",
-		Name:        name,
-		PATEnabled:  api.PATInherited,
-		ExternalID:  nvsdc.externalID,
+		IPType:          "IPV4",
+		Address:         subnet.Address.String(),
+		Netmask:         subnet.Netmask().String(),
+		Description:     "Auto-generated subnet",
+		Name:            name,
+		UnderlayEnabled: api.UnderlaySupportInherited,
+		ExternalID:      nvsdc.externalID,
 	}
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "zones/" + zoneID + "/subnets"

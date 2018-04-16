@@ -33,6 +33,7 @@ type NuageKubeMonConfig struct {
 	LicenseFile         string           `yaml:"licenseFile"`
 	EnterpriseName      string           `yaml:"enterpriseName"`
 	DomainName          string           `yaml:"domainName"`
+	UnderlaySupport     string           `yaml:"underlaySupport"`
 	RestServer          RestServerConfig `yaml:"nuageMonServer"`
 	UserCertificateFile string           `yaml:"userCertificateFile"`
 	UserKeyFile         string           `yaml:"userKeyFile"`
