@@ -1488,7 +1488,7 @@ func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgId string, podsList []string
 	defer nvsdc.session.Header.Del("X-Nuage-Page")
 	glog.Infof("Got the following vports %s to add to the policy group", vportsList)
 	for {
-		reqUrl := nvsdc.url + "policygroups/" + pgId + "/vports"
+		reqUrl := nvsdc.url + "policygroups/" + pgId + "/vports?responseChoice=1"
 		var params *url.Values
 		resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 		logGETRequest(reqUrl, params)
@@ -1531,7 +1531,7 @@ func (nvsdc *NuageVsdClient) AddPodsToPolicyGroup(pgId string, podsList []string
 	if len(vportsList) != 0 {
 		glog.Infof("Adding the following %d vports %s to the policygroup with id: %s", len(vportsList), vportsList, pgId)
 		resp, err := nvsdc.session.Put(nvsdc.url+"policygroups/"+
-			pgId+"/vports", &vportsList, nil, &e)
+			pgId+"/vports?responseChoice=1", &vportsList, nil, &e)
 		if err != nil {
 			glog.Errorf("Error when adding vports to policy group %s: %s", pgId, err)
 			return err
@@ -1553,7 +1553,7 @@ func (nvsdc *NuageVsdClient) RemovePortsFromPolicyGroup(pgId string) error {
 	vportsList := make([]string, 0)
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Put(nvsdc.url+"policygroups/"+
-		pgId+"/vports", &vportsList, nil, &e)
+		pgId+"/vports?responseChoice=1", &vportsList, nil, &e)
 	if err != nil {
 		glog.Errorf("Error when deleting vports from policy group %s: %s", pgId, err)
 		return err
