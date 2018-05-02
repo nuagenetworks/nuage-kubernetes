@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func createACLTemplates(policy *policies.NuagePolicy) (*vspk.IngressACLTemplate, *vspk.EgressACLTemplate) {
+func newACLTemplates(policy *policies.NuagePolicy) (*vspk.IngressACLTemplate, *vspk.EgressACLTemplate) {
 
 	ingressACL := vspk.NewIngressACLTemplate()
 	ingressACL.Name = policy.Name

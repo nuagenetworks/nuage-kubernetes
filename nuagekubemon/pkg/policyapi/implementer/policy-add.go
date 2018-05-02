@@ -18,7 +18,7 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 		return fmt.Errorf("Problem fetching the domain")
 	}
 
-	ingressACL, egressACL := createACLTemplates(policy)
+	ingressACL, egressACL := newACLTemplates(policy)
 
 	var ingressACLEnteries []*vspk.IngressACLEntryTemplate
 	var egressACLEnteries []*vspk.EgressACLEntryTemplate
