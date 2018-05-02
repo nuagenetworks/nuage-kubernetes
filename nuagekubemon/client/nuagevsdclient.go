@@ -22,13 +22,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
-	"github.com/jmcvetta/napping"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/sleepy"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy"
-	"github.com/nuagenetworks/vspk-go/vspk"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -37,6 +30,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/jmcvetta/napping"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/sleepy"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy"
+	"github.com/nuagenetworks/vspk-go/vspk"
 )
 
 type NuageVsdClient struct {
@@ -534,7 +535,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 		PolicyState:  "LIVE",
 		Priority:     0,
 		Protocol:     "ANY",
-		Reflexive:    false,
+		Stateful:     true,
 		ExternalID:   nvsdc.externalID,
 	}
 	_, err := nvsdc.CreateAclEntry(true, &aclEntry)
@@ -586,7 +587,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 		PolicyState:  "LIVE",
 		Priority:     0,
 		Protocol:     "ANY",
-		Reflexive:    false,
+		Stateful:     true,
 		ExternalID:   nvsdc.externalID,
 	}
 	_, err := nvsdc.CreateAclEntry(false, &aclEntry)
@@ -2219,7 +2220,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 		PolicyState:  "LIVE",
 		Priority:     1,
 		Protocol:     "ANY",
-		Reflexive:    false,
+		Stateful:     false,
 		ExternalID:   nvsdc.externalID,
 	}
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
@@ -2233,6 +2234,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 		return err
 	}
 	//default to any ACL rule
+	aclEntry.Stateful = true
 	aclEntry.LocationID = zoneID
 	aclEntry.LocationType = "ZONE"
 	aclEntry.NetworkType = "ANY"
@@ -2288,7 +2290,7 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 		PolicyState:  "LIVE",
 		Priority:     300 + nvsdc.NextAvailablePriority(),
 		Protocol:     "ANY",
-		Reflexive:    false,
+		Stateful:     true,
 		ExternalID:   nvsdc.externalID,
 	}
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
@@ -2433,7 +2435,7 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	// 	NetworkType:  "NETWORK_MACRO_GROUP",
 	// 	PolicyState:  "LIVE",
 	// 	Protocol:     "ANY",
-	// 	Reflexive:    false,
+	// 	Stateful:    false,
 	// }
 	// if acl, err := nvsdc.GetAclEntry(true, &aclEntry); err == nil && acl != nil {
 	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)
@@ -2487,7 +2489,7 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
 	// 	NetworkType:  "NETWORK_MACRO_GROUP",
 	// 	PolicyState:  "LIVE",
 	// 	Protocol:     "ANY",
-	// 	Reflexive:    false,
+	// 	Stateful:    false,
 	// }
 	// if acl, err := nvsdc.GetAclEntry(true, &aclEntry); err == nil && acl != nil {
 	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)

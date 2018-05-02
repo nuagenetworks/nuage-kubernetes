@@ -20,6 +20,7 @@ package api
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,7 +283,7 @@ type VsdAclEntry struct {
 	PolicyState  string `json:"policyState"`
 	Priority     int    `json:"priority"`
 	Protocol     string `json:"protocol"`
-	Reflexive    bool   `json:"reflexive"`
+	Stateful     bool   `json:"stateful"`
 	ExternalID   string `json:"externalID"`
 }
 
@@ -463,11 +464,11 @@ func (lhs *VsdAclEntry) String() string {
 		`Priority: %v, Action: %v,\n`+
 		`DSCP: %v, EntityScope: %v, EtherType: %v, Protocol: %v\n`+
 		`LocationID: %v, LocationType: %v\n`+
-		`NetworkID: %v, NetworkType: %v, PolicyState: %v, Reflexive %v`,
+		`NetworkID: %v, NetworkType: %v, PolicyState: %v, Stateful %v`,
 		lhs.ID, lhs.Description, lhs.Priority, lhs.Action, lhs.DSCP,
 		lhs.EntityScope, lhs.EtherType, lhs.Protocol, lhs.LocationID,
 		lhs.LocationType, lhs.NetworkID, lhs.NetworkType, lhs.PolicyState,
-		lhs.Reflexive)
+		lhs.Stateful)
 }
 
 func (svc *ServiceEvent) String() string {
