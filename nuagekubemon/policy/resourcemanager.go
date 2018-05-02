@@ -248,66 +248,20 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		if _, ok := rm.policyPgMap[pe.Name]; !ok {
 			rm.policyPgMap[pe.Name] = make(PgMap)
 		}
-		podTargetSelector, err := metav1.LabelSelectorAsSelector(&pe.Policy.PodSelector)
-		if err == nil {
-			targetSelectorStr := podTargetSelector.String()
-			if _, found := rm.policyPgMap[pe.Name][targetSelectorStr]; !found {
-				name := "PG Target For " + pe.Name
-				pgName, pgId, err := rm.callBacks.AddPg(name, targetSelectorStr)
-				if err == nil {
-					rm.policyPgMap[pe.Name][targetSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: pe.Policy.PodSelector}
-					//get pods for this selector and add them to pg.
-					var podList []string
-					if pods, err := rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: podTargetSelector.String(), FieldSelector: fields.Everything().String()}, ""); err == nil {
-						for _, pod := range *pods {
-							podList = append(podList, pod.Name)
-						}
-						if err = rm.callBacks.AddPortsToPg(pgId, podList); err != nil {
-							glog.Errorf("Couldn't add ports %s to policy group %s", podList, pgId)
-						}
-					} else {
-						glog.Error("Couldn't retrieve pods from the cluster client")
-					}
-
-				} else {
-					glog.Errorf("Couldn't create policy group for %s", targetSelectorStr)
-				}
-			} else {
-				glog.Infof("Policy group for targetSelectorStr %s exists already", targetSelectorStr)
-			}
+		pgName := "PG Target For " + pe.Name
+		if err := rm.createPgAddVports(&pe.Policy.PodSelector, pe, pgName); err != nil {
+			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+			return err
 		}
 		for i, ingressRule := range pe.Policy.Ingress {
 			for f, from := range ingressRule.From {
-				if from.PodSelector != nil {
-					sourceSelector, err := metav1.LabelSelectorAsSelector(from.PodSelector)
-					if err == nil {
-						sourceSelectorStr := sourceSelector.String()
-						if _, found := rm.policyPgMap[pe.Name][sourceSelectorStr]; !found {
-							name := "PG Source " + strconv.Itoa(i) + "-" + strconv.Itoa(f) + " For " + pe.Name
-							pgName, pgId, err := rm.callBacks.AddPg(name, sourceSelectorStr)
-							if err == nil {
-								rm.policyPgMap[pe.Name][sourceSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: *from.PodSelector}
-								//get pods for this selector and add them to pg.
-								var podList []string
-								if pods, err := rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: sourceSelector.String(), FieldSelector: fields.Everything().String()}, ""); err == nil {
-									for _, pod := range *pods {
-										podList = append(podList, pod.Name)
-									}
-									if err = rm.callBacks.AddPortsToPg(pgId, podList); err != nil {
-										glog.Errorf("Couldn't add ports %s to policy group %s", podList, pgId)
-									}
-								} else {
-									glog.Error("Couldn't retrieve pods from the cluster client")
-								}
-
-							} else {
-								glog.Errorf("Couldn't create policy group for %s", sourceSelectorStr)
-
-							}
-						} else {
-							glog.Infof("Policy group for sourceSelectorStr %s exists already", sourceSelectorStr)
-						}
-					}
+				if from.PodSelector == nil {
+					continue
+				}
+				pgName := "PG Source " + strconv.Itoa(i) + "-" + strconv.Itoa(f) + " For " + pe.Name
+				if err := rm.createPgAddVports(from.PodSelector, pe, pgName); err != nil {
+					glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+					return err
 				}
 			}
 		}
@@ -325,45 +279,18 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 			glog.Info("No policy group map entry found for this policy")
 			return errors.New("No policy group map entry found")
 		} else {
-			podTargetSelector, err := metav1.LabelSelectorAsSelector(&pe.Policy.PodSelector)
-			if err == nil {
-				targetSelectorStr := podTargetSelector.String()
-				if pgInfo, found := rm.policyPgMap[pe.Name][targetSelectorStr]; !found {
-					glog.Errorf("Policy group for targetSelectorStr %s is not found", targetSelectorStr)
-				} else {
-					//first unassign pods from pg
-					if err = rm.callBacks.DeletePortsFromPg(pgInfo.PgId); err != nil {
-						glog.Errorf("Couldn't remove ports from policy group %s", pgInfo.PgId)
-					} else {
-						if err := rm.callBacks.DeletePg(pgInfo.PgId); err != nil {
-							glog.Errorf("Failed to delete policy group %s", pgInfo.PgId)
-						} else {
-							delete(rm.policyPgMap[pe.Name], targetSelectorStr)
-						}
-					}
-				}
+			if err := rm.destroyPgRemoveVports(&pe.Policy.PodSelector, pe); err != nil {
+				glog.Errorf("removing vports and deleting pg failed: %v, err")
+				return err
 			}
 			for _, ingressRule := range pe.Policy.Ingress {
 				for _, from := range ingressRule.From {
-					if from.PodSelector != nil {
-						sourceSelector, err := metav1.LabelSelectorAsSelector(from.PodSelector)
-						if err == nil {
-							sourceSelectorStr := sourceSelector.String()
-							if pgInfo, found := rm.policyPgMap[pe.Name][sourceSelectorStr]; !found {
-								glog.Errorf("Policy group for sourceSelectorStr %s is not found", sourceSelectorStr)
-							} else {
-								//first unassign pods from pg
-								if err = rm.callBacks.DeletePortsFromPg(pgInfo.PgId); err != nil {
-									glog.Errorf("Couldn't remove ports from policy group %s", pgInfo.PgId)
-								} else {
-									if err := rm.callBacks.DeletePg(pgInfo.PgId); err != nil {
-										glog.Errorf("Failed to delete policy group %s", pgInfo.PgId)
-									} else {
-										delete(rm.policyPgMap[pe.Name], sourceSelectorStr)
-									}
-								}
-							}
-						}
+					if from.PodSelector == nil {
+						continue
+					}
+					if err := rm.destroyPgRemoveVports(from.PodSelector, pe); err != nil {
+						glog.Errorf("removing vports and deleting pg failed: %v, err")
+						return err
 					}
 				}
 			}
@@ -384,5 +311,78 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent, pgName string) error {
+	var err error
+	var pgId string
+	var podList []string
+	var pods *[]*api.PodEvent
+	var podSelectorLabel labels.Selector
+
+	podSelectorLabel, err = metav1.LabelSelectorAsSelector(selectorLabel)
+	if err != nil {
+		glog.Errorf("error extracting label failed %v", err)
+		return err
+	}
+	podSelectorStr := podSelectorLabel.String()
+
+	if _, found := rm.policyPgMap[pe.Name][podSelectorStr]; found {
+		glog.Infof("Policy group for podSelectorStr %s exists already", podSelectorStr)
+		return nil
+	}
+
+	_, pgId, err = rm.callBacks.AddPg(pgName, podSelectorStr)
+	if err != nil {
+		glog.Errorf("creating policy group for %s failed %v", podSelectorStr, err)
+		return err
+	}
+	rm.policyPgMap[pe.Name][podSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: pe.Policy.PodSelector}
+
+	//get pods for this selector and add them to pg.
+	if pods, err = rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: podSelectorLabel.String(),
+		FieldSelector: fields.Everything().String()}, pe.Namespace); err != nil {
+		glog.Error("retrieving pods from the cluster client failed: %v", err)
+		return err
+	}
+	for _, pod := range *pods {
+		podList = append(podList, pod.Name)
+	}
+
+	if err = rm.callBacks.AddPortsToPg(pgId, podList); err != nil {
+		glog.Errorf("adding ports %s to policy group %s failed: %v", podList, pgId, err)
+		return err
+	}
+	return nil
+}
+
+func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
+	var err error
+	var found bool
+	var pgInfo api.PgInfo
+	var podSelectorLabel labels.Selector
+
+	podSelectorLabel, err = metav1.LabelSelectorAsSelector(selectorLabel)
+	if err != nil {
+		glog.Errorf("error extracting label %v", err)
+		return err
+	}
+	podSelectorStr := podSelectorLabel.String()
+
+	if pgInfo, found = rm.policyPgMap[pe.Name][podSelectorStr]; !found {
+		glog.Errorf("Policy group for podSelectorStr %s is not found", podSelectorStr)
+		return err
+	}
+	//first unassign pods from pg
+	if err = rm.callBacks.DeletePortsFromPg(pgInfo.PgId); err != nil {
+		glog.Errorf("Removing ports from policy group %s failed: %v", pgInfo.PgId, err)
+		return err
+	}
+	if err = rm.callBacks.DeletePg(pgInfo.PgId); err != nil {
+		glog.Errorf("deleting policy group %s failed %v", pgInfo.PgId, err)
+		return err
+	}
+	delete(rm.policyPgMap[pe.Name], podSelectorStr)
 	return nil
 }
