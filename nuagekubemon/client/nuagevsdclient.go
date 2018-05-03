@@ -1992,8 +1992,8 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
-	nsDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
 	enableFlowLogging := nvsdc.IsFlowLoggingEnabled(nsEvent)
+	nsDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
 	if nsPolicyChanged {
 		nvsdc.resourceManager.HandleNsEvent(nsEvent)
 	}
@@ -2068,7 +2068,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				}
 			}
 			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err = nvsdc.CreatePrivilegedZoneAcls(zoneID)
+				err = nvsdc.CreatePrivilegedZoneAcls(zoneID, enableFlowLogging)
 				if err != nil {
 					glog.Error("Got an error when creating default zone's ACL entries")
 					return err
@@ -2185,7 +2185,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
+func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string, enableFlowLogging bool) error {
 	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, nvsdc.privilegedProjectName)
 	if err != nil {
 		glog.Error("Error when creating the network macro group for zone", nvsdc.privilegedProjectName)
@@ -2209,20 +2209,21 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 	}
 	//add ingress and egress ACL entries for allowing zone to default zone communication
 	aclEntry := api.VsdAclEntry{
-		Action:       "FORWARD",
-		DSCP:         "*",
-		Description:  "Allow Traffic Between All Zones and Default Zone",
-		EntityScope:  "ENTERPRISE",
-		EtherType:    "0x0800",
-		LocationID:   "",
-		LocationType: "ANY",
-		NetworkType:  "NETWORK_MACRO_GROUP",
-		NetworkID:    nmgid,
-		PolicyState:  "LIVE",
-		Priority:     1,
-		Protocol:     "ANY",
-		Stateful:     false,
-		ExternalID:   nvsdc.externalID,
+		Action:             "FORWARD",
+		DSCP:               "*",
+		Description:        "Allow Traffic Between All Zones and Default Zone",
+		EntityScope:        "ENTERPRISE",
+		EtherType:          "0x0800",
+		LocationID:         "",
+		LocationType:       "ANY",
+		NetworkType:        "NETWORK_MACRO_GROUP",
+		NetworkID:          nmgid,
+		PolicyState:        "LIVE",
+		Priority:           1,
+		Protocol:           "ANY",
+		Stateful:           false,
+		FlowLoggingEnabled: enableFlowLogging,
+		ExternalID:         nvsdc.externalID,
 	}
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
@@ -2241,6 +2242,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string) error {
 	aclEntry.NetworkType = "ANY"
 	aclEntry.NetworkID = ""
 	aclEntry.Priority = 2
+	aclEntry.FlowLoggingEnabled = enableFlowLogging
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the default zone")
