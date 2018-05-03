@@ -270,21 +270,22 @@ type VsdAclTemplate struct {
 }
 
 type VsdAclEntry struct {
-	DSCP         string `json:"DSCP,omitempty"`
-	ID           string
-	Action       string `json:"action"`
-	Description  string `json:"description"`
-	EntityScope  string `json:"entityScope"`
-	EtherType    string `json:"etherType"`
-	LocationID   string `json:"locationID"`
-	LocationType string `json:"locationType"`
-	NetworkID    string `json:"networkID"`
-	NetworkType  string `json:"networkType"`
-	PolicyState  string `json:"policyState"`
-	Priority     int    `json:"priority"`
-	Protocol     string `json:"protocol"`
-	Stateful     bool   `json:"stateful"`
-	ExternalID   string `json:"externalID"`
+	DSCP               string `json:"DSCP,omitempty"`
+	ID                 string
+	Action             string `json:"action"`
+	Description        string `json:"description"`
+	EntityScope        string `json:"entityScope"`
+	EtherType          string `json:"etherType"`
+	LocationID         string `json:"locationID"`
+	LocationType       string `json:"locationType"`
+	NetworkID          string `json:"networkID"`
+	NetworkType        string `json:"networkType"`
+	PolicyState        string `json:"policyState"`
+	Priority           int    `json:"priority"`
+	Protocol           string `json:"protocol"`
+	Stateful           bool   `json:"stateful"`
+	ExternalID         string `json:"externalID"`
+	FlowLoggingEnabled bool   `json:"flowLoggingEnabled"`
 }
 
 const MAX_VSD_ACL_PRIORITY = 1000000000 //the maximum priority allowed in VSD is 1 billion.
