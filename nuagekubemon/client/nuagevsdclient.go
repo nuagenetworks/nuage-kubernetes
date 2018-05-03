@@ -2712,7 +2712,7 @@ func (nvsdc *NuageVsdClient) AddNetworkMacroToNMG(networkMacroID, networkMacroGr
 
 func (nvsdc *NuageVsdClient) IsFlowLoggingEnabled(nsEvent *api.NamespaceEvent) bool {
 
-	if _, ok := nsEvent.Labels["enable-flow-logging"]; ok {
+	if _, ok := nsEvent.Annotations["enable-flow-logging"]; ok {
 		return true
 	}
 
