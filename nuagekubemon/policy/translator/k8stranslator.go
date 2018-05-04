@@ -6,7 +6,10 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
 	kapi "k8s.io/api/core/v1"
+	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
 )
 
@@ -15,7 +18,8 @@ const priorityLabel = "nuage.io/priority"
 func CreateNuagePGPolicy(
 	pe *api.NetworkPolicyEvent,
 	policyGroupMap map[string]api.PgInfo,
-	nuageMetadata map[string]string) (*policies.NuagePolicy, error) {
+	nuageMetadata map[string]string,
+	namespaceLabelsMap map[string][]string) (*policies.NuagePolicy, error) {
 
 	k8sNetworkPolicySpec := &pe.Policy
 	policyName := pe.Name
@@ -72,67 +76,126 @@ func CreateNuagePGPolicy(
 	}
 
 	var defaultPolicyElements []policies.DefaultPolicyElement
-	var defaultPolicyElement policies.DefaultPolicyElement
 
 	for _, ingressRule := range k8sNetworkPolicySpec.Ingress {
-		for _, from := range ingressRule.From {
-			var fromPG api.PgInfo
-			if sourceSelector, err := metav1.LabelSelectorAsSelector(from.PodSelector); err == nil {
-				if fromPG, ok = policyGroupMap[sourceSelector.String()]; !ok {
-					return nil, fmt.Errorf("Policy group missing for %s", sourceSelector.String())
-				}
-			} else {
-				return nil, fmt.Errorf("Source policy group information was not found for %s", sourceSelector.String())
-			}
-			if len(ingressRule.Ports) == 0 {
-				defaultPolicyElement = policies.DefaultPolicyElement{
-					Name: fmt.Sprintf("%s-%d", policyName, 0),
-					From: policies.EndPoint{Type: policies.PolicyGroup,
-						Name: fromPG.PgName},
-					To: policies.EndPoint{Type: policies.PolicyGroup,
-						Name: targetPG.PgName},
-					Action: policies.Allow,
-					NetworkParameters: policies.NetworkParameters{
-						Protocol: policies.TCP,
-						DestinationPortRange: policies.PortRange{StartPort: 0,
-							EndPort: 0}},
-				}
-				glog.Infof("Adding policy event %+v", defaultPolicyElement)
-				defaultPolicyElements = append(defaultPolicyElements, defaultPolicyElement)
-			} else {
-				for idx, targetPort := range ingressRule.Ports {
-					if targetPort.Port == nil {
-						return nil, fmt.Errorf("Received nil value for port number for non-nil ports section")
-					}
-					port := targetPort.Port.IntValue()
-					targetProtocol := policies.TCP
-					if *targetPort.Protocol == kapi.ProtocolUDP {
-						targetProtocol = policies.UDP
-					} else if *targetPort.Protocol == kapi.ProtocolTCP {
-						targetProtocol = policies.TCP
-					}
-
-					defaultPolicyElement = policies.DefaultPolicyElement{
-						Name: fmt.Sprintf("%s-%d", policyName, idx),
-						From: policies.EndPoint{Type: policies.PolicyGroup,
-							Name: fromPG.PgName},
-						To: policies.EndPoint{Type: policies.PolicyGroup,
-							Name: targetPG.PgName},
-						Action: policies.Allow,
-						NetworkParameters: policies.NetworkParameters{
-							Protocol: targetProtocol,
-							DestinationPortRange: policies.PortRange{StartPort: port,
-								EndPort: port}},
-					}
-
-					glog.Infof("Adding policy event %+v", defaultPolicyElement)
-					defaultPolicyElements = append(defaultPolicyElements, defaultPolicyElement)
-				}
-			}
+		tmpPolicyElements, err := convertK8SPolicyElements(ingressRule.From, ingressRule.Ports,
+			namespaceLabelsMap, targetPG.PgName, policyName, true, policyGroupMap)
+		if err != nil {
+			glog.Errorf("converting k8s ingress policy to nuage policy failed: %v", err)
+			return nil, err
 		}
+		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
+	}
+
+	for _, egressRule := range k8sNetworkPolicySpec.Egress {
+		tmpPolicyElements, err := convertK8SPolicyElements(egressRule.To, egressRule.Ports,
+			namespaceLabelsMap, targetPG.PgName, policyName, false, policyGroupMap)
+		if err != nil {
+			glog.Errorf("converting k8s egress policy to nuage policy failed: %v", err)
+			return nil, err
+		}
+		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
 	}
 
 	nuagePolicy.PolicyElements = defaultPolicyElements
 
 	return &nuagePolicy, nil
+}
+
+func createPolicyElements(ports []networkingV1.NetworkPolicyPort, policyName string,
+	sourceType policies.EndPointType, sourceName string,
+	targetType policies.EndPointType, targetName string) ([]policies.DefaultPolicyElement, error) {
+
+	var policyElements []policies.DefaultPolicyElement
+	var policyElement policies.DefaultPolicyElement
+	if len(ports) == 0 {
+		protocol := kapi.ProtocolTCP
+		port := intstr.FromInt(0)
+		//if nothing is specified, this is the default for policy
+		ports = append(ports, networkingV1.NetworkPolicyPort{
+			Protocol: &protocol,
+			Port:     &port,
+		})
+	}
+	for idx, targetPort := range ports {
+		if targetPort.Port == nil {
+			return nil, fmt.Errorf("Received nil value for port number for non-nil ports section")
+		}
+		port := targetPort.Port.IntValue()
+		targetProtocol := policies.TCP
+		if *targetPort.Protocol == kapi.ProtocolUDP {
+			targetProtocol = policies.UDP
+		} else if *targetPort.Protocol == kapi.ProtocolTCP {
+			targetProtocol = policies.TCP
+		}
+
+		policyElement = policies.DefaultPolicyElement{
+			Name: fmt.Sprintf("%s-%d", policyName, idx),
+			From: policies.EndPoint{Type: sourceType,
+				Name: sourceName},
+			To: policies.EndPoint{Type: targetType,
+				Name: targetName},
+			Action: policies.Allow,
+			NetworkParameters: policies.NetworkParameters{
+				Protocol: targetProtocol,
+				DestinationPortRange: policies.PortRange{StartPort: port,
+					EndPort: port}},
+		}
+
+		glog.Infof("Adding policy event %+v", policyElement)
+		policyElements = append(policyElements, policyElement)
+	}
+	return policyElements, nil
+}
+
+func convertK8SPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []networkingV1.NetworkPolicyPort,
+	namespaceLabelsMap map[string][]string, targetPgName string, policyName string, ingress bool,
+	policyGroupMap map[string]api.PgInfo) ([]policies.DefaultPolicyElement, error) {
+	var defaultPolicyElements []policies.DefaultPolicyElement
+	for _, peer := range peers {
+		var ok bool
+		var err error
+		var pgInfo api.PgInfo
+		var sourceSelector labels.Selector
+		var tmpPolicyElements []policies.DefaultPolicyElement
+		if peer.NamespaceSelector != nil {
+			//for each of the namespace create a new policy element
+			namespaces, _ := namespaceLabelsMap[peer.NamespaceSelector.String()]
+			for _, namespace := range namespaces {
+				if ingress {
+					tmpPolicyElements, err = createPolicyElements(ports, policyName,
+						policies.Zone, namespace, policies.PolicyGroup, targetPgName)
+				} else {
+					tmpPolicyElements, err = createPolicyElements(ports, policyName,
+						policies.PolicyGroup, targetPgName, policies.Zone, namespace)
+				}
+				if err != nil {
+					glog.Errorf("creating namespace policy elements failed: %v", err)
+					return nil, err
+				}
+				defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
+			}
+			continue
+		}
+		if sourceSelector, err = metav1.LabelSelectorAsSelector(peer.PodSelector); err != nil {
+			return nil, fmt.Errorf("converting label selector to selector failed for %s", peer.PodSelector.String())
+		}
+		if pgInfo, ok = policyGroupMap[sourceSelector.String()]; !ok {
+			return nil, fmt.Errorf("Policy group missing for %s", sourceSelector.String())
+		}
+
+		if ingress {
+			tmpPolicyElements, err = createPolicyElements(ports, policyName,
+				policies.PolicyGroup, pgInfo.PgName, policies.PolicyGroup, targetPgName)
+		} else {
+			tmpPolicyElements, err = createPolicyElements(ports, policyName,
+				policies.PolicyGroup, targetPgName, policies.PolicyGroup, pgInfo.PgName)
+		}
+		if err != nil {
+			glog.Errorf("creating podselector policy elements failed: %v", err)
+			return nil, err
+		}
+		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
+	}
+	return defaultPolicyElements, nil
 }
