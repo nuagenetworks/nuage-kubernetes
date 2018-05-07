@@ -1,0 +1,56 @@
+# This manifest installs Nuage BGP on
+# each worker node in a Kubernetes/OpenShift cluster.
+kind: DaemonSet
+apiVersion: extensions/v1beta1
+metadata:
+  name: nuage-bgp-ds
+  namespace: kube-system
+  labels:
+    k8s-app: nuage-bgp-ds
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nuage-bgp-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: nuage-bgp-ds
+    spec:
+      hostNetwork: true
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+          operator: Exists
+      containers:
+        # This container installs Nuage BGP agent running as a 
+        # container on each worker node
+        - name: nuage-bgp-agent
+          image: nuage/bgp:<nuage-release>
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/run
+              name: vrs-run-dir
+            - mountPath: /var/log
+              name: vrs-log-dir
+            - mountPath: /sys/module
+              name: sys-mod-dir
+              readOnly: true
+            - mountPath: /lib/modules
+              name: lib-mod-dir
+              readOnly: true
+      volumes:
+        - name: vrs-run-dir
+          hostPath:
+            path: /var/run
+        - name: vrs-log-dir
+          hostPath:
+            path: /var/log
+        - name: sys-mod-dir
+          hostPath:
+            path: /sys/module
+        - name: lib-mod-dir
+          hostPath:
+            path: /lib/modules
