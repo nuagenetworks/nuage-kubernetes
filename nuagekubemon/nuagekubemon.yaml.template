@@ -15,6 +15,8 @@ enterpriseName: "K8S-Enterprise"
 domainName: "K8S-Domain"
 #Enable Underlay Support for this domain on VSD. 1 => enabled, 0 => disabled(default)
 underlaySupport: 0
+#Enable Flow logging for this domain on VSD. 1 => enabled, 0 => disabled(default)
+flowLogging: 0
 # VSD generated user certificate file location on master node
 userCertificateFile: '/opt/user.pem'
 # VSD generated user key file location on master node

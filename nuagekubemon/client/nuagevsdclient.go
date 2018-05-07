@@ -257,7 +257,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		return
 	}
 
-	err = nvsdc.CreateIngressAclEntries()
+	err = nvsdc.CreateIngressAclEntries(nkmConfig.FlowLogging)
 	if err != nil {
 		glog.Error(err)
 		return
@@ -269,7 +269,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		return
 	}
 
-	err = nvsdc.CreateEgressAclEntries()
+	err = nvsdc.CreateEgressAclEntries(nkmConfig.FlowLogging)
 	if err != nil {
 		glog.Error(err)
 		return
@@ -523,20 +523,28 @@ func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.V
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
+func (nvsdc *NuageVsdClient) CreateIngressAclEntries(flowLogging string) error {
+
+	// Flag to determine if flow logging should be enabled
+	// on domain level ingress ACL entries
+	enableFlowLogging := false
+	if flowLogging == "1" {
+		enableFlowLogging = true
+	}
 	aclEntry := api.VsdAclEntry{
-		Action:       "FORWARD",
-		DSCP:         "*",
-		Description:  "Allow Intra-Zone Traffic",
-		EntityScope:  "ENTERPRISE",
-		EtherType:    "0x0800",
-		LocationType: "ANY",
-		NetworkType:  "ENDPOINT_ZONE",
-		PolicyState:  "LIVE",
-		Priority:     0,
-		Protocol:     "ANY",
-		Stateful:     true,
-		ExternalID:   nvsdc.externalID,
+		Action:             "FORWARD",
+		DSCP:               "*",
+		Description:        "Allow Intra-Zone Traffic",
+		EntityScope:        "ENTERPRISE",
+		EtherType:          "0x0800",
+		LocationType:       "ANY",
+		NetworkType:        "ENDPOINT_ZONE",
+		PolicyState:        "LIVE",
+		Priority:           0,
+		Protocol:           "ANY",
+		Stateful:           true,
+		FlowLoggingEnabled: enableFlowLogging,
+		ExternalID:         nvsdc.externalID,
 	}
 	_, err := nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
@@ -547,6 +555,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
+	aclEntry.FlowLoggingEnabled = enableFlowLogging
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating ingress acl entry", err)
@@ -567,6 +576,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 		aclEntry.NetworkID = networkMacroID
 		aclEntry.Description = "Drop traffic from domain to the service CIDR"
+		aclEntry.FlowLoggingEnabled = enableFlowLogging
 		_, err = nvsdc.CreateAclEntry(true, &aclEntry)
 		if err != nil {
 			glog.Error("Error when creating ingress acl entry", err)
@@ -575,20 +585,29 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries() error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
+func (nvsdc *NuageVsdClient) CreateEgressAclEntries(flowLogging string) error {
+
+	// Flag to determine if flow logging should be enabled
+	// on domain level egress ACL entries
+	enableFlowLogging := false
+	if flowLogging == "1" {
+		enableFlowLogging = true
+	}
+
 	aclEntry := api.VsdAclEntry{
-		Action:       "FORWARD",
-		DSCP:         "*",
-		Description:  "Allow Intra-Zone Traffic",
-		EntityScope:  "ENTERPRISE",
-		EtherType:    "0x0800",
-		LocationType: "ANY",
-		NetworkType:  "ENDPOINT_ZONE",
-		PolicyState:  "LIVE",
-		Priority:     0,
-		Protocol:     "ANY",
-		Stateful:     true,
-		ExternalID:   nvsdc.externalID,
+		Action:             "FORWARD",
+		DSCP:               "*",
+		Description:        "Allow Intra-Zone Traffic",
+		EntityScope:        "ENTERPRISE",
+		EtherType:          "0x0800",
+		LocationType:       "ANY",
+		NetworkType:        "ENDPOINT_ZONE",
+		PolicyState:        "LIVE",
+		Priority:           0,
+		Protocol:           "ANY",
+		Stateful:           true,
+		FlowLoggingEnabled: enableFlowLogging,
+		ExternalID:         nvsdc.externalID,
 	}
 	_, err := nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
@@ -599,6 +618,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
+	aclEntry.FlowLoggingEnabled = enableFlowLogging
 	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating egress acl entry", err)
@@ -619,6 +639,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries() error {
 		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
 		aclEntry.NetworkID = networkMacroID
 		aclEntry.Description = "Drop traffic from domain to the service CIDR"
+		aclEntry.FlowLoggingEnabled = enableFlowLogging
 		_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 		if err != nil {
 			glog.Error("Error when creating ingress acl entry", err)
