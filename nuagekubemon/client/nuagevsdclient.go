@@ -2242,7 +2242,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string, enableFlowL
 		PolicyState:        "LIVE",
 		Priority:           1,
 		Protocol:           "ANY",
-		Stateful:           false,
+		Stateful:           true,
 		FlowLoggingEnabled: enableFlowLogging,
 		ExternalID:         nvsdc.externalID,
 	}
