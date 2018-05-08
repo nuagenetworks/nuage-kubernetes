@@ -183,8 +183,8 @@ You need to have Git installed on your Ansible host machine. Perform the followi
           enterpriseName: kubernetes
           #Enable Underlay Support for this domain on VSD. 1 => enabled, 0 => disabled(default)
           underlaySupport: 0
-          #Enable Flow Logging for this domain on VSD. 1 => enabled, 0 => disabled(default)
-          flowLogging: 0
+          #Enable Stats Logging for this domain on VSD. 1 => enabled, 0 => disabled(default)
+          statsLogging: 0
           # Name of the domain in which pods will reside
           domainName: kubernetes
           # VSD generated user certificate file location on master node
