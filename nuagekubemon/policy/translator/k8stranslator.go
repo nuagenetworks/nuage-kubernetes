@@ -2,6 +2,8 @@ package translator
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
@@ -10,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
 )
 
 const priorityLabel = "nuage.io/priority"
@@ -78,7 +79,7 @@ func CreateNuagePGPolicy(
 	var defaultPolicyElements []policies.DefaultPolicyElement
 
 	for _, ingressRule := range k8sNetworkPolicySpec.Ingress {
-		tmpPolicyElements, err := convertK8SPolicyElements(ingressRule.From, ingressRule.Ports,
+		tmpPolicyElements, err := convertPeerPolicyElements(ingressRule.From, ingressRule.Ports,
 			namespaceLabelsMap, targetPG.PgName, policyName, true, policyGroupMap)
 		if err != nil {
 			glog.Errorf("converting k8s ingress policy to nuage policy failed: %v", err)
@@ -88,7 +89,7 @@ func CreateNuagePGPolicy(
 	}
 
 	for _, egressRule := range k8sNetworkPolicySpec.Egress {
-		tmpPolicyElements, err := convertK8SPolicyElements(egressRule.To, egressRule.Ports,
+		tmpPolicyElements, err := convertPeerPolicyElements(egressRule.To, egressRule.Ports,
 			namespaceLabelsMap, targetPG.PgName, policyName, false, policyGroupMap)
 		if err != nil {
 			glog.Errorf("converting k8s egress policy to nuage policy failed: %v", err)
@@ -148,7 +149,7 @@ func createPolicyElements(ports []networkingV1.NetworkPolicyPort, policyName str
 	return policyElements, nil
 }
 
-func convertK8SPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []networkingV1.NetworkPolicyPort,
+func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []networkingV1.NetworkPolicyPort,
 	namespaceLabelsMap map[string][]string, targetPgName string, policyName string, ingress bool,
 	policyGroupMap map[string]api.PgInfo) ([]policies.DefaultPolicyElement, error) {
 	var defaultPolicyElements []policies.DefaultPolicyElement

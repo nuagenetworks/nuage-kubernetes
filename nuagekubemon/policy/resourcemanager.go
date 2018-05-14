@@ -20,6 +20,9 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
@@ -29,8 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"strings"
-	"sync"
 )
 
 type CreatePgFunc func(string, string) (string, string, error)
@@ -247,8 +248,8 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	case api.Added:
 		var err error
 		var namespaceLabelsMap map[string][]string
-		if _, ok := rm.policyPgMap[pe.Name]; !ok {
-			rm.policyPgMap[pe.Name] = make(PgMap)
+		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
+			rm.policyPgMap[pe.Namespace+pe.Name] = make(PgMap)
 		}
 		if err = rm.createPgAddVports(&pe.Policy.PodSelector, pe); err != nil {
 			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
@@ -256,15 +257,15 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		}
 		for _, ingressRule := range pe.Policy.Ingress {
 			for _, from := range ingressRule.From {
-				rm.translateK8SPolicy(from, pe, namespaceLabelsMap)
+				rm.translatePeerPolicy(from, pe, namespaceLabelsMap)
 			}
 		}
 		for _, egressRule := range pe.Policy.Egress {
 			for _, to := range egressRule.To {
-				rm.translateK8SPolicy(to, pe, namespaceLabelsMap)
+				rm.translatePeerPolicy(to, pe, namespaceLabelsMap)
 			}
 		}
-		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Name], rm.vsdMeta, namespaceLabelsMap); err == nil {
+		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap); err == nil {
 			if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
 				glog.Errorf("Got a %s error when implementing policy", notImplemented)
 			}
@@ -274,7 +275,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		}
 	case api.Deleted:
 		glog.Infof("Starting deletion of policy %+v", pe.Name)
-		if _, ok := rm.policyPgMap[pe.Name]; !ok {
+		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
 			glog.Info("No policy group map entry found for this policy")
 			return errors.New("No policy group map entry found")
 		} else {
@@ -298,6 +299,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 					}
 				}
 			}
+			delete(rm.policyPgMap, pe.Namespace+pe.Name)
 			enterprise, ok := rm.vsdMeta["enterpriseName"]
 			if !ok {
 				glog.Error("Failed to get enterprise when deleting policy")
@@ -318,19 +320,14 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	return nil
 }
 
-func (rm *ResourceManager) translateK8SPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent,
+func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent,
 	namespaceLabelsMap map[string][]string) error {
-	var err error
-	if peer.NamespaceSelector != nil {
-		if _, ok := namespaceLabelsMap[peer.NamespaceSelector.String()]; ok {
-			return nil
-		}
-		namespaceLabelsMap[peer.NamespaceSelector.String()], err = rm.translateLabeltoNamespaces(peer.NamespaceSelector)
-		if err != nil {
-			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
-			return err
-		}
-		return nil
+	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
+		return fmt.Errorf("Unsupported network policy. Both pod and ns selectors specified")
+	}
+	if err := rm.findNamespacesWithLabel(peer.NamespaceSelector, namespaceLabelsMap); err != nil {
+		glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
+		return err
 	}
 	if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
 		glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
@@ -350,7 +347,7 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 		return nil
 	}
 
-	pgName := pe.Namespace + " pods with label " + selectorLabel.String()
+	pgName := pe.Namespace + " ns pods with label " + selectorLabel.String()
 	podSelectorLabel, err = metav1.LabelSelectorAsSelector(selectorLabel)
 	if err != nil {
 		glog.Errorf("error extracting label failed %v", err)
@@ -358,7 +355,7 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 	}
 	podSelectorStr := podSelectorLabel.String()
 
-	if _, found := rm.policyPgMap[pe.Name][podSelectorStr]; found {
+	if _, found := rm.policyPgMap[pe.Namespace+pe.Name][podSelectorStr]; found {
 		glog.Infof("Policy group for podSelectorStr %s exists already", podSelectorStr)
 		return nil
 	}
@@ -368,7 +365,7 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 		glog.Errorf("creating policy group for %s failed %v", podSelectorStr, err)
 		return err
 	}
-	rm.policyPgMap[pe.Name][podSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: pe.Policy.PodSelector}
+	rm.policyPgMap[pe.Namespace+pe.Name][podSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: pe.Policy.PodSelector}
 
 	//get pods for this selector and add them to pg.
 	if pods, err = rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: podSelectorLabel.String(),
@@ -404,7 +401,7 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	}
 	podSelectorStr := podSelectorLabel.String()
 
-	if pgInfo, found = rm.policyPgMap[pe.Name][podSelectorStr]; !found {
+	if pgInfo, found = rm.policyPgMap[pe.Namespace+pe.Name][podSelectorStr]; !found {
 		glog.Errorf("Policy group for podSelectorStr %s is not found", podSelectorStr)
 		return err
 	}
@@ -417,20 +414,28 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 		glog.Errorf("deleting policy group %s failed %v", pgInfo.PgId, err)
 		return err
 	}
-	delete(rm.policyPgMap[pe.Name], podSelectorStr)
+	delete(rm.policyPgMap[pe.Namespace+pe.Name], podSelectorStr)
 	return nil
 }
 
-func (rm *ResourceManager) translateLabeltoNamespaces(label *metav1.LabelSelector) ([]string, error) {
+func (rm *ResourceManager) findNamespacesWithLabel(label *metav1.LabelSelector,
+	namespaceLabelsMap map[string][]string) error {
 	var err error
 	var namespaces *[]*api.NamespaceEvent
 	namespaceList := []string{}
+	if label == nil {
+		return nil
+	}
+	if _, ok := namespaceLabelsMap[label.String()]; ok {
+		return nil
+	}
 	if namespaces, err = rm.clusterClientCallBacks.FilterNamespaces(&metav1.ListOptions{LabelSelector: label.String()}); err != nil {
-		glog.Errorf("filtering namespaces with label %s failed: %v", label.String(), err)
-		return nil, err
+		glog.Errorf("call to cluster client to filter namespaces failed: %v", label.String(), err)
+		return err
 	}
 	for _, namespace := range *namespaces {
 		namespaceList = append(namespaceList, namespace.Name)
 	}
-	return namespaceList, nil
+	namespaceLabelsMap[label.String()] = namespaceList
+	return nil
 }
