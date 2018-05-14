@@ -326,10 +326,20 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
 		return fmt.Errorf("Unsupported network policy. Both pod and ns selectors specified")
 	}
-	if err := rm.findNamespacesWithLabel(peer.NamespaceSelector, namespaceLabelsMap); err != nil {
-		glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
-		return err
+
+	if peer.NamespaceSelector != nil {
+		nsSelectorLabel, err := metav1.LabelSelectorAsSelector(peer.NamespaceSelector)
+		if err != nil {
+			glog.Errorf("Extracting namespace label failed %v", err)
+			return err
+		}
+
+		if err := rm.findNamespacesWithLabel(nsSelectorLabel, namespaceLabelsMap); err != nil {
+			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
+			return err
+		}
 	}
+
 	if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
 		glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
 		return err
@@ -419,24 +429,24 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	return nil
 }
 
-func (rm *ResourceManager) findNamespacesWithLabel(label *metav1.LabelSelector,
+func (rm *ResourceManager) findNamespacesWithLabel(nslabel labels.Selector,
 	namespaceLabelsMap map[string][]string) error {
 	var err error
 	var namespaces *[]*api.NamespaceEvent
 	namespaceList := []string{}
-	if label == nil {
+	if nslabel == nil {
 		return nil
 	}
-	if _, ok := namespaceLabelsMap[label.String()]; ok {
+	if _, ok := namespaceLabelsMap[nslabel.String()]; ok {
 		return nil
 	}
-	if namespaces, err = rm.clusterClientCallBacks.FilterNamespaces(&metav1.ListOptions{LabelSelector: label.String()}); err != nil {
-		glog.Errorf("call to cluster client to filter namespaces failed: %v", label.String(), err)
+	if namespaces, err = rm.clusterClientCallBacks.FilterNamespaces(&metav1.ListOptions{LabelSelector: nslabel.String()}); err != nil {
+		glog.Errorf("call to cluster client to filter namespaces failed: %v", nslabel.String(), err)
 		return err
 	}
 	for _, namespace := range *namespaces {
 		namespaceList = append(namespaceList, namespace.Name)
 	}
-	namespaceLabelsMap[label.String()] = namespaceList
+	namespaceLabelsMap[nslabel.String()] = namespaceList
 	return nil
 }
