@@ -247,7 +247,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	switch pe.Type {
 	case api.Added:
 		var err error
-		var namespaceLabelsMap map[string][]string
+		namespaceLabelsMap := make(map[string][]string)
 		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
 			rm.policyPgMap[pe.Namespace+pe.Name] = make(PgMap)
 		}
@@ -322,6 +322,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 
 func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent,
 	namespaceLabelsMap map[string][]string) error {
+
 	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
 		return fmt.Errorf("Unsupported network policy. Both pod and ns selectors specified")
 	}
