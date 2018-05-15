@@ -328,13 +328,7 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 	}
 
 	if peer.NamespaceSelector != nil {
-		nsSelectorLabel, err := metav1.LabelSelectorAsSelector(peer.NamespaceSelector)
-		if err != nil {
-			glog.Errorf("Extracting namespace label failed %v", err)
-			return err
-		}
-
-		if err := rm.findNamespacesWithLabel(nsSelectorLabel, namespaceLabelsMap); err != nil {
+		if err := rm.findNamespacesWithLabel(peer, namespaceLabelsMap); err != nil {
 			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
 			return err
 		}
@@ -429,24 +423,32 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	return nil
 }
 
-func (rm *ResourceManager) findNamespacesWithLabel(nslabel labels.Selector,
+func (rm *ResourceManager) findNamespacesWithLabel(peer networkingV1.NetworkPolicyPeer,
 	namespaceLabelsMap map[string][]string) error {
 	var err error
 	var namespaces *[]*api.NamespaceEvent
 	namespaceList := []string{}
-	if nslabel == nil {
+
+	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(peer.NamespaceSelector)
+	if err != nil {
+		glog.Errorf("Extracting namespace label failed %v", err)
+		return err
+	}
+
+	if nsSelectorLabel == nil {
 		return nil
 	}
-	if _, ok := namespaceLabelsMap[nslabel.String()]; ok {
+	if _, ok := namespaceLabelsMap[nsSelectorLabel.String()]; ok {
 		return nil
 	}
-	if namespaces, err = rm.clusterClientCallBacks.FilterNamespaces(&metav1.ListOptions{LabelSelector: nslabel.String()}); err != nil {
-		glog.Errorf("call to cluster client to filter namespaces failed: %v", nslabel.String(), err)
+
+	if namespaces, err = rm.clusterClientCallBacks.FilterNamespaces(&metav1.ListOptions{LabelSelector: nsSelectorLabel.String()}); err != nil {
+		glog.Errorf("call to cluster client to filter namespaces failed: %v", nsSelectorLabel.String(), err)
 		return err
 	}
 	for _, namespace := range *namespaces {
 		namespaceList = append(namespaceList, namespace.Name)
 	}
-	namespaceLabelsMap[nslabel.String()] = namespaceList
+	namespaceLabelsMap[nsSelectorLabel.String()] = namespaceList
 	return nil
 }
