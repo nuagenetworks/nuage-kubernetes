@@ -121,7 +121,7 @@ Setup
    
    For Nuage release 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_. 
 
-   For Nuage release 5.2.2, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html/>`_. 
+   For Nuage release 5.2.2 and above, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html/>`_. 
 
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
 
