@@ -59,7 +59,7 @@ type NuageEtcdClient struct {
 	subnetSize        int
 	subnetIDCache     map[string]string
 	client            *clientv3.Client
-	clusterNetwork    *IPv4Subnet
+	clusterNetwork    *api.IPv4Subnet
 }
 
 //NewNuageEtcdClient creates a new etcd client
@@ -80,7 +80,7 @@ func (nuageetcd *NuageEtcdClient) Init(nkmConfig *config.NuageKubeMonConfig) err
 	if len(nuageetcd.etcdBaseURL) == 0 {
 		nuageetcd.etcdBaseURL = []string{"http://127.0.0.1:2379"}
 	}
-	nuageetcd.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
+	nuageetcd.clusterNetwork, err = api.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
 		return fmt.Errorf("Failure in getting cluster CIDR: %s\n", err)
 	}

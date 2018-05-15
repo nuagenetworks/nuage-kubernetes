@@ -248,6 +248,9 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	case api.Added:
 		var err error
 		namespaceLabelsMap := make(map[string][]string)
+		// IP block map with subnet info as key and mask as value
+		ipBlockCidrMap := make(map[string]string)
+		ipBlockExceptMap := make(map[string]string)
 		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
 			rm.policyPgMap[pe.Namespace+pe.Name] = make(PgMap)
 		}
@@ -257,12 +260,12 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		}
 		for _, ingressRule := range pe.Policy.Ingress {
 			for _, from := range ingressRule.From {
-				rm.translatePeerPolicy(from, pe, namespaceLabelsMap)
+				rm.translatePeerPolicy(from, pe, namespaceLabelsMap, ipBlockCidrMap, ipBlockExceptMap)
 			}
 		}
 		for _, egressRule := range pe.Policy.Egress {
 			for _, to := range egressRule.To {
-				rm.translatePeerPolicy(to, pe, namespaceLabelsMap)
+				rm.translatePeerPolicy(to, pe, namespaceLabelsMap, ipBlockCidrMap, ipBlockExceptMap)
 			}
 		}
 		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap); err == nil {
@@ -320,8 +323,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	return nil
 }
 
-func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent,
-	namespaceLabelsMap map[string][]string) error {
+func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent, namespaceLabelsMap map[string][]string, ipBlockCidrMap map[string]string, ipBlockExceptMap map[string]string) error {
 
 	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
 		return fmt.Errorf("Unsupported network policy. Both pod and ns selectors specified")
@@ -329,6 +331,14 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 
 	if peer.NamespaceSelector != nil {
 		if err := rm.findNamespacesWithLabel(peer, namespaceLabelsMap); err != nil {
+			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
+			return err
+		}
+	}
+
+	// Parsing IP cidr and except block from np yaml content
+	if peer.IPBlock != nil {
+		if err := rm.parseIPBlockCidrAndExcept(peer, ipBlockCidrMap, ipBlockExceptMap); err != nil {
 			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
 			return err
 		}
@@ -450,5 +460,28 @@ func (rm *ResourceManager) findNamespacesWithLabel(peer networkingV1.NetworkPoli
 		namespaceList = append(namespaceList, namespace.Name)
 	}
 	namespaceLabelsMap[nsSelectorLabel.String()] = namespaceList
+	return nil
+}
+
+func (rm *ResourceManager) parseIPBlockCidrAndExcept(peer networkingV1.NetworkPolicyPeer, ipBlockCidrMap map[string]string, ipBlockExceptMap map[string]string) error {
+
+	var networkInfo *api.IPv4Subnet
+	var err error
+	networkInfo, err = api.IPv4SubnetFromString(peer.IPBlock.CIDR)
+	if err != nil {
+		glog.Errorf("Failure in getting cluster CIDR: %s\n", err)
+		return err
+	}
+	ipBlockCidrMap[networkInfo.Address.String()] = networkInfo.Netmask().String()
+
+	for _, exceptCIDR := range peer.IPBlock.Except {
+		networkInfo, err = api.IPv4SubnetFromString(exceptCIDR)
+		if err != nil {
+			glog.Errorf("Failure in getting cluster CIDR for except block: %s\n", err)
+			return err
+		}
+		ipBlockExceptMap[networkInfo.Address.String()] = networkInfo.Netmask().String()
+	}
+
 	return nil
 }
