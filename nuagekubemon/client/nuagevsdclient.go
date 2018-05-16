@@ -49,9 +49,9 @@ type NuageVsdClient struct {
 	namespaces                         map[string]NamespaceData //namespace name -> namespace data
 	services                           map[string]ServiceData   //namespance name -> service data
 	pods                               *PodList                 //<namespace>/<pod-name> -> subnet
-	pool                               IPv4SubnetPool
-	clusterNetwork                     *api.IPv4Subnet //clusterNetworkCIDR used to generate pool
-	serviceNetwork                     *api.IPv4Subnet
+	pool                               subnet.IPv4SubnetPool
+	clusterNetwork                     *subnet.IPv4Subnet //clusterNetworkCIDR used to generate pool
+	serviceNetwork                     *subnet.IPv4Subnet
 	ingressAclTemplateID               string
 	egressAclTemplateID                string
 	ingressAclTemplateZoneAnnotationID string
@@ -85,7 +85,7 @@ type ServiceData struct {
 
 type SubnetNode struct {
 	SubnetID   string
-	Subnet     *api.IPv4Subnet
+	Subnet     *subnet.IPv4Subnet
 	SubnetName string
 	ActiveIPs  int //Number of IP addresses that are accounted for in this subnet.
 	Next       *SubnetNode
@@ -178,11 +178,12 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.setExternalID()
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	nvsdc.clusterNetwork, err = api.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
+	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
+	nvsdc.clusterNetwork, err = subnet.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
 	}
-	nvsdc.serviceNetwork, err = api.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ServiceCIDR)
+	nvsdc.serviceNetwork, err = subnet.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ServiceCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
@@ -1150,7 +1151,7 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *api.IPv4Subnet) (string, error) {
+func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *subnet.IPv4Subnet) (string, error) {
 	result := make([]api.VsdSubnet, 1)
 	payload := api.VsdSubnet{
 		IPType:          "IPV4",
@@ -1789,7 +1790,7 @@ func (nvsdc *NuageVsdClient) audit() {
 }
 
 func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, namespace *NamespaceData) error {
-	var subnet *api.IPv4Subnet
+	var subnet *subnet.IPv4Subnet
 	var err error
 
 	for {
@@ -1908,7 +1909,7 @@ func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
 					continue
 				}
 				//release cidr from local pool
-				subnet, err := api.IPv4SubnetFromString(subnetInfo.CIDR)
+				subnet, err := subnet.IPv4SubnetFromString(subnetInfo.CIDR)
 				if err != nil {
 					glog.Errorf("subnet cidr from string(%s) failed: %v", subnetInfo.CIDR, err)
 					continue
@@ -2082,7 +2083,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			}
 			namespace.ZoneID = zoneID
 			nvsdc.namespaces[nsEvent.Name] = namespace
-			var subnet *api.IPv4Subnet
+			var subnet *subnet.IPv4Subnet
 			// now create a default sunbet for this zone
 			subnetName := nsEvent.Name + "-0"
 			for {
@@ -2191,7 +2192,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				glog.Errorf("deleting zone(%s) in etcd failed: %v", zoneInfo.Name)
 			}
 
-			if ipv4subnet, err := api.IPv4SubnetFromString(etcdSubnet.CIDR); err != nil {
+			if ipv4subnet, err := subnet.IPv4SubnetFromString(etcdSubnet.CIDR); err != nil {
 				glog.Errorf("converting cidr %s to ipv4 subnet failed: %v", etcdSubnet.CIDR, err)
 			} else {
 				err = nvsdc.pool.Free(ipv4subnet)
