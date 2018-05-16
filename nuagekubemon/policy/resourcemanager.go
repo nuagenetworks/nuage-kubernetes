@@ -27,6 +27,7 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy/translator"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -465,9 +466,9 @@ func (rm *ResourceManager) findNamespacesWithLabel(peer networkingV1.NetworkPoli
 
 func (rm *ResourceManager) parseIPBlockCidrAndExcept(peer networkingV1.NetworkPolicyPeer, ipBlockCidrMap map[string]string, ipBlockExceptMap map[string]string) error {
 
-	var networkInfo *api.IPv4Subnet
+	var networkInfo *subnet.IPv4Subnet
 	var err error
-	networkInfo, err = api.IPv4SubnetFromString(peer.IPBlock.CIDR)
+	networkInfo, err = subnet.IPv4SubnetFromString(peer.IPBlock.CIDR)
 	if err != nil {
 		glog.Errorf("Failure in getting cluster CIDR: %s\n", err)
 		return err
@@ -475,7 +476,7 @@ func (rm *ResourceManager) parseIPBlockCidrAndExcept(peer networkingV1.NetworkPo
 	ipBlockCidrMap[networkInfo.Address.String()] = networkInfo.Netmask().String()
 
 	for _, exceptCIDR := range peer.IPBlock.Except {
-		networkInfo, err = api.IPv4SubnetFromString(exceptCIDR)
+		networkInfo, err = subnet.IPv4SubnetFromString(exceptCIDR)
 		if err != nil {
 			glog.Errorf("Failure in getting cluster CIDR for except block: %s\n", err)
 			return err
