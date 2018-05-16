@@ -37,16 +37,20 @@ import (
 
 type CreatePgFunc func(string, string) (string, string, error)
 type DeletePgFunc func(string) error
+type CreateNetworkMacroFunc func(string, *api.VsdNetworkMacro) (string, error)
+type DeleteNetworkMacroFunc func(string) error
 type AddPortsToPgFunc func(string, []string) error
 type DeletePortsFromPgFunc func(string) error
 
 //map of LabelSelector as selector as string => pg corresponding to it.
 
 type CallBacks struct {
-	AddPg             CreatePgFunc
-	DeletePg          DeletePgFunc
-	AddPortsToPg      AddPortsToPgFunc
-	DeletePortsFromPg DeletePortsFromPgFunc
+	AddPg              CreatePgFunc
+	DeletePg           DeletePgFunc
+	AddPortsToPg       AddPortsToPgFunc
+	DeletePortsFromPg  DeletePortsFromPgFunc
+	AddNetworkMacro    CreateNetworkMacroFunc
+	DeleteNetworkMacro DeleteNetworkMacroFunc
 }
 
 //map of label selector for a policy group to policy group info
