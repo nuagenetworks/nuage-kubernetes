@@ -11,6 +11,7 @@ const (
 	Subnet       EndPointType = "SUBNET"
 	PolicyGroup  EndPointType = "POLICYGROUP"
 	EndPointZone EndPointType = "ENDPOINT_ZONE"
+	NetworkMacro EndPointType = "NETWORKMACRO"
 	Invalid      EndPointType = "INVALID"
 )
 

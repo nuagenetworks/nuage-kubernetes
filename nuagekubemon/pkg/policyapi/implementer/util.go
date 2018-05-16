@@ -84,6 +84,12 @@ func (implementer *PolicyImplementer) getACLEntriesFromPolicy(policy *policies.N
 				return ingressACLEnteries, egressACLEnteries, fmt.Errorf("Unable to get the destination PG %+v", err)
 			}
 			toID = toPG.ID
+		case policies.NetworkMacro:
+			toNWMacro, err := implementer.getEnterpriseNetworkMacro(enterprise, defaultPolicyElement.To.Name)
+			if err != nil || toNWMacro == nil {
+				return ingressACLEnteries, egressACLEnteries, fmt.Errorf("Unable to get the destination networkmacro %+v", err)
+			}
+			toID = toNWMacro.ID
 		default:
 			panic(fmt.Sprintf("Not implemented %+v", defaultPolicyElement.To))
 		}
@@ -108,7 +114,12 @@ func (implementer *PolicyImplementer) getACLEntriesFromPolicy(policy *policies.N
 				return ingressACLEnteries, egressACLEnteries, fmt.Errorf("Unabe to get the source PG %+v", err)
 			}
 			fromID = fromPG.ID
-
+		case policies.NetworkMacro:
+			fromNWMacro, err := implementer.getEnterpriseNetworkMacro(enterprise, defaultPolicyElement.From.Name)
+			if err != nil || fromNWMacro == nil {
+				return ingressACLEnteries, egressACLEnteries, fmt.Errorf("Unable to get the source networkmacro %+v", err)
+			}
+			fromID = fromNWMacro.ID
 		default:
 			panic(fmt.Sprintf("Not implemented %+v", defaultPolicyElement.From))
 		}
@@ -191,6 +202,18 @@ func (implementer *PolicyImplementer) CompareEgressACLEntries(acl1 *vspk.EgressA
 		return 0
 	}
 	return -1
+}
+
+func (implementer *PolicyImplementer) getEnterpriseNetworkMacro(enterprise *vspk.Enterprise, macroName string) (*vspk.EnterpriseNetwork, *bambou.Error) {
+	var enterpriseNetwork *vspk.EnterpriseNetwork
+	enterpriseNetworkFetchingInfo := &bambou.FetchingInfo{Filter: "name == \"" + macroName + "\""}
+	enterpriseNetworks, err := enterprise.EnterpriseNetworks(enterpriseNetworkFetchingInfo)
+	if err != nil || len(enterpriseNetworks) == 0 {
+		return nil, err
+	}
+
+	enterpriseNetwork = enterpriseNetworks[0]
+	return enterpriseNetwork, err
 }
 
 func (implementer *PolicyImplementer) getDomain(enterprise *vspk.Enterprise, domainName string) (*vspk.Domain, *bambou.Error) {
