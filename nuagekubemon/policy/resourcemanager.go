@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+type GetEnterpriseFunc func(string) (string, error)
+type GetNetworkMacroFunc func(string, string) (*api.VsdNetworkMacro, error)
 type CreatePgFunc func(string, string) (string, string, error)
 type DeletePgFunc func(string) error
 type CreateNetworkMacroFunc func(string, *api.VsdNetworkMacro) (string, error)
@@ -45,6 +47,8 @@ type DeletePortsFromPgFunc func(string) error
 //map of LabelSelector as selector as string => pg corresponding to it.
 
 type CallBacks struct {
+	GetEnterprise      GetEnterpriseFunc
+	GetNetworkMacro    GetNetworkMacroFunc
 	AddPg              CreatePgFunc
 	DeletePg           DeletePgFunc
 	AddPortsToPg       AddPortsToPgFunc
@@ -59,10 +63,14 @@ type PgMap map[string]api.PgInfo
 //map of policy name to policy group map
 type PolicyPgMap map[string]PgMap
 
+//map of network macros on VSD per zone
+type NWMacroMap map[string]int
+
 type VsdMetaData map[string]string
 
 type ResourceManager struct {
 	policyPgMap            PolicyPgMap
+	nwMacroMap             NWMacroMap
 	callBacks              CallBacks
 	clusterClientCallBacks api.ClusterClientCallBacks
 	vsdMeta                VsdMetaData
@@ -341,10 +349,16 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 		}
 	}
 
-	// Parsing IP cidr and except block from np yaml content
 	if peer.IPBlock != nil {
+		// Parsing IP cidr and except block from np yaml content
 		if err := rm.parseIPBlockCidrAndExcept(peer, ipBlockCidrMap, ipBlockExceptMap); err != nil {
 			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
+			return err
+		}
+
+		// Creating corresponding network macros on VSD for ipBlock cidr per namespace
+		if err := rm.createNetworkMacros(pe, ipBlockCidrMap); err != nil {
+			glog.Errorf("Creating network macros on VSD failed: %v", err)
 			return err
 		}
 	}
@@ -435,6 +449,85 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 		return err
 	}
 	delete(rm.policyPgMap[pe.Namespace+pe.Name], podSelectorStr)
+	return nil
+}
+
+func (rm *ResourceManager) createNetworkMacros(pe *api.NetworkPolicyEvent, ipBlockCidrMap map[string]string) error {
+	var err error
+
+	enterpriseName, ok := rm.vsdMeta["enterpriseName"]
+	if !ok {
+		glog.Error("Failed to get enterprise")
+		return errors.New("Failed to get enterprise when creating network macros")
+	}
+
+	entID, err := rm.callBacks.GetEnterprise(enterpriseName)
+	if err != nil {
+		glog.Errorf("Getting enterprise ID for enterprise %s failed %v", enterpriseName, err)
+		return err
+	}
+
+	for ip, netmask := range ipBlockCidrMap {
+		nwMacroName := pe.Name + "-" + pe.Namespace + "-" + ip + "-" + netmask
+		if _, found := rm.nwMacroMap[nwMacroName]; found {
+			glog.Infof("Network Macro %s exists already", nwMacroName)
+			return nil
+		}
+		rm.nwMacroMap[nwMacroName] = 1
+
+		networkMacro := &api.VsdNetworkMacro{
+			Name:    nwMacroName,
+			IPType:  "IPV4",
+			Address: ip,
+			Netmask: netmask,
+		}
+
+		_, err = rm.callBacks.AddNetworkMacro(entID, networkMacro)
+		if err != nil {
+			glog.Errorf("creating network macro for %s failed %v", nwMacroName, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rm *ResourceManager) deleteNetworkMacros(pe *api.NetworkPolicyEvent, ipBlockCidrMap map[string]string) error {
+	var err error
+
+	enterpriseName, ok := rm.vsdMeta["enterpriseName"]
+	if !ok {
+		glog.Error("Failed to get enterprise")
+		return errors.New("Failed to get enterprise when creating network macros")
+	}
+
+	entID, err := rm.callBacks.GetEnterprise(enterpriseName)
+	if err != nil {
+		glog.Errorf("Getting enterprise ID for enterprise %s failed %v", enterpriseName, err)
+		return err
+	}
+
+	for ip, netmask := range ipBlockCidrMap {
+		nwMacroName := pe.Name + "-" + pe.Namespace + "-" + ip + "-" + netmask
+		if _, found := rm.nwMacroMap[nwMacroName]; found {
+			glog.Infof("Network Macro %s exists already", nwMacroName)
+			return nil
+		}
+		rm.nwMacroMap[nwMacroName] = 1
+
+		networkMacro, err := rm.callBacks.GetNetworkMacro(entID, nwMacroName)
+		if err != nil {
+			glog.Errorf("Getting network macro object for %s failed %v", nwMacroName, err)
+			return err
+		}
+
+		err = rm.callBacks.DeleteNetworkMacro(networkMacro.ID)
+		if err != nil {
+			glog.Errorf("deleting network macro for %s failed %v", nwMacroName, err)
+			return err
+		}
+	}
+
 	return nil
 }
 
