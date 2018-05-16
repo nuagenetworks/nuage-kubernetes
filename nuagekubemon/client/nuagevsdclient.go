@@ -168,10 +168,12 @@ func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile stri
 
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdChannel chan *api.EtcdEvent) {
 	cb := &policy.CallBacks{
-		AddPg:             nvsdc.CreatePolicyGroup,
-		DeletePg:          nvsdc.DeletePolicyGroup,
-		AddPortsToPg:      nvsdc.AddPodsToPolicyGroup,
-		DeletePortsFromPg: nvsdc.RemovePortsFromPolicyGroup,
+		AddPg:              nvsdc.CreatePolicyGroup,
+		DeletePg:           nvsdc.DeletePolicyGroup,
+		AddPortsToPg:       nvsdc.AddPodsToPolicyGroup,
+		DeletePortsFromPg:  nvsdc.RemovePortsFromPolicyGroup,
+		AddNetworkMacro:    nvsdc.CreateNetworkMacro,
+		DeleteNetworkMacro: nvsdc.DeleteNetworkMacro,
 	}
 	var err error
 	nvsdc.version = nkmConfig.NuageVspVersion
