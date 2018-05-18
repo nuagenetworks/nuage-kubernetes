@@ -20,7 +20,8 @@ func CreateNuagePGPolicy(
 	pe *api.NetworkPolicyEvent,
 	policyGroupMap map[string]api.PgInfo,
 	nuageMetadata map[string]string,
-	namespaceLabelsMap map[string][]string) (*policies.NuagePolicy, error) {
+	namespaceLabelsMap map[string][]string,
+	ipBlockCidrMap map[string]int) (*policies.NuagePolicy, error) {
 
 	k8sNetworkPolicySpec := &pe.Policy
 	policyName := pe.Name
@@ -80,21 +81,23 @@ func CreateNuagePGPolicy(
 
 	for _, ingressRule := range k8sNetworkPolicySpec.Ingress {
 		tmpPolicyElements, err := convertPeerPolicyElements(ingressRule.From, ingressRule.Ports,
-			namespaceLabelsMap, targetPG.PgName, policyName, true, policyGroupMap)
+			namespaceLabelsMap, ipBlockCidrMap, targetPG.PgName, policyName, true, policyGroupMap)
 		if err != nil {
 			glog.Errorf("converting k8s ingress policy to nuage policy failed: %v", err)
 			return nil, err
 		}
+
 		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
 	}
 
 	for _, egressRule := range k8sNetworkPolicySpec.Egress {
 		tmpPolicyElements, err := convertPeerPolicyElements(egressRule.To, egressRule.Ports,
-			namespaceLabelsMap, targetPG.PgName, policyName, false, policyGroupMap)
+			namespaceLabelsMap, ipBlockCidrMap, targetPG.PgName, policyName, false, policyGroupMap)
 		if err != nil {
 			glog.Errorf("converting k8s egress policy to nuage policy failed: %v", err)
 			return nil, err
 		}
+
 		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
 	}
 
@@ -150,7 +153,7 @@ func createPolicyElements(ports []networkingV1.NetworkPolicyPort, policyName str
 }
 
 func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []networkingV1.NetworkPolicyPort,
-	namespaceLabelsMap map[string][]string, targetPgName string, policyName string, ingress bool,
+	namespaceLabelsMap map[string][]string, ipBlockCidrMap map[string]int, targetPgName string, policyName string, ingress bool,
 	policyGroupMap map[string]api.PgInfo) ([]policies.DefaultPolicyElement, error) {
 	var defaultPolicyElements []policies.DefaultPolicyElement
 	for _, peer := range peers {
@@ -178,6 +181,26 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 			}
 			continue
 		}
+
+		if peer.IPBlock != nil {
+			//for each of the ip cidr create a new policy element
+			for nwMacroName, _ := range ipBlockCidrMap {
+				if ingress {
+					tmpPolicyElements, err = createPolicyElements(ports, policyName,
+						policies.NetworkMacro, nwMacroName, policies.PolicyGroup, targetPgName)
+				} else {
+					tmpPolicyElements, err = createPolicyElements(ports, policyName,
+						policies.PolicyGroup, targetPgName, policies.NetworkMacro, nwMacroName)
+				}
+				if err != nil {
+					glog.Errorf("creating ip block cidr policy elements failed: %v", err)
+					return nil, err
+				}
+				defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
+			}
+			continue
+		}
+
 		if sourceSelector, err = metav1.LabelSelectorAsSelector(peer.PodSelector); err != nil {
 			return nil, fmt.Errorf("converting label selector to selector failed for %s", peer.PodSelector.String())
 		}

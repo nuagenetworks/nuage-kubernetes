@@ -281,7 +281,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 				rm.translatePeerPolicy(to, pe, namespaceLabelsMap, ipBlockCidrMap, ipBlockExceptMap)
 			}
 		}
-		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap); err == nil {
+		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap, rm.nwMacroMap); err == nil {
 			if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
 				glog.Errorf("Got a %s error when implementing policy", notImplemented)
 			}
