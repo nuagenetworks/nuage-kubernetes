@@ -513,7 +513,6 @@ func (rm *ResourceManager) deleteNetworkMacros(pe *api.NetworkPolicyEvent, ipBlo
 			glog.Infof("Network Macro %s exists already", nwMacroName)
 			return nil
 		}
-		rm.nwMacroMap[nwMacroName] = 1
 
 		networkMacro, err := rm.callBacks.GetNetworkMacro(entID, nwMacroName)
 		if err != nil {
@@ -526,6 +525,8 @@ func (rm *ResourceManager) deleteNetworkMacros(pe *api.NetworkPolicyEvent, ipBlo
 			glog.Errorf("deleting network macro for %s failed %v", nwMacroName, err)
 			return err
 		}
+
+		delete(rm.nwMacroMap, nwMacroName)
 	}
 
 	return nil
