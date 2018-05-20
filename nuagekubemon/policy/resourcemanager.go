@@ -338,8 +338,12 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 
 func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent, namespaceLabelsMap map[string][]string, ipBlockCidrMap map[string]string, ipBlockExceptMap map[string]string) error {
 
-	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
-		return fmt.Errorf("Unsupported network policy. Both pod and ns selectors specified")
+	if peer.NamespaceSelector != nil && peer.PodSelector != nil && peer.IPBlock != nil {
+		return fmt.Errorf("Unsupported network policy. Pod/Namespace selector and IP block cidr specified")
+	}
+
+	if (peer.NamespaceSelector != nil && peer.PodSelector != nil) || (peer.NamespaceSelector != nil && peer.IPBlock != nil) || (peer.IPBlock != nil && peer.PodSelector != nil) {
+		return fmt.Errorf("Unsupported network policy. Make sure to provide either podSelector, namespace Selector or Ip Block in the policy yaml")
 	}
 
 	if peer.NamespaceSelector != nil {

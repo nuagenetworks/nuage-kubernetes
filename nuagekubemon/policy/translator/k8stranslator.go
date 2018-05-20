@@ -101,6 +101,9 @@ func CreateNuagePGPolicy(
 		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
 	}
 
+	glog.Infof("Successfully created monitor network policy objects using specified ingress/egress policies")
+	glog.Infof("Policy elements created %+v ", defaultPolicyElements)
+
 	nuagePolicy.PolicyElements = defaultPolicyElements
 
 	return &nuagePolicy, nil
@@ -121,6 +124,9 @@ func createPolicyElements(ports []networkingV1.NetworkPolicyPort, policyName str
 			Port:     &port,
 		})
 	}
+
+	glog.Infof("Creating Nuage policy objects as per specified Kubernetes ingress/egress policies")
+
 	for idx, targetPort := range ports {
 		if targetPort.Port == nil {
 			return nil, fmt.Errorf("Received nil value for port number for non-nil ports section")
@@ -163,6 +169,7 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 		var sourceSelector labels.Selector
 		var tmpPolicyElements []policies.DefaultPolicyElement
 		if peer.NamespaceSelector != nil {
+			glog.Infof("For each namespace; creating a new Nuage policy element")
 			//for each of the namespace create a new policy element
 			namespaces, _ := namespaceLabelsMap[peer.NamespaceSelector.String()]
 			for _, namespace := range namespaces {
@@ -184,6 +191,7 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 
 		if peer.IPBlock != nil {
 			//for each of the ip cidr create a new policy element
+			glog.Infof("For each IP CIDR block; creating a new Nuage policy element")
 			for nwMacroName, _ := range nwMacroMap {
 				if ingress {
 					tmpPolicyElements, err = createPolicyElements(ports, policyName,
@@ -221,5 +229,8 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 		}
 		defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
 	}
+
+	glog.Infof("Default policy elements created: %v", defaultPolicyElements)
+
 	return defaultPolicyElements, nil
 }
