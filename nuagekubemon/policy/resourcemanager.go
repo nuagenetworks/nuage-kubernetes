@@ -303,7 +303,6 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 				for _, from := range ingressRule.From {
 					if err := rm.destroyPgRemoveVports(from.PodSelector, pe); err != nil {
 						glog.Errorf("removing vports and deleting pg failed: %v, err")
-						return err
 					}
 				}
 			}
@@ -311,7 +310,6 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 				for _, to := range egressRule.To {
 					if err := rm.destroyPgRemoveVports(to.PodSelector, pe); err != nil {
 						glog.Errorf("removing vports and deleting pg failed: %v, err")
-						return err
 					}
 				}
 			}
