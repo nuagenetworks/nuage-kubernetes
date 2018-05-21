@@ -21,7 +21,8 @@ func CreateNuagePGPolicy(
 	policyGroupMap map[string]api.PgInfo,
 	nuageMetadata map[string]string,
 	namespaceLabelsMap map[string][]string,
-	nwMacroMap map[string]int) (*policies.NuagePolicy, error) {
+	nwMacroMap map[string]int,
+	nwMacroExceptMap map[string]int) (*policies.NuagePolicy, error) {
 
 	k8sNetworkPolicySpec := &pe.Policy
 	policyName := pe.Name
@@ -81,7 +82,7 @@ func CreateNuagePGPolicy(
 
 	for _, ingressRule := range k8sNetworkPolicySpec.Ingress {
 		tmpPolicyElements, err := convertPeerPolicyElements(ingressRule.From, ingressRule.Ports,
-			namespaceLabelsMap, nwMacroMap, targetPG.PgName, policyName, true, policyGroupMap)
+			namespaceLabelsMap, nwMacroMap, nwMacroExceptMap, targetPG.PgName, policyName, true, policyGroupMap)
 		if err != nil {
 			glog.Errorf("converting k8s ingress policy to nuage policy failed: %v", err)
 			return nil, err
@@ -92,7 +93,7 @@ func CreateNuagePGPolicy(
 
 	for _, egressRule := range k8sNetworkPolicySpec.Egress {
 		tmpPolicyElements, err := convertPeerPolicyElements(egressRule.To, egressRule.Ports,
-			namespaceLabelsMap, nwMacroMap, targetPG.PgName, policyName, false, policyGroupMap)
+			namespaceLabelsMap, nwMacroMap, nwMacroExceptMap, targetPG.PgName, policyName, false, policyGroupMap)
 		if err != nil {
 			glog.Errorf("converting k8s egress policy to nuage policy failed: %v", err)
 			return nil, err
@@ -111,7 +112,8 @@ func CreateNuagePGPolicy(
 
 func createPolicyElements(ports []networkingV1.NetworkPolicyPort, policyName string,
 	sourceType policies.EndPointType, sourceName string,
-	targetType policies.EndPointType, targetName string) ([]policies.DefaultPolicyElement, error) {
+	targetType policies.EndPointType, targetName string,
+	action string) ([]policies.DefaultPolicyElement, error) {
 
 	var policyElements []policies.DefaultPolicyElement
 	var policyElement policies.DefaultPolicyElement
@@ -155,11 +157,40 @@ func createPolicyElements(ports []networkingV1.NetworkPolicyPort, policyName str
 		glog.Infof("Adding policy event %+v", policyElement)
 		policyElements = append(policyElements, policyElement)
 	}
+
+	if action == "deny" {
+		defaultPolicyElementTCP := policies.DefaultPolicyElement{
+			Name:   fmt.Sprintf("%s-TCP-deny", policyName),
+			From:   policies.EndPoint{Name: sourceName, Type: sourceType},
+			To:     policies.EndPoint{Name: targetName, Type: targetType},
+			Action: policies.Deny,
+			NetworkParameters: policies.NetworkParameters{
+				Protocol:             policies.TCP,
+				DestinationPortRange: policies.PortRange{StartPort: 1, EndPort: 65535},
+			},
+		}
+
+		policyElements = append(policyElements, defaultPolicyElementTCP)
+
+		defaultPolicyElementUDP := policies.DefaultPolicyElement{
+			Name:   fmt.Sprint("%s-UDP-deny", policyName),
+			From:   policies.EndPoint{Name: sourceName, Type: sourceType},
+			To:     policies.EndPoint{Name: targetName, Type: targetType},
+			Action: policies.Deny,
+			NetworkParameters: policies.NetworkParameters{
+				Protocol:             policies.UDP,
+				DestinationPortRange: policies.PortRange{StartPort: 1, EndPort: 65535},
+			},
+		}
+
+		policyElements = append(policyElements, defaultPolicyElementUDP)
+	}
+
 	return policyElements, nil
 }
 
 func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []networkingV1.NetworkPolicyPort,
-	namespaceLabelsMap map[string][]string, nwMacroMap map[string]int, targetPgName string, policyName string, ingress bool,
+	namespaceLabelsMap map[string][]string, nwMacroMap map[string]int, nwMacroExceptMap map[string]int, targetPgName string, policyName string, ingress bool,
 	policyGroupMap map[string]api.PgInfo) ([]policies.DefaultPolicyElement, error) {
 	var defaultPolicyElements []policies.DefaultPolicyElement
 	for _, peer := range peers {
@@ -181,10 +212,10 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 			for _, namespace := range namespaces {
 				if ingress {
 					tmpPolicyElements, err = createPolicyElements(ports, policyName,
-						policies.Zone, namespace, policies.PolicyGroup, targetPgName)
+						policies.Zone, namespace, policies.PolicyGroup, targetPgName, "allow")
 				} else {
 					tmpPolicyElements, err = createPolicyElements(ports, policyName,
-						policies.PolicyGroup, targetPgName, policies.Zone, namespace)
+						policies.PolicyGroup, targetPgName, policies.Zone, namespace, "allow")
 				}
 				if err != nil {
 					glog.Errorf("creating namespace policy elements failed: %v", err)
@@ -201,10 +232,30 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 			for nwMacroName, _ := range nwMacroMap {
 				if ingress {
 					tmpPolicyElements, err = createPolicyElements(ports, policyName,
-						policies.NetworkMacro, nwMacroName, policies.PolicyGroup, targetPgName)
+						policies.NetworkMacro, nwMacroName, policies.PolicyGroup, targetPgName, "allow")
 				} else {
 					tmpPolicyElements, err = createPolicyElements(ports, policyName,
-						policies.PolicyGroup, targetPgName, policies.NetworkMacro, nwMacroName)
+						policies.PolicyGroup, targetPgName, policies.NetworkMacro, nwMacroName, "allow")
+				}
+				if err != nil {
+					glog.Errorf("creating ip block cidr policy elements failed: %v", err)
+					return nil, err
+				}
+				defaultPolicyElements = append(defaultPolicyElements, tmpPolicyElements...)
+			}
+			continue
+		}
+
+		if peer.IPBlock != nil {
+			//for each of the ip except cidr create a new deny policy element
+			glog.Infof("For each IP CIDR except block; creating a new Nuage policy element")
+			for nwMacroName, _ := range nwMacroExceptMap {
+				if ingress {
+					tmpPolicyElements, err = createPolicyElements(ports, policyName,
+						policies.NetworkMacro, nwMacroName, policies.PolicyGroup, targetPgName, "deny")
+				} else {
+					tmpPolicyElements, err = createPolicyElements(ports, policyName,
+						policies.PolicyGroup, targetPgName, policies.NetworkMacro, nwMacroName, "deny")
 				}
 				if err != nil {
 					glog.Errorf("creating ip block cidr policy elements failed: %v", err)
@@ -224,10 +275,10 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 
 		if ingress {
 			tmpPolicyElements, err = createPolicyElements(ports, policyName,
-				policies.PolicyGroup, pgInfo.PgName, policies.PolicyGroup, targetPgName)
+				policies.PolicyGroup, pgInfo.PgName, policies.PolicyGroup, targetPgName, "allow")
 		} else {
 			tmpPolicyElements, err = createPolicyElements(ports, policyName,
-				policies.PolicyGroup, targetPgName, policies.PolicyGroup, pgInfo.PgName)
+				policies.PolicyGroup, targetPgName, policies.PolicyGroup, pgInfo.PgName, "allow")
 		}
 		if err != nil {
 			glog.Errorf("creating podselector policy elements failed: %v", err)
