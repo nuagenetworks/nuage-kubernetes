@@ -171,7 +171,13 @@ func convertPeerPolicyElements(peers []networkingV1.NetworkPolicyPeer, ports []n
 		if peer.NamespaceSelector != nil {
 			glog.Infof("For each namespace; creating a new Nuage policy element")
 			//for each of the namespace create a new policy element
-			namespaces, _ := namespaceLabelsMap[peer.NamespaceSelector.String()]
+			nsSelectorLabel, err := metav1.LabelSelectorAsSelector(peer.NamespaceSelector)
+			if err != nil {
+				glog.Errorf("Extracting namespace label failed %v", err)
+				return nil, err
+			}
+
+			namespaces, _ := namespaceLabelsMap[nsSelectorLabel.String()]
 			for _, namespace := range namespaces {
 				if ingress {
 					tmpPolicyElements, err = createPolicyElements(ports, policyName,
