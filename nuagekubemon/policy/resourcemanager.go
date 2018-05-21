@@ -66,11 +66,15 @@ type PolicyPgMap map[string]PgMap
 //map of network macros on VSD per zone
 type NWMacroMap map[string]int
 
+//map of network macros for except CIDR on VSD per zone
+type NWMacroExceptMap map[string]int
+
 type VsdMetaData map[string]string
 
 type ResourceManager struct {
 	policyPgMap            PolicyPgMap
 	nwMacroMap             NWMacroMap
+	nwMacroExceptMap       NWMacroExceptMap
 	callBacks              CallBacks
 	clusterClientCallBacks api.ClusterClientCallBacks
 	vsdMeta                VsdMetaData
@@ -281,7 +285,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 				rm.translatePeerPolicy(to, pe, namespaceLabelsMap, ipBlockCidrMap, ipBlockExceptMap)
 			}
 		}
-		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap, rm.nwMacroMap); err == nil {
+		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap, rm.nwMacroMap, rm.nwMacroExceptMap); err == nil {
 			if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
 				glog.Errorf("Got a %s error when implementing policy", notImplemented)
 			}
@@ -359,7 +363,13 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 		}
 
 		// Creating corresponding network macros on VSD for ipBlock cidr per namespace
-		if err := rm.createNetworkMacros(pe, ipBlockCidrMap); err != nil {
+		if err := rm.createNetworkMacros(pe, ipBlockCidrMap, false); err != nil {
+			glog.Errorf("Creating network macros on VSD failed: %v", err)
+			return err
+		}
+
+		// Creating corresponding network macros on VSD for ipBlock except cidr per namespace
+		if err := rm.createNetworkMacros(pe, ipBlockExceptMap, true); err != nil {
 			glog.Errorf("Creating network macros on VSD failed: %v", err)
 			return err
 		}
@@ -454,7 +464,7 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	return nil
 }
 
-func (rm *ResourceManager) createNetworkMacros(pe *api.NetworkPolicyEvent, ipBlockCidrMap map[string]string) error {
+func (rm *ResourceManager) createNetworkMacros(pe *api.NetworkPolicyEvent, cidrMap map[string]string, except bool) error {
 	var err error
 
 	enterpriseName, ok := rm.vsdMeta["enterpriseName"]
@@ -469,13 +479,18 @@ func (rm *ResourceManager) createNetworkMacros(pe *api.NetworkPolicyEvent, ipBlo
 		return err
 	}
 
-	for ip, netmask := range ipBlockCidrMap {
+	for ip, netmask := range cidrMap {
 		nwMacroName := pe.Name + "-" + pe.Namespace + "-" + ip + "-" + netmask
 		if _, found := rm.nwMacroMap[nwMacroName]; found {
 			glog.Infof("Network Macro %s exists already", nwMacroName)
 			return nil
 		}
-		rm.nwMacroMap[nwMacroName] = 1
+
+		if except == true {
+			rm.nwMacroExceptMap[nwMacroName] = 1
+		} else {
+			rm.nwMacroMap[nwMacroName] = 1
+		}
 
 		networkMacro := &api.VsdNetworkMacro{
 			Name:    nwMacroName,
