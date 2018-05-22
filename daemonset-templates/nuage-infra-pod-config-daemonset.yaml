@@ -21,7 +21,7 @@ kind: DaemonSet
 apiVersion: extensions/v1beta1
 metadata:
   name: nuage-infra-ds
-  namespace: kube-system
+  namespace: default
   labels:
     k8s-app: nuage-infra-ds
 spec:
@@ -35,6 +35,7 @@ spec:
       labels:
         k8s-app: nuage-infra-ds
     spec:
+      hostNetwork: true
       tolerations:
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
@@ -50,7 +51,33 @@ spec:
           volumeMounts:
             - mountPath: /var/log
               name: log-dir
+            - mountPath: /var/run
+              name: openvswitch-dir
+          env:
+            - name: VSP_ENTERPRISE
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-infra-config
+                  key: enterprise_name
+            - name: VSP_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-infra-config
+                  key: domain_name
+            - name: VSP_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-infra-config
+                  key: vsd_user
+            - name: POD_NETWORK_CIDR
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-infra-config
+                  key: pod_network_cidr
       volumes:
         - name: log-dir
           hostPath:
             path: /var/log
+        - name: openvswitch-dir
+          hostPath:
+            path: /var/run
