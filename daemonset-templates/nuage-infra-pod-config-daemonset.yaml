@@ -1,3 +1,20 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nuage-infra-test-config
+  namespace: default
+data:
+  # Name of the enterprise in which pods will reside
+  enterprise_name: kubernetes
+  # Name of the domain in which pods will reside
+  domain_name: kubernetes
+  # Name of the VSD user in admin group
+  vsd_user: k8s-admin
+  # Name of the VSD user in admin group
+  pod_network_cidr: 70.70.0.0/16
+
+---
+
 # This manifest installs Nuage Infra pod on
 # each worker node in a Kubernetes cluster.
 kind: DaemonSet

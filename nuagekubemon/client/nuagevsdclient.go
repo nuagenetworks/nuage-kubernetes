@@ -2269,6 +2269,11 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string, enableStats
 		glog.Error("Error when creating the ACL rules for the default zone")
 		return err
 	}
+	//default to any ACL rule
+	aclEntry.LocationID = ""
+	aclEntry.LocationType = "ANY"
+	aclEntry.NetworkType = "ZONE"
+	aclEntry.NetworkID = zoneID
 	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the default zone")
