@@ -20,20 +20,20 @@ data:
 kind: DaemonSet
 apiVersion: extensions/v1beta1
 metadata:
-  name: nuage-infra-ds
+  name: nuage-infra-test-ds
   namespace: default
   labels:
-    k8s-app: nuage-infra-ds
+    k8s-app: nuage-infra-test-ds
 spec:
   selector:
     matchLabels:
-      k8s-app: nuage-infra-ds
+      k8s-app: nuage-infra-test-ds
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        k8s-app: nuage-infra-ds
+        k8s-app: nuage-infra-test-ds
     spec:
       hostNetwork: true
       tolerations:
@@ -43,9 +43,9 @@ spec:
       containers:
         # This container spawns a Nuage Infra pod
         # on each worker node
-        - name: install-nuage-infra
-          image: nuage/infra:<nuage-release>
-          command: ["/install-nuage-infra-pod.sh"]
+        - name: install-nuage-infra-test
+          image: nuage-infra-test:1.0
+          command: ["/usr/bin/install-nuage-infra-pod.sh"]
           securityContext:
             privileged: true
           volumeMounts:
@@ -57,22 +57,22 @@ spec:
             - name: VSP_ENTERPRISE
               valueFrom:
                 configMapKeyRef:
-                  name: nuage-infra-config
+                  name: nuage-infra-test-config
                   key: enterprise_name
             - name: VSP_DOMAIN
               valueFrom:
                 configMapKeyRef:
-                  name: nuage-infra-config
+                  name: nuage-infra-test-config
                   key: domain_name
             - name: VSP_USER
               valueFrom:
                 configMapKeyRef:
-                  name: nuage-infra-config
+                  name: nuage-infra-test-config
                   key: vsd_user
             - name: POD_NETWORK_CIDR
               valueFrom:
                 configMapKeyRef:
-                  name: nuage-infra-config
+                  name: nuage-infra-test-config
                   key: pod_network_cidr
       volumes:
         - name: log-dir
