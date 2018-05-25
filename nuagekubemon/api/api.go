@@ -224,7 +224,6 @@ type VsdSubnet struct {
 	Address         string `json:"address"`
 	Netmask         string `json:"netmask"`
 	Description     string `json:"description"`
-	PATEnabled      string
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
 	ExternalID      string `json:"externalID"`
 }
