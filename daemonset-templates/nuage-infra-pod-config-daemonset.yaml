@@ -74,6 +74,10 @@ spec:
                 configMapKeyRef:
                   name: nuage-infra-test-config
                   key: pod_network_cidr
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/usr/bin/install-nuage-infra-pod.sh", "-c"]
       volumes:
         - name: log-dir
           hostPath:

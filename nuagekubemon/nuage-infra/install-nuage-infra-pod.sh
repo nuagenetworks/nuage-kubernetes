@@ -1,11 +1,23 @@
-#!/bin/ sh
+#!/bin/sh
 
+cleanup=false
 route_table_id="501"
 veth1_name="nuage-infra-1"
 veth2_name="nuage-infra-2"
 router_pod_traffic_mark="0xabc/0xabc"
 vport_resolve_config_file="/tmp/config.yaml"
 vport_resolve_bin_file="/usr/bin/vrs-resolve-cport"
+
+while [ "$1" != "" ] do
+    case $1 in
+        -c | --cleanup )   shift
+                           cleanup=true
+                           ;;
+         * )            echo "invalid args $1 specified"
+                        exit
+    esac
+    shift
+done
 
 if [ X"${POD_NETWORK_CIDR}" == X ]
 then
@@ -31,6 +43,12 @@ then
   exit
 fi
 
+args=${vport_resolve_config_file}
+if [ ${cleanup} ]
+then
+    args="${args} -cleanup"
+fi
+
 cat > ${vport_resolve_config_file} << EOF
 ---
 name: "nuage-infra"
@@ -47,7 +65,20 @@ interface:
     veth2: ${veth2_name}
 EOF
 
-gateway=`${vport_resolve_bin_file} --config=${vport_resolve_config_file}`
+gateway=`${vport_resolve_bin_file} ${args}`
+
+if [ ${cleanup} ]
+then
+    ####################################################################
+    ### Delete route table entries to redirect traffic through
+    ####################################################################
+    /usr/sbin/iptables -t mangle -D OUTPUT -d ${POD_NETWORK_CIDR} -j MARK --set-mark ${router_pod_traffic_mark} >& /dev/null
+    /sbin/ip route del table ${route_table_id} ${gateway} dev ${veth2_name} >& /dev/null
+    /sbin/ip route del table ${route_table_id} ${POD_NETWORK_CIDR} via ${gateway} dev ${veth2_name} >& /dev/null
+    /sbin/ip rule del fwmark ${router_pod_traffic_mark} table ${route_table_id} >& /dev/null
+    /usr/sbin/iptables -t nat -D POSTROUTING -o ${veth2_name} -j MASQUERADE >& /dev/null
+    exit
+fi
 
 if [ X"${gateway}" == X ]
 then
