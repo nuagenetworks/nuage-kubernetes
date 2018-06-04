@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-cleanup=false
+cleanup="false"
 route_table_id="501"
 veth1_name="nuage-infra-1"
 veth2_name="nuage-infra-2"
@@ -8,10 +8,10 @@ router_pod_traffic_mark="0xabc/0xabc"
 vport_resolve_config_file="/tmp/config.yaml"
 vport_resolve_bin_file="/usr/bin/vrs-resolve-cport"
 
-while [ "$1" != "" ] do
+while [ "$1" != "" ]; do
     case $1 in
         -c | --cleanup )   shift
-                           cleanup=true
+                           cleanup="true"
                            ;;
          * )            echo "invalid args $1 specified"
                         exit
@@ -44,7 +44,7 @@ then
 fi
 
 args=${vport_resolve_config_file}
-if [ ${cleanup} ]
+if [ ${cleanup} == "true" ]
 then
     args="${args} -cleanup"
 fi
@@ -67,7 +67,7 @@ EOF
 
 gateway=`${vport_resolve_bin_file} ${args}`
 
-if [ ${cleanup} ]
+if [ ${cleanup} == "true" ]
 then
     ####################################################################
     ### Delete route table entries to redirect traffic through
