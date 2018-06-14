@@ -19,6 +19,10 @@ data:
       enterpriseName: kubernetes
       # Name of the domain in which pods will reside
       domainName: kubernetes
+      #Enable Underlay Support for this domain on VSD. 1 => enabled, 0 => disabled(default)
+      underlaySupport: 0
+      #Enable Stats logging for this domain on VSD. 1 => enabled, 0 => disabled(default)
+      statsLogging: 0
       # VSD generated user certificate file location on master node
       userCertificateFile: /etc/kubernetes/pki/k8s-admin.pem
       # VSD generated user key file location on master node

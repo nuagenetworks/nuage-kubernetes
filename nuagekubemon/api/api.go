@@ -20,6 +20,7 @@ package api
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,9 +41,9 @@ const (
 )
 
 const (
-	PATEnabled   = "ENABLED"
-	PATInherited = "INHERITED"
-	PATDisabled  = "DISABLED"
+	UnderlaySupportEnabled   = "ENABLED"
+	UnderlaySupportInherited = "INHERITED"
+	UnderlaySupportDisabled  = "DISABLED"
 )
 
 const (
@@ -223,7 +224,6 @@ type VsdSubnet struct {
 	Address         string `json:"address"`
 	Netmask         string `json:"netmask"`
 	Description     string `json:"description"`
-	PATEnabled      string
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
 	ExternalID      string `json:"externalID"`
 }
@@ -242,7 +242,6 @@ type VsdDomain struct {
 	Name            string `json:"name"`
 	Description     string `json:"description"`
 	TemplateID      string `json:"templateID"`
-	PATEnabled      string
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
 	ExternalID      string `json:"externalID"`
 }
@@ -270,21 +269,22 @@ type VsdAclTemplate struct {
 }
 
 type VsdAclEntry struct {
-	DSCP         string `json:"DSCP,omitempty"`
-	ID           string
-	Action       string `json:"action"`
-	Description  string `json:"description"`
-	EntityScope  string `json:"entityScope"`
-	EtherType    string `json:"etherType"`
-	LocationID   string `json:"locationID"`
-	LocationType string `json:"locationType"`
-	NetworkID    string `json:"networkID"`
-	NetworkType  string `json:"networkType"`
-	PolicyState  string `json:"policyState"`
-	Priority     int    `json:"priority"`
-	Protocol     string `json:"protocol"`
-	Reflexive    bool   `json:"reflexive"`
-	ExternalID   string `json:"externalID"`
+	DSCP                string `json:"DSCP,omitempty"`
+	ID                  string
+	Action              string `json:"action"`
+	Description         string `json:"description"`
+	EntityScope         string `json:"entityScope"`
+	EtherType           string `json:"etherType"`
+	LocationID          string `json:"locationID"`
+	LocationType        string `json:"locationType"`
+	NetworkID           string `json:"networkID"`
+	NetworkType         string `json:"networkType"`
+	PolicyState         string `json:"policyState"`
+	Priority            int    `json:"priority"`
+	Protocol            string `json:"protocol"`
+	Stateful            bool   `json:"stateful"`
+	ExternalID          string `json:"externalID"`
+	StatsLoggingEnabled bool   `json:"statsLoggingEnabled"`
 }
 
 const MAX_VSD_ACL_PRIORITY = 1000000000 //the maximum priority allowed in VSD is 1 billion.
@@ -464,11 +464,11 @@ func (lhs *VsdAclEntry) String() string {
 		`Priority: %v, Action: %v,\n`+
 		`DSCP: %v, EntityScope: %v, EtherType: %v, Protocol: %v\n`+
 		`LocationID: %v, LocationType: %v\n`+
-		`NetworkID: %v, NetworkType: %v, PolicyState: %v, Reflexive %v`,
+		`NetworkID: %v, NetworkType: %v, PolicyState: %v, Stateful %v`,
 		lhs.ID, lhs.Description, lhs.Priority, lhs.Action, lhs.DSCP,
 		lhs.EntityScope, lhs.EtherType, lhs.Protocol, lhs.LocationID,
 		lhs.LocationType, lhs.NetworkID, lhs.NetworkType, lhs.PolicyState,
-		lhs.Reflexive)
+		lhs.Stateful)
 }
 
 func (svc *ServiceEvent) String() string {
