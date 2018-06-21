@@ -36,6 +36,7 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/sleepy"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy"
 	"github.com/nuagenetworks/vspk-go/vspk"
 )
