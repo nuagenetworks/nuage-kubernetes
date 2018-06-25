@@ -10,8 +10,10 @@ data:
   domain_name: kubernetes
   # Name of the VSD user in admin group
   vsd_user: k8s-admin
-  # Name of the VSD user in admin group
+  # pod network cidr that will be used
   pod_network_cidr: 70.70.0.0/16
+  # vrs personality type
+  personality: VRS
 
 ---
 
@@ -74,6 +76,11 @@ spec:
                 configMapKeyRef:
                   name: nuage-infra-test-config
                   key: pod_network_cidr
+            - name: PERSONALITY
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-infra-test-config
+                  key: personality
           lifecycle:
             preStop:
               exec:

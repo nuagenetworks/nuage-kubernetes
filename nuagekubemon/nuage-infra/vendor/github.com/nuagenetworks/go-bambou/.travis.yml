@@ -1,0 +1,21 @@
+language: go
+
+env:
+  global:
+    - secure: "c9VBTcc7g74b4Df4gSLo5eBPvfLB8aXy1YQzi8APYSuma7Fsh+dT1y/9Tf09iUszWmHCSCJvhv2ZxTaydOqTaLx5rO0o8OHK1XNo2sgsu4Q65tZr8+K/HB5KCDaFBNOZ5zveERyKQqaI2r2zyeRK/Fr1UYhqu7thio7S+lbK53aFU9jrx/zNge37SiBxMjQ+qX9+mWI3xUeyYktrHDsQ3U497958C1JGM47yXbpsQJk4sWbcJjm3b2bqINld/nIb28nHOckwQpJa8psZgx6V6mzoKl7hBBJNLwvlaG44RFzjg998zWC7n/cCSjnPbGzToOhphHZmakN8G7l43WgenOM1R9c8yvIF0mBsoNHEyEyaqb+vr9ZdEL7e0WWLibgFWTjMGA/3yQRk2/tpC6OL/UrP4FmBTFBj55uOQDkHaeQzXlvUQs19rgaG1sd98eIcllS9xKWuBu+TLghr8lR+rRaWRR7f9/70cLsAddp7LJex3Yozszpgg7gDPs826OlIE/plS/FOgxd8LP98sXaHbkmX6MG/+W7KjJFLwAGsb7d586H97kxfYPylKauNaYh1G/vDmRR3divM0VI3m3nE6MLVTWYjValiPS6bWd7R7LW4dKXUDbo9dsHnmJusQL6zilSj7KmxhZYQfePAtrSfdLq2t60tAWOssbHfgPXvLyw="
+go:
+ - 1.6
+ - 1.7
+ - 1.8
+ - 1.9
+ - tip
+
+install:
+    - go get -v github.com/smartystreets/goconvey/convey
+    - go get golang.org/x/tools/cmd/cover
+    - go get github.com/mattn/goveralls
+    - go get ./bambou
+
+script:
+    - go test -v -covermode=count -coverprofile=coverage.out ./bambou
+    - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN; exit 0

@@ -1,0 +1,58 @@
+{
+	"ImportPath": "github.com/nuagenetworks/libvrsdk",
+	"GoVersion": "go1.6",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/ccding/go-config-reader/config",
+			"Rev": "8b6c2b50197f20da3b1c5944c274c173634dc056"
+		},
+		{
+			"ImportPath": "github.com/ccding/go-logging/logging",
+			"Comment": "v0.2-14-g0ce5ba6",
+			"Rev": "0ce5ba613fdd5c3b76310c891ecc6fe0d63af439"
+		},
+		{
+			"ImportPath": "github.com/cenk/hub",
+			"Comment": "v1.0.0-17-gb864404",
+			"Rev": "b864404b5f990410d56858a1b0a6fac23a85443f"
+		},
+		{
+			"ImportPath": "github.com/cenk/rpc2",
+			"Rev": "7ab76d2e88c77ca1a715756036d8264b2886acd2"
+		},
+		{
+			"ImportPath": "github.com/docker/distribution/uuid",
+			"Comment": "docs-v2.4.1-2016-06-28-130-g99cb7c0",
+			"Rev": "99cb7c0946d2f5a38015443e515dc916295064d7"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+		},
+		{
+			"ImportPath": "github.com/kardianos/osext",
+			"Rev": "8fef92e41e22a70e700a96b29f066cda30ea24ef"
+		},
+		{
+			"ImportPath": "github.com/nuagenetworks/go-bambou/bambou",
+			"Rev": "9d9e0a211749c681fa775a4fe119239cc90b459d"
+		},
+		{
+			"ImportPath": "github.com/nuagenetworks/vspk-go/vspk",
+			"Comment": "r4.0.1-7-g821dceb",
+			"Rev": "821dceb6939eb080f39a4fc3b810a02325e4e20b"
+		},
+		{
+			"ImportPath": "github.com/socketplane/libovsdb",
+			"Comment": "v0.1-11-g5113f8f",
+			"Rev": "5113f8fb4d9d374417ab4ce35424fbea1aad7272"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/ssh",
+			"Rev": "c84e1f8e3a7e322d497cd16c0e8a13c7e127baf3"
+		}
+	]
+}

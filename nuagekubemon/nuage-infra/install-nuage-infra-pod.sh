@@ -1,23 +1,42 @@
 #!/bin/bash
 
+### Go to idle state.
+function go_to_idle_state () {
+    echo "Nuage infra pod going to idle state..."
+    while :
+    do
+        sleep 10;
+    done
+}
+
 cleanup="false"
 route_table_id="501"
 veth1_name="nuage-infra-1"
 veth2_name="nuage-infra-2"
 router_pod_traffic_mark="0xabc/0xabc"
 vport_resolve_config_file="/tmp/config.yaml"
-vport_resolve_bin_file="/usr/bin/vrs-resolve-cport"
+vport_resolve_bin_file="/usr/bin/nuage-infra"
 
 while [ "$1" != "" ]; do
     case $1 in
-        -c | --cleanup )   shift
-                           cleanup="true"
-                           ;;
-         * )            echo "invalid args $1 specified"
-                        exit
+        -c | --cleanup )
+            cleanup="true"
+            ;;
+         * )
+            echo "invalid args $1 specified"
+            exit
     esac
     shift
 done
+
+if [ "${PERSONALITY}" != "EVDF" || "${PERSONALITY}" != "evdf" ]
+then
+    if [ ${cleanup} == "true" ]
+    then
+        exit
+    fi
+    go_to_idle_state
+fi
 
 if [ X"${POD_NETWORK_CIDR}" == X ]
 then
@@ -109,11 +128,4 @@ fi
 /usr/sbin/sysctl net.ipv4.conf.${veth1_name}.rp_filter=0 >& /dev/null
 /usr/sbin/sysctl net.ipv4.conf.${veth2_name}.rp_filter=0 >& /dev/null
 
-
-# This prevents Kubernetes from restarting the Nuage infra 
-# pod repeatedly.
-should_sleep=${SLEEP:-"true"}
-echo "Spawning Nuage Infra Pod.  Sleep=$should_sleep"
-while [ "$should_sleep" == "true"  ]; do
-	sleep 10;
-done
+go_to_idle_state
