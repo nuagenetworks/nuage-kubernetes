@@ -12,6 +12,10 @@ type VSDCredentials struct {
 	URL          string
 	UserCertFile string
 	UserKeyFile  string
+	/* only used for unit testing*/
+	Username     string
+	Password     string
+	Organization string
 }
 
 // PolicyImplementer is used to implement a Nuage Policy
@@ -35,12 +39,16 @@ func (implementer *PolicyImplementer) Init(vsdCredentials *VSDCredentials) error
 		implementer.vsdSession.Reset()
 	}
 
-	cert, err := tls.LoadX509KeyPair(vsdCredentials.UserCertFile, vsdCredentials.UserKeyFile)
-	if err != nil {
-		return fmt.Errorf("Loading TLS certificate and private key failed")
+	if vsdCredentials.Username != "" && vsdCredentials.Password != "" {
+		/* only to be used in unit testing mode */
+		implementer.vsdSession, implementer.vsdRoot = vspk.NewSession(vsdCredentials.Username, vsdCredentials.Password, vsdCredentials.Organization, vsdCredentials.URL)
+	} else {
+		cert, err := tls.LoadX509KeyPair(vsdCredentials.UserCertFile, vsdCredentials.UserKeyFile)
+		if err != nil {
+			return fmt.Errorf("Loading TLS certificate and private key failed")
+		}
+		implementer.vsdSession, implementer.vsdRoot = vspk.NewX509Session(&cert, vsdCredentials.URL)
 	}
-	implementer.vsdSession, implementer.vsdRoot = vspk.NewX509Session(&cert, vsdCredentials.URL)
-
 	if implementer.vsdRoot == nil || implementer.vsdSession == nil {
 		return fmt.Errorf("Unable to establish session to VSD")
 	}
