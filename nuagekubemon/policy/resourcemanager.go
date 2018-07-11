@@ -123,6 +123,9 @@ func (rm *ResourceManager) InitPolicyImplementer() error {
 		URL:          url,
 		UserCertFile: usercert,
 		UserKeyFile:  userkey,
+		Username:     rm.vsdMeta["username"],
+		Password:     rm.vsdMeta["password"],
+		Organization: rm.vsdMeta["org"],
 	}
 
 	return rm.implementer.Init(&vsdCredentials)

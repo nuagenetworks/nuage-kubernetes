@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"fmt"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/vspk-go/vspk"
 	networkingV1 "k8s.io/api/networking/v1"
@@ -19,6 +18,10 @@ const (
 	DOMAIN     = "test-domain"
 	ZONE1      = "zone1"
 	ZONE2      = "zone2"
+	URL        = "https://127.0.0.1:8443"
+	USERNAME   = "*****"
+	PASSWORD   = "*****"
+	ORG        = "*****"
 )
 
 type objIds struct {
@@ -29,45 +32,77 @@ type objIds struct {
 	zone2ID          string
 }
 
+type testingT struct {
+	t  *testing.T
+	rm *ResourceManager
+}
+
 var ids objIds
 
-func (t *testing.T) init() {
-	t.createEnterprise()
-	t.createDomainTemplate()
-	t.createDomain()
-	t.createZones()
-	NewResourceManager()
+func (tt *testingT) init() {
+
+	vsdCallBacks := &CallBacks{
+		AddPg:             tt.createPolicyGroup,
+		DeletePg:          tt.deletePolicyGroup,
+		AddPortsToPg:      tt.addPortsToPg,
+		DeletePortsFromPg: tt.deletePortsFromPg,
+	}
+
+	k8sCallBacks := &api.ClusterClientCallBacks{
+		FilterPods:       tt.getPods,
+		FilterNamespaces: tt.getNamespaces,
+		GetPod:           tt.getPod,
+	}
+
+	vsdMeta := &VsdMetaData{
+		"enterpriseName": ENTERPRISE,
+		"domainName":     DOMAIN,
+		"vsdUrl":         URL,
+		"username":       USERNAME,
+		"password":       PASSWORD,
+		"organization":   ORG,
+	}
+
+	rm, err := NewResourceManager(vsdCallBacks, k8sCallBacks, vsdMeta)
+	if err != nil {
+		tt.t.Fatalf("creating policy resouce manager failed %v", err)
+		return
+	}
+
+	tt.rm = rm
+	tt.rm.InitPolicyImplementer()
+	tt.createEnterprise()
+	tt.createDomainTemplate()
+	tt.createDomain()
+	tt.createZones()
+
 }
 
-func (t *testing.T) deinit() {
-	t.deleteZones()
-	t.deleteDomain()
-	t.deleteDomainTemplate()
-	t.deleteEnterprise()
+func (tt *testingT) deinit() {
+	tt.rm.InitPolicyImplementer()
+	tt.deleteZones()
+	tt.deleteDomain()
+	tt.deleteDomainTemplate()
+	tt.deleteEnterprise()
 }
 
-func createPolicy(p *api.NetworkPolicyEvent) {
-
-}
-
-func removePolicy(p *api.NetworkPolicyEvent) {
+func (tt *testingT) checkIfPolicyCreated(p *api.NetworkPolicyEvent) {
 
 }
 
-func checkIfPolicyCreated(p *api.NetworkPolicyEvent) {
-
-}
-
-func checkIfPolicyRemoved(p *api.NetworkPolicyEvent) {
+func (tt *testingT) checkIfPolicyRemoved(p *api.NetworkPolicyEvent) {
 
 }
 
 func TestPolicyFramework(t *testing.T) {
+	policyName := "test-np"
+	policyNamespace := "test-ns"
+	policyLabels := map[string]string{
+		"nuage.io/priority": "500",
+	}
 
 	allPolicies := []*networkingV1.NetworkPolicy{
 		&networkingV1.NetworkPolicy{
-			Name:      "test-np",
-			Namespace: "test-ns",
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{"a": "b"},
@@ -76,8 +111,6 @@ func TestPolicyFramework(t *testing.T) {
 			},
 		},
 		&networkingV1.NetworkPolicy{
-			Name:      "test-np",
-			Namespace: "test-ns",
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{"a": "b"},
@@ -87,8 +120,6 @@ func TestPolicyFramework(t *testing.T) {
 			},
 		},
 		&networkingV1.NetworkPolicy{
-			Name:      "test-np",
-			Namespace: "test-ns",
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{"a": "b"},
@@ -122,8 +153,6 @@ func TestPolicyFramework(t *testing.T) {
 			},
 		},
 		&networkingV1.NetworkPolicy{
-			Name:      "test-np",
-			Namespace: "test-ns",
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{"a": "b"},
@@ -143,8 +172,6 @@ func TestPolicyFramework(t *testing.T) {
 			},
 		},
 		&networkingV1.NetworkPolicy{
-			Name:      "test-np",
-			Namespace: "test-ns",
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{"a": "b"},
@@ -165,88 +192,92 @@ func TestPolicyFramework(t *testing.T) {
 		},
 	}
 
-	init()
+	tt := &testingT{
+		t: t,
+	}
+
+	tt.init()
 
 	for _, policy := range allPolicies {
 		nuagePolicyEvent := &api.NetworkPolicyEvent{
 			Type:      api.Added,
-			Name:      policy.Name,
-			Namespace: policy.Namespace,
+			Name:      policyName,
+			Namespace: policyNamespace,
+			Labels:    policyLabels,
 			Policy:    policy.Spec,
-			Labels:    policy.Labels,
 		}
 
-		createPolicy(nuagePolicyEvent)
-		checkIfPolicyCreated(nuagePolicyEvent)
+		tt.rm.HandlePolicyEvent(nuagePolicyEvent)
+		tt.checkIfPolicyCreated(nuagePolicyEvent)
 
 		nuagePolicyEvent.Type = api.Deleted
-		removePolicy(nuagePolicyEvent)
-		checkIfPolicyRemoved(nuagePolicyEvent)
+		tt.rm.HandlePolicyEvent(nuagePolicyEvent)
+		tt.checkIfPolicyRemoved(nuagePolicyEvent)
 	}
 
-	deinit()
+	tt.deinit()
 }
 
-func (t *testing.T) createEnterprise() {
+func (tt *testingT) createEnterprise() {
 	enterprise := vspk.NewEnterprise()
 	enterprise.Name = ENTERPRISE
 	if err := enterprise.Save(); err != nil {
-		t.Fatalf("creating enterprise failed with error %v", err)
+		tt.t.Fatalf("creating enterprise failed with error %v", err)
 	}
 	ids.enterpriseID = enterprise.ID
 }
 
-func (t *testing.T) deleteEnterprise() {
+func (tt *testingT) deleteEnterprise() {
 	enterprise := vspk.NewEnterprise()
 	enterprise.ID = ids.enterpriseID
 	if err := enterprise.Delete(); err != nil {
-		t.Fatalf("deleting enterprise failed with error %v", err)
+		tt.t.Fatalf("deleting enterprise failed with error %v", err)
 	}
 }
 
-func (t *testing.T) createDomainTemplate() {
+func (tt *testingT) createDomainTemplate() {
 	domainTemplate := vspk.NewDomainTemplate()
 	domainTemplate.Name = DOMAIN
 	domainTemplate.ParentID = ids.enterpriseID
 	if err := domainTemplate.Save(); err != nil {
-		t.Fatalf("creating domain template failed with error %v", err)
+		tt.t.Fatalf("creating domain template failed with error %v", err)
 	}
 	ids.domainTemplateID = domainTemplate.ID
 }
 
-func (t *testing.T) deleteDomainTemplate() {
+func (tt *testingT) deleteDomainTemplate() {
 	domainTemplate := vspk.NewDomainTemplate()
 	domainTemplate.ID = ids.domainTemplateID
 	if err := domainTemplate.Delete(); err != nil {
-		t.Fatalf("deleting domain template failed with error %v", err)
+		tt.t.Fatalf("deleting domain template failed with error %v", err)
 	}
 }
 
-func (t *testing.T) createDomain() {
+func (tt *testingT) createDomain() {
 	domain := vspk.NewDomain()
 	domain.Name = DOMAIN
 	domain.ParentID = ids.enterpriseID
 	domain.TemplateID = ids.domainTemplateID
 	if err := domain.Save(); err != nil {
-		t.Fatalf("creating domain failed with error %v", err)
+		tt.t.Fatalf("creating domain failed with error %v", err)
 	}
 	ids.domainID = domain.ID
 }
 
-func (t *testing.T) deleteDomain() {
+func (tt *testingT) deleteDomain() {
 	domain := vspk.NewDomain()
 	domain.ID = ids.domainID
 	if err := domain.Delete(); err != nil {
-		t.Fatalf("deleting domain failed with error %v", err)
+		tt.t.Fatalf("deleting domain failed with error %v", err)
 	}
 }
 
-func (t *testing.T) createZones() {
+func (tt *testingT) createZones() {
 	zone1 := vspk.NewZone()
 	zone1.Name = ZONE1
 	zone1.ParentID = ids.domainID
 	if err := zone1.Save(); err != nil {
-		t.Fatalf("creating zone(%s) failed with error %v", ZONE1, err)
+		tt.t.Fatalf("creating zone(%s) failed with error %v", ZONE1, err)
 	}
 	ids.zone1ID = zone1.ID
 
@@ -254,21 +285,73 @@ func (t *testing.T) createZones() {
 	zone2.Name = ZONE2
 	zone2.ParentID = ids.domainID
 	if err := zone2.Save(); err != nil {
-		t.Fatalf("creating zone(%s) failed with error %v", ZONE2, err)
+		tt.t.Fatalf("creating zone(%s) failed with error %v", ZONE2, err)
 	}
 	ids.zone2ID = zone2.ID
 }
 
-func (t *testing.T) deleteZones() {
+func (tt *testingT) deleteZones() {
 	zone1 := vspk.NewZone()
 	zone1.ID = ids.zone1ID
 	if err := zone1.Delete(); err != nil {
-		t.Fatalf("deleting zone(%s) failed with error %v", ZONE1, err)
+		tt.t.Fatalf("deleting zone(%s) failed with error %v", ZONE1, err)
 	}
 
 	zone2 := vspk.NewZone()
 	zone2.ID = ids.zone2ID
 	if err := zone2.Delete(); err != nil {
-		t.Fatalf("deleting zone(%s) failed with error %v", ZONE2, err)
+		tt.t.Fatalf("deleting zone(%s) failed with error %v", ZONE2, err)
 	}
+}
+
+func (tt *testingT) createPolicyGroup(name string, desc string) (string, string, error) {
+	pg := vspk.NewPolicyGroup()
+	pg.Name = name
+	pg.Description = desc
+	pg.ParentID = ids.domainID
+
+	if err := pg.Save(); err != nil {
+		tt.t.Fatalf("saving pg(%s) failed with error %v", name, err)
+		return "", "", err
+	}
+
+	return name, pg.ID, nil
+}
+
+func (tt *testingT) deletePolicyGroup(id string) error {
+	pg := vspk.NewPolicyGroup()
+	pg.ID = id
+
+	if err := pg.Delete(); err != nil {
+		tt.t.Fatalf("deleting pg failed with error %v", err)
+		return err
+	}
+	return nil
+}
+
+func (tt *testingT) addPortsToPg(pgId string, podsList []string) error {
+	// Just a stub. Will not do anything here
+	return nil
+}
+
+func (tt *testingT) deletePortsFromPg(pgId string) error {
+	// Just a stub. Will not do anything here
+	return nil
+}
+
+func (tt *testingT) getPods(listOpts *metav1.ListOptions, ns string) (*[]*api.PodEvent, error) {
+	// Just a stub. Will not do anything here
+	pods := &[]*api.PodEvent{}
+	return pods, nil
+}
+
+func (tt *testingT) getPod(name string, ns string) (*api.PodEvent, error) {
+	// Just a stub. Will not do anything here
+	return &api.PodEvent{}, nil
+}
+
+func (tt *testingT) getNamespaces(listOpts *metav1.ListOptions) (*[]*api.NamespaceEvent, error) {
+	// Just a stub. Will not do anything here
+	namespaces := &[]*api.NamespaceEvent{}
+	return namespaces, nil
 }
