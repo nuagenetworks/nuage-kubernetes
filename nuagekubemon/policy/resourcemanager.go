@@ -27,7 +27,6 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy/translator"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -265,9 +264,6 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	case api.Added:
 		var err error
 		namespaceLabelsMap := make(map[string][]string)
-		// IP block map with subnet info as key and mask as value
-		ipBlockCidrMap := make(map[string]string)
-		ipBlockExceptMap := make(map[string]string)
 		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
 			rm.policyPgMap[pe.Namespace+pe.Name] = make(PgMap)
 		}
@@ -277,15 +273,15 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		}
 		for _, ingressRule := range pe.Policy.Ingress {
 			for _, from := range ingressRule.From {
-				rm.translatePeerPolicy(from, pe, namespaceLabelsMap, ipBlockCidrMap, ipBlockExceptMap)
+				rm.translatePeerPolicy(from, pe, namespaceLabelsMap)
 			}
 		}
 		for _, egressRule := range pe.Policy.Egress {
 			for _, to := range egressRule.To {
-				rm.translatePeerPolicy(to, pe, namespaceLabelsMap, ipBlockCidrMap, ipBlockExceptMap)
+				rm.translatePeerPolicy(to, pe, namespaceLabelsMap)
 			}
 		}
-		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap, rm.nwMacroMap, rm.nwMacroExceptMap); err == nil {
+		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap); err == nil {
 			if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
 				glog.Errorf("Got a %s error when implementing policy", notImplemented)
 			}
@@ -338,39 +334,19 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	return nil
 }
 
-func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent, namespaceLabelsMap map[string][]string, ipBlockCidrMap map[string]string, ipBlockExceptMap map[string]string) error {
+func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent, namespaceLabelsMap map[string][]string) error {
 
-	if peer.NamespaceSelector != nil && peer.PodSelector != nil && peer.IPBlock != nil {
-		return fmt.Errorf("Unsupported network policy. Pod/Namespace selector and IP block cidr specified")
+	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
+		return fmt.Errorf("Unsupported network policy. Both pod/namespace selector specified. Use only one.")
 	}
 
-	if (peer.NamespaceSelector != nil && peer.PodSelector != nil) || (peer.NamespaceSelector != nil && peer.IPBlock != nil) || (peer.IPBlock != nil && peer.PodSelector != nil) {
-		return fmt.Errorf("Unsupported network policy. Make sure to provide either podSelector, namespace Selector or Ip Block in the policy yaml")
+	if peer.NamespaceSelector == nil && peer.PodSelector == nil {
+		return fmt.Errorf("Unsupported network policy. Make sure to provide either pod/namespace Selector")
 	}
 
 	if peer.NamespaceSelector != nil {
 		if err := rm.findNamespacesWithLabel(peer, namespaceLabelsMap); err != nil {
 			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
-			return err
-		}
-	}
-
-	if peer.IPBlock != nil {
-		// Parsing IP cidr and except block from np yaml content
-		if err := rm.parseIPBlockCidrAndExcept(peer, ipBlockCidrMap, ipBlockExceptMap); err != nil {
-			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
-			return err
-		}
-
-		// Creating corresponding network macros on VSD for ipBlock cidr per namespace
-		if err := rm.createNetworkMacros(pe, ipBlockCidrMap, false); err != nil {
-			glog.Errorf("Creating network macros on VSD failed: %v", err)
-			return err
-		}
-
-		// Creating corresponding network macros on VSD for ipBlock except cidr per namespace
-		if err := rm.createNetworkMacros(pe, ipBlockExceptMap, true); err != nil {
-			glog.Errorf("Creating network macros on VSD failed: %v", err)
 			return err
 		}
 	}
@@ -407,7 +383,7 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 	}
 
 	_, pgId, err = rm.callBacks.AddPg(pgName, podSelectorStr)
-	if err != nil {
+	if pgId == "" && err != nil {
 		glog.Errorf("creating policy group for %s failed %v", podSelectorStr, err)
 		return err
 	}
@@ -464,91 +440,6 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	return nil
 }
 
-func (rm *ResourceManager) createNetworkMacros(pe *api.NetworkPolicyEvent, cidrMap map[string]string, except bool) error {
-	var err error
-
-	enterpriseName, ok := rm.vsdMeta["enterpriseName"]
-	if !ok {
-		glog.Error("Failed to get enterprise")
-		return errors.New("Failed to get enterprise when creating network macros")
-	}
-
-	entID, err := rm.callBacks.GetEnterprise(enterpriseName)
-	if err != nil {
-		glog.Errorf("Getting enterprise ID for enterprise %s failed %v", enterpriseName, err)
-		return err
-	}
-
-	for ip, netmask := range cidrMap {
-		nwMacroName := pe.Name + "-" + pe.Namespace + "-" + ip + "-" + netmask
-		if _, found := rm.nwMacroMap[nwMacroName]; found {
-			glog.Infof("Network Macro %s exists already", nwMacroName)
-			return nil
-		}
-
-		if except == true {
-			rm.nwMacroExceptMap[nwMacroName] = 1
-		} else {
-			rm.nwMacroMap[nwMacroName] = 1
-		}
-
-		networkMacro := &api.VsdNetworkMacro{
-			Name:    nwMacroName,
-			IPType:  "IPV4",
-			Address: ip,
-			Netmask: netmask,
-		}
-
-		_, err = rm.callBacks.AddNetworkMacro(entID, networkMacro)
-		if err != nil {
-			glog.Errorf("creating network macro for %s failed %v", nwMacroName, err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (rm *ResourceManager) deleteNetworkMacros(pe *api.NetworkPolicyEvent, ipBlockCidrMap map[string]string) error {
-	var err error
-
-	enterpriseName, ok := rm.vsdMeta["enterpriseName"]
-	if !ok {
-		glog.Error("Failed to get enterprise")
-		return errors.New("Failed to get enterprise when creating network macros")
-	}
-
-	entID, err := rm.callBacks.GetEnterprise(enterpriseName)
-	if err != nil {
-		glog.Errorf("Getting enterprise ID for enterprise %s failed %v", enterpriseName, err)
-		return err
-	}
-
-	for ip, netmask := range ipBlockCidrMap {
-		nwMacroName := pe.Name + "-" + pe.Namespace + "-" + ip + "-" + netmask
-		if _, found := rm.nwMacroMap[nwMacroName]; found {
-			glog.Infof("Network Macro %s exists already", nwMacroName)
-			return nil
-		}
-
-		networkMacro, err := rm.callBacks.GetNetworkMacro(entID, nwMacroName)
-		if err != nil {
-			glog.Errorf("Getting network macro object for %s failed %v", nwMacroName, err)
-			return err
-		}
-
-		err = rm.callBacks.DeleteNetworkMacro(networkMacro.ID)
-		if err != nil {
-			glog.Errorf("deleting network macro for %s failed %v", nwMacroName, err)
-			return err
-		}
-
-		delete(rm.nwMacroMap, nwMacroName)
-	}
-
-	return nil
-}
-
 func (rm *ResourceManager) findNamespacesWithLabel(peer networkingV1.NetworkPolicyPeer,
 	namespaceLabelsMap map[string][]string) error {
 	var err error
@@ -576,28 +467,5 @@ func (rm *ResourceManager) findNamespacesWithLabel(peer networkingV1.NetworkPoli
 		namespaceList = append(namespaceList, namespace.Name)
 	}
 	namespaceLabelsMap[nsSelectorLabel.String()] = namespaceList
-	return nil
-}
-
-func (rm *ResourceManager) parseIPBlockCidrAndExcept(peer networkingV1.NetworkPolicyPeer, ipBlockCidrMap map[string]string, ipBlockExceptMap map[string]string) error {
-
-	var networkInfo *subnet.IPv4Subnet
-	var err error
-	networkInfo, err = subnet.IPv4SubnetFromString(peer.IPBlock.CIDR)
-	if err != nil {
-		glog.Errorf("Failure in getting cluster CIDR: %s\n", err)
-		return err
-	}
-	ipBlockCidrMap[networkInfo.Address.String()] = networkInfo.Netmask().String()
-
-	for _, exceptCIDR := range peer.IPBlock.Except {
-		networkInfo, err = subnet.IPv4SubnetFromString(exceptCIDR)
-		if err != nil {
-			glog.Errorf("Failure in getting cluster CIDR for except block: %s\n", err)
-			return err
-		}
-		ipBlockExceptMap[networkInfo.Address.String()] = networkInfo.Netmask().String()
-	}
-
 	return nil
 }
