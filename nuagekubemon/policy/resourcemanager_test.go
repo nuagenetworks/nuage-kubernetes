@@ -1,10 +1,14 @@
 package policy
 
 import (
+	"bufio"
+	log "github.com/Sirupsen/logrus"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/vspk-go/vspk"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -16,8 +20,6 @@ import (
 const (
 	ENTERPRISE = "test-enterprise"
 	DOMAIN     = "test-domain"
-	ZONE1      = "zone1"
-	ZONE2      = "zone2"
 	URL        = "https://127.0.0.1:8443"
 	USERNAME   = "*****"
 	PASSWORD   = "*****"
@@ -28,8 +30,7 @@ type objIds struct {
 	enterpriseID     string
 	domainTemplateID string
 	domainID         string
-	zone1ID          string
-	zone2ID          string
+	zoneIDs          []string
 }
 
 type testingT struct {
@@ -38,6 +39,7 @@ type testingT struct {
 }
 
 var ids objIds
+var ZONES = []string{"zone1", "zone2", "zone3"}
 
 func (tt *testingT) init() {
 
@@ -87,21 +89,69 @@ func (tt *testingT) deinit() {
 }
 
 func (tt *testingT) checkIfPolicyCreated(p *api.NetworkPolicyEvent) {
-
+	reader := bufio.NewReader(os.Stdin)
+	log.Infof("check on vsd if policy is created. After that press any key and hit enter")
+	reader.ReadString('\n')
+	log.Infof("continuing...")
 }
 
 func (tt *testingT) checkIfPolicyRemoved(p *api.NetworkPolicyEvent) {
-
+	reader := bufio.NewReader(os.Stdin)
+	log.Infof("check on vsd if policy is deleted. After that press any key and hit enter")
+	reader.ReadString('\n')
+	log.Infof("continuing...")
 }
 
 func TestPolicyFramework(t *testing.T) {
 	policyName := "test-np"
-	policyNamespace := "test-ns"
+	policyNamespace := ZONES[0]
 	policyLabels := map[string]string{
 		"nuage.io/priority": "500",
 	}
 
 	allPolicies := []*networkingV1.NetworkPolicy{
+		&networkingV1.NetworkPolicy{
+			Spec: networkingV1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Ingress: []networkingV1.NetworkPolicyIngressRule{
+					{
+						From: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"c": "d"},
+								},
+							},
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone2": "zone2"},
+								},
+							},
+						},
+					},
+				},
+				Egress: []networkingV1.NetworkPolicyEgressRule{
+					{
+						To: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"c": "d"},
+								},
+							},
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone3": "zone3"},
+								},
+							},
+						},
+					},
+				},
+				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
+			},
+		},
+	}
+	/*allPolicies := []*networkingV1.NetworkPolicy{
 		&networkingV1.NetworkPolicy{
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
@@ -190,7 +240,7 @@ func TestPolicyFramework(t *testing.T) {
 				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeEgress},
 			},
 		},
-	}
+	}*/
 
 	tt := &testingT{
 		t: t,
@@ -273,34 +323,24 @@ func (tt *testingT) deleteDomain() {
 }
 
 func (tt *testingT) createZones() {
-	zone1 := vspk.NewZone()
-	zone1.Name = ZONE1
-	zone1.ParentID = ids.domainID
-	if err := zone1.Save(); err != nil {
-		tt.t.Fatalf("creating zone(%s) failed with error %v", ZONE1, err)
+	for idx, zoneName := range ZONES {
+		zone := vspk.NewZone()
+		zone.Name = zoneName
+		zone.ParentID = ids.domainID
+		if err := zone.Save(); err != nil {
+			tt.t.Fatalf("creating zone(%s) failed with error %v", zoneName, err)
+		}
+		ids.zoneIDs[idx] = zone.ID
 	}
-	ids.zone1ID = zone1.ID
-
-	zone2 := vspk.NewZone()
-	zone2.Name = ZONE2
-	zone2.ParentID = ids.domainID
-	if err := zone2.Save(); err != nil {
-		tt.t.Fatalf("creating zone(%s) failed with error %v", ZONE2, err)
-	}
-	ids.zone2ID = zone2.ID
 }
 
 func (tt *testingT) deleteZones() {
-	zone1 := vspk.NewZone()
-	zone1.ID = ids.zone1ID
-	if err := zone1.Delete(); err != nil {
-		tt.t.Fatalf("deleting zone(%s) failed with error %v", ZONE1, err)
-	}
-
-	zone2 := vspk.NewZone()
-	zone2.ID = ids.zone2ID
-	if err := zone2.Delete(); err != nil {
-		tt.t.Fatalf("deleting zone(%s) failed with error %v", ZONE2, err)
+	for idx, zoneID := range ids.zoneIDs {
+		zone := vspk.NewZone()
+		zone.ID = zoneID
+		if err := zone.Delete(); err != nil {
+			tt.t.Fatalf("deleting zone(%s) failed with error %v", ZONES[idx], err)
+		}
 	}
 }
 
@@ -351,7 +391,17 @@ func (tt *testingT) getPod(name string, ns string) (*api.PodEvent, error) {
 }
 
 func (tt *testingT) getNamespaces(listOpts *metav1.ListOptions) (*[]*api.NamespaceEvent, error) {
-	// Just a stub. Will not do anything here
-	namespaces := &[]*api.NamespaceEvent{}
-	return namespaces, nil
+	// For testing we pass zone name within the label
+	// so we return the zone name that matches with label
+	namespaces := []*api.NamespaceEvent{}
+	for _, zoneName := range ZONES {
+		if strings.Contains(listOpts.LabelSelector, zoneName) {
+			ns := &api.NamespaceEvent{
+				Name: zoneName,
+			}
+			namespaces = append(namespaces, ns)
+			break
+		}
+	}
+	return &namespaces, nil
 }
