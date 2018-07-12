@@ -250,7 +250,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		return
 	}
 	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
-		domainTemplateID, nkmConfig.DomainName, nkmConfig.UnderlaySupport)
+		domainTemplateID, nkmConfig.DomainName, nkmConfig.UnderlaySupport, nkmConfig.EncryptionEnabled)
 	if err != nil {
 		glog.Error(err)
 		return
@@ -1022,18 +1022,27 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name, underlaySupport string) (string, error) {
+func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string,
+	underlaySupport, enableEncryption int) (string, error) {
 	result := make([]api.VsdDomain, 1)
+
 	payload := api.VsdDomain{
 		Name:            name,
 		Description:     "Auto-generated domain",
 		TemplateID:      domainTemplateID,
 		UnderlayEnabled: api.UnderlaySupportDisabled,
+		Encryption:      api.EncryptionDisabled,
 		ExternalID:      nvsdc.externalID,
 	}
-	if underlaySupport == "1" {
+
+	if 1 == underlaySupport {
 		payload.UnderlayEnabled = api.UnderlaySupportEnabled
 	}
+
+	if 1 == enableEncryption {
+		payload.Encryption = api.EncryptionEnabled
+	}
+
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domains"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)

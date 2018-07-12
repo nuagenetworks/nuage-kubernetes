@@ -33,7 +33,6 @@ type NuageKubeMonConfig struct {
 	LicenseFile         string           `yaml:"licenseFile"`
 	EnterpriseName      string           `yaml:"enterpriseName"`
 	DomainName          string           `yaml:"domainName"`
-	UnderlaySupport     string           `yaml:"underlaySupport"`
 	StatsLogging        string           `yaml:"statsLogging"`
 	RestServer          RestServerConfig `yaml:"nuageMonServer"`
 	UserCertificateFile string           `yaml:"userCertificateFile"`
@@ -44,6 +43,8 @@ type NuageKubeMonConfig struct {
 	MasterConfig        MasterConfig     `yaml:"-"`
 	EtcdClientConfig    EtcdConfig       `yaml:"etcdClientConfig"`
 	AutoScaleSubnets    string           `yaml:"autoScaleSubnets"`
+	UnderlaySupport     int              `yaml:"underlaySupport"`
+	EncryptionEnabled   int              `yaml:"encryptionEnabled"`
 }
 
 type RestServerConfig struct {

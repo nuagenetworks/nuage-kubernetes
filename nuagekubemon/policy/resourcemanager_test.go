@@ -2,9 +2,10 @@ package policy
 
 import (
 	"bufio"
-	log "github.com/Sirupsen/logrus"
+	"github.com/nuagenetworks/go-bambou/bambou"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/vspk-go/vspk"
+	log "github.com/sirupsen/logrus"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
@@ -14,16 +15,15 @@ import (
 
 /*
 * Unit test file for policy creation and deletion
-*
  */
 
 const (
 	ENTERPRISE = "test-enterprise"
 	DOMAIN     = "test-domain"
 	URL        = "https://127.0.0.1:8443"
-	USERNAME   = "*****"
-	PASSWORD   = "*****"
-	ORG        = "*****"
+	USERNAME   = "******"
+	PASSWORD   = "******"
+	ORG        = "******"
 )
 
 type objIds struct {
@@ -34,8 +34,10 @@ type objIds struct {
 }
 
 type testingT struct {
-	t  *testing.T
-	rm *ResourceManager
+	t          *testing.T
+	rm         *ResourceManager
+	vsdSession *bambou.Session
+	vsdRoot    *vspk.Me
 }
 
 var ids objIds
@@ -71,8 +73,14 @@ func (tt *testingT) init() {
 		return
 	}
 
+	vsdSession, vsdRoot := vspk.NewSession(USERNAME, PASSWORD, ORG, URL)
+	if err := vsdSession.Start(); err != nil {
+		tt.t.Fatalf("Unable to connect to Nuage VSD: " + err.Description)
+	}
+
 	tt.rm = rm
-	tt.rm.InitPolicyImplementer()
+	tt.vsdSession = vsdSession
+	tt.vsdRoot = vsdRoot
 	tt.createEnterprise()
 	tt.createDomainTemplate()
 	tt.createDomain()
@@ -81,7 +89,10 @@ func (tt *testingT) init() {
 }
 
 func (tt *testingT) deinit() {
-	tt.rm.InitPolicyImplementer()
+	if err := tt.rm.InitPolicyImplementer(); err != nil {
+		tt.t.Fatalf("initializing policy implementer failed %v", err)
+		return
+	}
 	tt.deleteZones()
 	tt.deleteDomain()
 	tt.deleteDomainTemplate()
@@ -110,6 +121,159 @@ func TestPolicyFramework(t *testing.T) {
 	}
 
 	allPolicies := []*networkingV1.NetworkPolicy{
+		// ingress and egress acl templates each should have two acl entries under them
+		// two with policy groups. "a=b" can receive traffic from "c=d" and can send
+		// traffic to "e=f"
+		&networkingV1.NetworkPolicy{
+			Spec: networkingV1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Ingress: []networkingV1.NetworkPolicyIngressRule{
+					{
+						From: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"c": "d"},
+								},
+							},
+						},
+					},
+				},
+				Egress: []networkingV1.NetworkPolicyEgressRule{
+					{
+						To: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"e": "f"},
+								},
+							},
+						},
+					},
+				},
+				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
+			},
+		},
+		// ingress and egress acl templates each should have two acl entries under them
+		// two with zones. "a=b" can receive traffic from "zone2" and send traffic to "zone3"
+		&networkingV1.NetworkPolicy{
+			Spec: networkingV1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Ingress: []networkingV1.NetworkPolicyIngressRule{
+					{
+						From: []networkingV1.NetworkPolicyPeer{
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone2": "zone2"},
+								},
+							},
+						},
+					},
+				},
+				Egress: []networkingV1.NetworkPolicyEgressRule{
+					{
+						To: []networkingV1.NetworkPolicyPeer{
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone3": "zone3"},
+								},
+							},
+						},
+					},
+				},
+				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
+			},
+		},
+		// ingress and egress acl templates each should have two acl entries under them
+		// one with policy group and one with zone. "a=b" can receive traffic from "c=d"
+		// and can send traffic to "zone3"
+		&networkingV1.NetworkPolicy{
+			Spec: networkingV1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Ingress: []networkingV1.NetworkPolicyIngressRule{
+					{
+						From: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"c": "d"},
+								},
+							},
+						},
+					},
+				},
+				Egress: []networkingV1.NetworkPolicyEgressRule{
+					{
+						To: []networkingV1.NetworkPolicyPeer{
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone3": "zone3"},
+								},
+							},
+						},
+					},
+				},
+				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
+			},
+		},
+		// ingress and egress acl templates each should have two acl entries under them
+		// one with policy group and one with zone. "a=b" can receive traffic from "c=d"
+		// and "zone2"
+		&networkingV1.NetworkPolicy{
+			Spec: networkingV1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Ingress: []networkingV1.NetworkPolicyIngressRule{
+					{
+						From: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"c": "d"},
+								},
+							},
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone2": "zone2"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// ingress and egress acl templates each should have two acl entries under them
+		// one with policy group and one with zone. "a=b" can send traffic to "e=f" and
+		// zone3
+		&networkingV1.NetworkPolicy{
+			Spec: networkingV1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Egress: []networkingV1.NetworkPolicyEgressRule{
+					{
+						To: []networkingV1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"e": "f"},
+								},
+							},
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"zone3": "zone3"},
+								},
+							},
+						},
+					},
+				},
+				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
+			},
+		},
+		// ingress and egress acl templates each should have four acl entries under them
+		// two with policy groups and two with zones
 		&networkingV1.NetworkPolicy{
 			Spec: networkingV1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{
@@ -136,7 +300,7 @@ func TestPolicyFramework(t *testing.T) {
 						To: []networkingV1.NetworkPolicyPeer{
 							{
 								PodSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"c": "d"},
+									MatchLabels: map[string]string{"e": "f"},
 								},
 							},
 							{
@@ -151,96 +315,6 @@ func TestPolicyFramework(t *testing.T) {
 			},
 		},
 	}
-	/*allPolicies := []*networkingV1.NetworkPolicy{
-		&networkingV1.NetworkPolicy{
-			Spec: networkingV1.NetworkPolicySpec{
-				PodSelector: metav1.LabelSelector{
-					MatchLabels: map[string]string{"a": "b"},
-				},
-				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress},
-			},
-		},
-		&networkingV1.NetworkPolicy{
-			Spec: networkingV1.NetworkPolicySpec{
-				PodSelector: metav1.LabelSelector{
-					MatchLabels: map[string]string{"a": "b"},
-				},
-				Ingress:     []networkingV1.NetworkPolicyIngressRule{},
-				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress},
-			},
-		},
-		&networkingV1.NetworkPolicy{
-			Spec: networkingV1.NetworkPolicySpec{
-				PodSelector: metav1.LabelSelector{
-					MatchLabels: map[string]string{"a": "b"},
-				},
-				Ingress: []networkingV1.NetworkPolicyIngressRule{
-					{
-						From: []networkingV1.NetworkPolicyPeer{
-							{
-								PodSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"c": "d"},
-								},
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"c": "d"},
-								},
-							},
-						},
-					},
-				},
-				Egress: []networkingV1.NetworkPolicyEgressRule{
-					{
-						To: []networkingV1.NetworkPolicyPeer{
-							{
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"c": "d"},
-								},
-							},
-						},
-					},
-				},
-				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
-			},
-		},
-		&networkingV1.NetworkPolicy{
-			Spec: networkingV1.NetworkPolicySpec{
-				PodSelector: metav1.LabelSelector{
-					MatchLabels: map[string]string{"a": "b"},
-				},
-				Egress: []networkingV1.NetworkPolicyEgressRule{
-					{
-						To: []networkingV1.NetworkPolicyPeer{
-							{
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"c": "d"},
-								},
-							},
-						},
-					},
-				},
-				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeIngress, networkingV1.PolicyTypeEgress},
-			},
-		},
-		&networkingV1.NetworkPolicy{
-			Spec: networkingV1.NetworkPolicySpec{
-				PodSelector: metav1.LabelSelector{
-					MatchLabels: map[string]string{"a": "b"},
-				},
-				Egress: []networkingV1.NetworkPolicyEgressRule{
-					{
-						To: []networkingV1.NetworkPolicyPeer{
-							{
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"Egress": "only"},
-								},
-							},
-						},
-					},
-				},
-				PolicyTypes: []networkingV1.PolicyType{networkingV1.PolicyTypeEgress},
-			},
-		},
-	}*/
 
 	tt := &testingT{
 		t: t,
@@ -271,10 +345,19 @@ func TestPolicyFramework(t *testing.T) {
 func (tt *testingT) createEnterprise() {
 	enterprise := vspk.NewEnterprise()
 	enterprise.Name = ENTERPRISE
-	if err := enterprise.Save(); err != nil {
+	if err := tt.vsdRoot.CreateEnterprise(enterprise); err != nil {
 		tt.t.Fatalf("creating enterprise failed with error %v", err)
 	}
 	ids.enterpriseID = enterprise.ID
+}
+
+func (tt *testingT) fetchEnterprise() (*vspk.Enterprise, error) {
+	enterprise := vspk.NewEnterprise()
+	enterprise.ID = ids.enterpriseID
+	if err := enterprise.Fetch(); err != nil {
+		return nil, err
+	}
+	return enterprise, nil
 }
 
 func (tt *testingT) deleteEnterprise() {
@@ -286,10 +369,14 @@ func (tt *testingT) deleteEnterprise() {
 }
 
 func (tt *testingT) createDomainTemplate() {
+	enterprise, err := tt.fetchEnterprise()
+	if err != nil {
+		tt.t.Fatalf("fetching enterprise failed %v", err)
+	}
 	domainTemplate := vspk.NewDomainTemplate()
 	domainTemplate.Name = DOMAIN
 	domainTemplate.ParentID = ids.enterpriseID
-	if err := domainTemplate.Save(); err != nil {
+	if err := enterprise.CreateDomainTemplate(domainTemplate); err != nil {
 		tt.t.Fatalf("creating domain template failed with error %v", err)
 	}
 	ids.domainTemplateID = domainTemplate.ID
@@ -304,14 +391,27 @@ func (tt *testingT) deleteDomainTemplate() {
 }
 
 func (tt *testingT) createDomain() {
+	enterprise, err := tt.fetchEnterprise()
+	if err != nil {
+		tt.t.Fatalf("fetching enterprise failed %v", err)
+	}
 	domain := vspk.NewDomain()
 	domain.Name = DOMAIN
 	domain.ParentID = ids.enterpriseID
 	domain.TemplateID = ids.domainTemplateID
-	if err := domain.Save(); err != nil {
+	if err := enterprise.CreateDomain(domain); err != nil {
 		tt.t.Fatalf("creating domain failed with error %v", err)
 	}
 	ids.domainID = domain.ID
+}
+
+func (tt *testingT) fetchDomain() (*vspk.Domain, error) {
+	domain := vspk.NewDomain()
+	domain.ID = ids.domainID
+	if err := domain.Fetch(); err != nil {
+		return nil, err
+	}
+	return domain, nil
 }
 
 func (tt *testingT) deleteDomain() {
@@ -323,14 +423,19 @@ func (tt *testingT) deleteDomain() {
 }
 
 func (tt *testingT) createZones() {
-	for idx, zoneName := range ZONES {
+	domain, err := tt.fetchDomain()
+	if err != nil {
+		tt.t.Fatalf("fetching domain failed %v", err)
+	}
+
+	for _, zoneName := range ZONES {
 		zone := vspk.NewZone()
 		zone.Name = zoneName
 		zone.ParentID = ids.domainID
-		if err := zone.Save(); err != nil {
+		if err := domain.CreateZone(zone); err != nil {
 			tt.t.Fatalf("creating zone(%s) failed with error %v", zoneName, err)
 		}
-		ids.zoneIDs[idx] = zone.ID
+		ids.zoneIDs = append(ids.zoneIDs, zone.ID)
 	}
 }
 
@@ -345,12 +450,17 @@ func (tt *testingT) deleteZones() {
 }
 
 func (tt *testingT) createPolicyGroup(name string, desc string) (string, string, error) {
+	domain, err := tt.fetchDomain()
+	if err != nil {
+		tt.t.Fatalf("fetching domain failed %v", err)
+	}
+
 	pg := vspk.NewPolicyGroup()
 	pg.Name = name
 	pg.Description = desc
 	pg.ParentID = ids.domainID
 
-	if err := pg.Save(); err != nil {
+	if err := domain.CreatePolicyGroup(pg); err != nil {
 		tt.t.Fatalf("saving pg(%s) failed with error %v", name, err)
 		return "", "", err
 	}
