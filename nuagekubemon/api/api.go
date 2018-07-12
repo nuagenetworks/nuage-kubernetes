@@ -52,6 +52,11 @@ const (
 )
 
 const (
+	EncryptionEnabled  = "ENABLED"
+	EncryptionDisabled = "DISABLED"
+)
+
+const (
 	IngressAclTemplateName     = "Auto-generated Ingress Policies"
 	EgressAclTemplateName      = "Auto-generated Egress Policies"
 	ZoneAnnotationTemplateName = "Namespace Annotations"

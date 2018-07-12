@@ -101,31 +101,37 @@ func (rm *ResourceManager) Init(callBacks *CallBacks, clusterCbs *api.ClusterCli
 }
 
 func (rm *ResourceManager) InitPolicyImplementer() error {
-	url, ok := rm.vsdMeta["vsdUrl"]
+	var url string
+	var usercert string
+	var userkey string
+	var ok bool
+
+	url, ok = rm.vsdMeta["vsdUrl"]
 	if !ok {
 		glog.Error("Couldn't initialize a implementer for vspk policies: vsdURL absent")
 		return fmt.Errorf("VSD URL absent")
 	}
 
-	usercert, ok := rm.vsdMeta["usercertfile"]
-	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies: user certificate file absent")
-		return fmt.Errorf("VSD User certificate file absent")
-	}
+	if rm.vsdMeta["username"] == "" || rm.vsdMeta["password"] == "" {
+		usercert, ok = rm.vsdMeta["usercertfile"]
+		if !ok {
+			glog.Error("Couldn't initialize a implementer for vspk policies: user certificate file absent")
+			return fmt.Errorf("VSD User certificate file absent")
+		}
 
-	userkey, ok := rm.vsdMeta["userkeyfile"]
-	if !ok {
-		glog.Error("Couldn't initialize a implementer for vspk policies: user key file absent")
-		return fmt.Errorf("VSD User key file absent")
+		userkey, ok = rm.vsdMeta["userkeyfile"]
+		if !ok {
+			glog.Error("Couldn't initialize a implementer for vspk policies: user key file absent")
+			return fmt.Errorf("VSD User key file absent")
+		}
 	}
-
 	vsdCredentials := implementer.VSDCredentials{
 		URL:          url,
 		UserCertFile: usercert,
 		UserKeyFile:  userkey,
 		Username:     rm.vsdMeta["username"],
 		Password:     rm.vsdMeta["password"],
-		Organization: rm.vsdMeta["org"],
+		Organization: rm.vsdMeta["organization"],
 	}
 
 	return rm.implementer.Init(&vsdCredentials)
@@ -365,14 +371,19 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 	var err error
 	var pgId string
 	var podList []string
+	var labelKvPair string
 	var pods *[]*api.PodEvent
 	var podSelectorLabel labels.Selector
 
 	if selectorLabel == nil {
 		return nil
 	}
+	//will be part of the name used for pg
+	for k, v := range selectorLabel.MatchLabels {
+		labelKvPair = k + "=" + v
+	}
 
-	pgName := pe.Namespace + " ns pods with label " + selectorLabel.String()
+	pgName := pe.Namespace + " ns pods with label " + labelKvPair
 	podSelectorLabel, err = metav1.LabelSelectorAsSelector(selectorLabel)
 	if err != nil {
 		glog.Errorf("error extracting label failed %v", err)

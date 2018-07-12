@@ -1044,6 +1044,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdDomain, 1)
+
 	payload := api.VsdDomain{
 		Name:            name,
 		Description:     "Auto-generated domain",
