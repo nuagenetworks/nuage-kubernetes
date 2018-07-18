@@ -61,10 +61,12 @@ type NuageVsdClient struct {
 	restAPI                            *sleepy.API //TODO: split the rest server into its own package
 	restServer                         *http.Server
 	podChannel                         chan *api.PodEvent //list of namespaces that need new subnets
-	privilegedProjectName              string
+	privilegedProjectNames             []string
 	resourceManager                    *policy.ResourceManager
 	etcdChannel                        chan *api.EtcdEvent
 	externalID                         string //unique id to be attached with each object created by monitor
+	encryptionEnabled                  bool
+	underlayEnabled                    bool
 }
 
 type NamespaceData struct {
@@ -176,7 +178,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.setExternalID()
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
+	nvsdc.privilegedProjectNames = nkmConfig.PrivilegedProject
 	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
@@ -201,6 +203,19 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 			nvsdc.subnetSize, nvsdc.clusterNetwork.String(), newSize)
 		nvsdc.subnetSize = newSize
 	}
+
+	if nkmConfig.EncryptionEnabled == "1" {
+		nvsdc.encryptionEnabled = true
+	} else {
+		nvsdc.encryptionEnabled = false
+	}
+
+	if nkmConfig.UnderlaySupport == "1" {
+		nvsdc.underlayEnabled = true
+	} else {
+		nvsdc.underlayEnabled = false
+	}
+
 	// A null IPv4SubnetPool acts like all addresses are allocated, so we can
 	// initialize it to have the available cluster address space by just
 	// Free()-ing it.
@@ -246,7 +261,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		return
 	}
 	nvsdc.domainID, err = nvsdc.CreateDomain(nvsdc.enterpriseID,
-		domainTemplateID, nkmConfig.DomainName, nkmConfig.UnderlaySupport)
+		domainTemplateID, nkmConfig.DomainName)
 	if err != nil {
 		glog.Error(err)
 		return
@@ -542,7 +557,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries(statsLogging string) error 
 		PolicyState:         "LIVE",
 		Priority:            0,
 		Protocol:            "ANY",
-		Stateful:            true,
+		Stateful:            false,
 		StatsLoggingEnabled: enableStatsLogging,
 		ExternalID:          nvsdc.externalID,
 	}
@@ -554,7 +569,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries(statsLogging string) error 
 	aclEntry.Action = "DROP"
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
-    aclEntry.Stateful = false
+	aclEntry.Stateful = false
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
 	aclEntry.StatsLoggingEnabled = enableStatsLogging
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
@@ -606,7 +621,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 		PolicyState:         "LIVE",
 		Priority:            0,
 		Protocol:            "ANY",
-		Stateful:            true,
+		Stateful:            false,
 		StatsLoggingEnabled: enableStatsLogging,
 		ExternalID:          nvsdc.externalID,
 	}
@@ -619,7 +634,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 	aclEntry.Description = "Drop intra-domain traffic"
 	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
 	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
-    aclEntry.Stateful = false
+	aclEntry.Stateful = false
 	aclEntry.StatsLoggingEnabled = enableStatsLogging
 	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
@@ -1018,18 +1033,25 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name, underlaySupport string) (string, error) {
+func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdDomain, 1)
 	payload := api.VsdDomain{
 		Name:            name,
 		Description:     "Auto-generated domain",
 		TemplateID:      domainTemplateID,
 		UnderlayEnabled: api.UnderlaySupportDisabled,
+		Encryption:      api.EncryptionDisabled,
 		ExternalID:      nvsdc.externalID,
 	}
-	if underlaySupport == "1" {
+
+	if nvsdc.underlayEnabled {
 		payload.UnderlayEnabled = api.UnderlaySupportEnabled
 	}
+
+	if nvsdc.encryptionEnabled {
+		payload.Encryption = api.EncryptionEnabled
+	}
+
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domains"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
@@ -2090,8 +2112,9 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					break
 				}
 			}
-			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err = nvsdc.CreatePrivilegedZoneAcls(zoneID, enableStatsLogging)
+			if nvsdc.isPrivilegedProject(nsEvent.Name) {
+				err = nvsdc.CreatePrivilegedZoneAcls(nsEvent.Name,
+					zoneID, enableStatsLogging)
 				if err != nil {
 					glog.Error("Got an error when creating default zone's ACL entries")
 					return err
@@ -2159,8 +2182,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			}
 
 			// Delete subnets that we've created, and free them back into the pool
-			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err := nvsdc.DeletePrivilegedZoneAcls(zone.ZoneID)
+			if nvsdc.isPrivilegedProject(nsEvent.Name) {
+				err := nvsdc.DeletePrivilegedZoneAcls(nsEvent.Name, zone.ZoneID)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting default zone's ACL entries")
@@ -2189,8 +2212,8 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			return err
 		case id != "" && err == nil:
 			glog.Infof("Deleting zone %s which was not found locally", nsEvent.Name)
-			if nsEvent.Name == nvsdc.privilegedProjectName {
-				err = nvsdc.DeletePrivilegedZoneAcls(id)
+			if nvsdc.isPrivilegedProject(nsEvent.Name) {
+				err = nvsdc.DeletePrivilegedZoneAcls(nsEvent.Name, id)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
 					glog.Error("Got an error when deleting default zone's ACL entries")
@@ -2208,25 +2231,25 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string, enableStatsLogging bool) error {
-	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, nvsdc.privilegedProjectName)
+func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, enableStatsLogging bool) error {
+	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, zoneName)
 	if err != nil {
-		glog.Error("Error when creating the network macro group for zone", nvsdc.privilegedProjectName)
+		glog.Error("Error when creating the network macro group for zone", zoneName)
 		return err
 	} else {
-		if serviceData, exists := nvsdc.services[nvsdc.privilegedProjectName]; exists {
+		if serviceData, exists := nvsdc.services[zoneName]; exists {
 			serviceData.NetworkMacroGroupID = nmgid
-			nvsdc.services[nvsdc.privilegedProjectName] = serviceData
+			nvsdc.services[zoneName] = serviceData
 		} else {
-			nvsdc.services[nvsdc.privilegedProjectName] = ServiceData{
+			nvsdc.services[zoneName] = ServiceData{
 				NetworkMacroGroupID: nmgid,
 				NetworkMacros:       make(map[string]string),
 			}
 		}
-		if _, exists := nvsdc.namespaces[nvsdc.privilegedProjectName]; !exists {
-			nvsdc.namespaces[nvsdc.privilegedProjectName] = NamespaceData{
+		if _, exists := nvsdc.namespaces[zoneName]; !exists {
+			nvsdc.namespaces[zoneName] = NamespaceData{
 				ZoneID: zoneID,
-				Name:   nvsdc.privilegedProjectName,
+				Name:   zoneName,
 			}
 		}
 	}
@@ -2242,7 +2265,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string, enableStats
 		NetworkType:         "NETWORK_MACRO_GROUP",
 		NetworkID:           nmgid,
 		PolicyState:         "LIVE",
-		Priority:            1,
+		Priority:            nvsdc.NextAvailablePriority(),
 		Protocol:            "ANY",
 		Stateful:            true,
 		StatsLoggingEnabled: enableStatsLogging,
@@ -2253,33 +2276,31 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneID string, enableStats
 		glog.Error("Error when creating the ACL rules for the default zone")
 		return err
 	}
-	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-	if err != nil {
-		glog.Error("Error when creating the ACL rules for the default zone")
-		return err
-	}
-	//default to any ACL rule
-	aclEntry.Stateful = true
-	aclEntry.LocationID = zoneID
-	aclEntry.LocationType = "ZONE"
-	aclEntry.NetworkType = "ANY"
-	aclEntry.NetworkID = ""
-	aclEntry.Priority = 2
-	aclEntry.StatsLoggingEnabled = enableStatsLogging
-	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
-	if err != nil {
-		glog.Error("Error when creating the ACL rules for the default zone")
-		return err
-	}
-	//default to any ACL rule
-	aclEntry.LocationID = ""
-	aclEntry.LocationType = "ANY"
-	aclEntry.NetworkType = "ZONE"
-	aclEntry.NetworkID = zoneID
-	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-	if err != nil {
-		glog.Error("Error when creating the ACL rules for the default zone")
-		return err
+
+	if nvsdc.encryptionEnabled && nvsdc.isInfraZone(zoneName) {
+		//default to any ACL rule
+		aclEntry.Stateful = true
+		aclEntry.LocationID = zoneID
+		aclEntry.LocationType = "ZONE"
+		aclEntry.NetworkType = "ANY"
+		aclEntry.NetworkID = ""
+		aclEntry.Priority = nvsdc.NextAvailablePriority()
+		aclEntry.StatsLoggingEnabled = enableStatsLogging
+		_, err = nvsdc.CreateAclEntry(true, &aclEntry)
+		if err != nil {
+			glog.Error("Error when creating the ACL rules for the default zone")
+			return err
+		}
+		//default to any ACL rule
+		aclEntry.LocationID = ""
+		aclEntry.LocationType = "ANY"
+		aclEntry.NetworkType = "ZONE"
+		aclEntry.NetworkID = zoneID
+		_, err = nvsdc.CreateAclEntry(false, &aclEntry)
+		if err != nil {
+			glog.Error("Error when creating the ACL rules for the default zone")
+			return err
+		}
 	}
 	return nil
 }
@@ -2326,13 +2347,6 @@ func (nvsdc *NuageVsdClient) CreateSpecificZoneAcls(zoneName string, zoneID stri
 		ExternalID:          nvsdc.externalID,
 	}
 	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
-	if err != nil {
-		glog.Error("Error when creating the ACL rules for the zone: ", zoneName)
-		return err
-	} else {
-		nvsdc.SetNextAvailablePriority(aclEntry.Priority + 1 - 300)
-	}
-	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
 	if err != nil {
 		glog.Error("Error when creating the ACL rules for the zone: ", zoneName)
 		return err
@@ -2508,50 +2522,16 @@ func (nvsdc *NuageVsdClient) DeleteSpecificZoneAcls(zoneName string) error {
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneID string) error {
-	// aclEntry := api.VsdAclEntry{
-	// 	Action:       "FORWARD",
-	// 	DSCP:         "*",
-	// 	Description:  "Allow Traffic Between All Zones and Default Zone",
-	// 	EntityScope:  "ENTERPRISE",
-	// 	EtherType:    "0x0800",
-	// 	LocationID:   "",
-	// 	LocationType: "ANY",
-	// 	NetworkID:    nvsdc.namespaces[nvsdc.privilegedProjectName].NetworkMacroGroupID,
-	// 	NetworkType:  "NETWORK_MACRO_GROUP",
-	// 	PolicyState:  "LIVE",
-	// 	Protocol:     "ANY",
-	// 	Stateful:    false,
-	// }
-	// if acl, err := nvsdc.GetAclEntry(true, &aclEntry); err == nil && acl != nil {
-	// 	err = nvsdc.DeleteAclEntry(true, acl.ID)
-	// 	if err != nil {
-	// 		glog.Error("Error when deleting the ingress ACL rules for the default zone", aclEntry)
-	// 		return err
-	// 	}
-	// } else {
-	// 	glog.Error("Failed to get ingress acl entry to delete", aclEntry)
-	// 	return err
-	// }
-	// if acl, err := nvsdc.GetAclEntry(false, &aclEntry); err == nil && acl != nil {
-	// 	err = nvsdc.DeleteAclEntry(false, acl.ID)
-	// 	if err != nil {
-	// 		glog.Error("Error when deleting the egress ACL rules for the default zone", aclEntry)
-	// 		return err
-	// 	}
-	// } else {
-	// 	glog.Error("Failed to get egress acl entry to delete", aclEntry)
-	// 	return err
-	// }
-	if nvsdc.services[nvsdc.privilegedProjectName].NetworkMacroGroupID != "" {
-		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.services[nvsdc.privilegedProjectName].NetworkMacroGroupID)
+func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneName, zoneID string) error {
+	if nvsdc.services[zoneName].NetworkMacroGroupID != "" {
+		err := nvsdc.DeleteNetworkMacroGroup(nvsdc.services[zoneName].NetworkMacroGroupID)
 		if err != nil {
 			glog.Error("Failed to delete network macro group for default zone")
 			return err
 		} else {
-			if nsd, exists := nvsdc.services[nvsdc.privilegedProjectName]; exists {
+			if nsd, exists := nvsdc.services[zoneName]; exists {
 				nsd.NetworkMacroGroupID = ""
-				nvsdc.services[nvsdc.privilegedProjectName] = nsd
+				nvsdc.services[zoneName] = nsd
 			}
 		}
 	}
@@ -2744,6 +2724,22 @@ func (nvsdc *NuageVsdClient) IsStatsLoggingEnabled(nsEvent *api.NamespaceEvent) 
 		return true
 	}
 
+	return false
+}
+
+func (nvsdc *NuageVsdClient) isPrivilegedProject(name string) bool {
+	for _, pName := range nvsdc.privilegedProjectNames {
+		if pName == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (nvsdc *NuageVsdClient) isInfraZone(name string) bool {
+	if name == api.DEFAULT_INFRA_ZONE {
+		return true
+	}
 	return false
 }
 
