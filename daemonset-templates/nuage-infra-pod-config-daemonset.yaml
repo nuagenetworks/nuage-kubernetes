@@ -2,7 +2,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: nuage-infra-test-config
-  namespace: default
+  namespace: kube-system
 data:
   # Name of the enterprise in which pods will reside
   enterprise_name: kubernetes
@@ -13,7 +13,7 @@ data:
   # pod network cidr that will be used
   pod_network_cidr: 70.70.0.0/16
   # vrs personality type
-  personality: VRS
+  personality: vrs
 
 ---
 
@@ -23,7 +23,7 @@ kind: DaemonSet
 apiVersion: extensions/v1beta1
 metadata:
   name: nuage-infra-test-ds
-  namespace: default
+  namespace: kube-system
   labels:
     k8s-app: nuage-infra-test-ds
 spec:
@@ -37,7 +37,6 @@ spec:
       labels:
         k8s-app: nuage-infra-test-ds
     spec:
-      hostNetwork: true
       tolerations:
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
@@ -46,8 +45,8 @@ spec:
         # This container spawns a Nuage Infra pod
         # on each worker node
         - name: install-nuage-infra-test
-          image: nuage-infra-test:1.0
-          command: ["/usr/bin/install-nuage-infra-pod.sh"]
+          image: nuage/infra:<nuage-release>
+          command: ["/usr/bin/nuage-k8s-infra-pod.sh"]
           securityContext:
             privileged: true
           volumeMounts:
@@ -84,7 +83,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/usr/bin/install-nuage-infra-pod.sh", "-c"]
+                command: ["/usr/bin/nuage-k8s-infra-pod.sh", "-c"]
       volumes:
         - name: log-dir
           hostPath:
