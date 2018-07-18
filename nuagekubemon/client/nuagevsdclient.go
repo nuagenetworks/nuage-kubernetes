@@ -242,7 +242,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 		nvsdc.resourceManager.GetPolicyGroupsForPod, nkmConfig.AutoScaleSubnets)
 
 	nvsdc.CreateSession(nkmConfig.UserCertificateFile, nkmConfig.UserKeyFile)
-	nvsdc.nextAvailablePriority = 0
+	nvsdc.nextAvailablePriority = 1
 
 	for {
 		nvsdc.enterpriseID, err = nvsdc.GetEnterpriseID(nkmConfig.EnterpriseName)
