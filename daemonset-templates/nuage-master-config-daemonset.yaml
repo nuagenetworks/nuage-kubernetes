@@ -20,7 +20,7 @@ data:
       # Name of the domain in which pods will reside
       domainName: kubernetes
       # Enable/Disable encryption flags on VSD
-      enableEncryption: 0
+      encryptionEnabled: 0
       # Enable Underlay Support for this domain on VSD. 1 => enabled, 0 => disabled(default)
       underlaySupport: 0
       # Enable Stats Logging for this domain on VSD. 1 => enabled, 0 => disabled(default)
