@@ -41,6 +41,11 @@ const (
 )
 
 const (
+	EncryptionEnabled  = "ENABLED"
+	EncryptionDisabled = "DISABLED"
+)
+
+const (
 	UnderlaySupportEnabled   = "ENABLED"
 	UnderlaySupportInherited = "INHERITED"
 	UnderlaySupportDisabled  = "DISABLED"
@@ -243,6 +248,7 @@ type VsdDomain struct {
 	Description     string `json:"description"`
 	TemplateID      string `json:"templateID"`
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
+	Encryption      string `json:"encryption,omitempty"`
 	ExternalID      string `json:"externalID"`
 }
 
@@ -287,6 +293,7 @@ type VsdAclEntry struct {
 	StatsLoggingEnabled bool   `json:"statsLoggingEnabled"`
 }
 
+const DEFAULT_INFRA_ZONE = "kube-system"
 const MAX_VSD_ACL_PRIORITY = 1000000000 //the maximum priority allowed in VSD is 1 billion.
 
 type VsdNetworkMacro struct {

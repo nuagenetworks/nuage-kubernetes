@@ -33,17 +33,18 @@ type NuageKubeMonConfig struct {
 	LicenseFile         string           `yaml:"licenseFile"`
 	EnterpriseName      string           `yaml:"enterpriseName"`
 	DomainName          string           `yaml:"domainName"`
-	UnderlaySupport     string           `yaml:"underlaySupport"`
 	StatsLogging        string           `yaml:"statsLogging"`
 	RestServer          RestServerConfig `yaml:"nuageMonServer"`
 	UserCertificateFile string           `yaml:"userCertificateFile"`
 	UserKeyFile         string           `yaml:"userKeyFile"`
-	PrivilegedProject   string           `yaml:"privilegedProject"`
-	PrivilegedNamespace string           `yaml:"privilegedNamespace"`
+	PrivilegedProject   []string         `yaml:"privilegedProject"`
+	PrivilegedNamespace []string         `yaml:"privilegedNamespace"`
 	ConfigFile          string           `yaml:"-"` // yaml tag `-` denotes that this cannot be supplied in yaml.
 	MasterConfig        MasterConfig     `yaml:"-"`
 	EtcdClientConfig    EtcdConfig       `yaml:"etcdClientConfig"`
 	AutoScaleSubnets    string           `yaml:"autoScaleSubnets"`
+	UnderlaySupport     string           `yaml:"underlaySupport"`
+	EncryptionEnabled   string           `yaml:"encryptionEnabled"`
 }
 
 type RestServerConfig struct {
@@ -122,20 +123,14 @@ func (conf *NuageKubeMonConfig) Parse(data []byte) error {
 		conf.DomainName = DefaultDomain()
 	}
 
-	if conf.PrivilegedNamespace == "" {
-		conf.PrivilegedNamespace = "kube-system"
+	if conf.PrivilegedNamespace == nil {
+		conf.PrivilegedNamespace = []string{"kube-system", "default"}
 	}
 
 	// To simplify execution, we'll use PrivilegedProject everywhere after
 	// configuration is done.  If the system is nuagekubemon, we'll overwrite
 	// the PrivilegedProject variable with the PrivilegedNamespace one.
-	if programName := path.Base(os.Args[0]); strings.ToLower(programName) == "nuagekubemon" {
-		conf.PrivilegedProject = conf.PrivilegedNamespace
-	} else {
-		if conf.PrivilegedProject == "" {
-			conf.PrivilegedProject = "default"
-		}
-	}
+	conf.PrivilegedProject = conf.PrivilegedNamespace
 
 	return nil
 }
