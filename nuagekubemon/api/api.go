@@ -242,6 +242,14 @@ type VsdObject struct {
 	ExternalID  string `json:"externalID"`
 }
 
+type VsdDomainTemplate struct {
+	ID          string
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	ExternalID  string `json:"externalID"`
+	Encryption  string `json:"encryption,omitempty"`
+}
+
 type VsdDomain struct {
 	ID              string
 	Name            string `json:"name"`
