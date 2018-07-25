@@ -378,12 +378,17 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 }
 
 func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateName string) (string, error) {
-	result := make([]api.VsdObject, 1)
-	payload := api.VsdObject{
+	result := make([]api.VsdDomainTemplate, 1)
+	payload := api.VsdDomainTemplate{
 		Name:        domainTemplateName,
 		Description: "Auto-generated default domain template",
 		ExternalID:  nvsdc.externalID,
 	}
+
+	if nvsdc.encryptionEnabled {
+		payload.Encryption = api.EncryptionEnabled
+	}
+
 	e := api.RESTError{}
 	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/domaintemplates"
 	resp, err := nvsdc.session.Post(reqUrl, &payload, &result, &e)
@@ -412,7 +417,7 @@ func (nvsdc *NuageVsdClient) CreateDomainTemplate(enterpriseID, domainTemplateNa
 }
 
 func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (string, error) {
-	result := make([]api.VsdObject, 1)
+	result := make([]api.VsdDomainTemplate, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+name+`"`)
 	e := api.RESTError{}
@@ -1046,10 +1051,6 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 
 	if nvsdc.underlayEnabled {
 		payload.UnderlayEnabled = api.UnderlaySupportEnabled
-	}
-
-	if nvsdc.encryptionEnabled {
-		payload.Encryption = api.EncryptionEnabled
 	}
 
 	e := api.RESTError{}
