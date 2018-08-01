@@ -1,0 +1,3 @@
+#!/bin/bash
+set -x
+cp ${strongswan_rpm_path} .
