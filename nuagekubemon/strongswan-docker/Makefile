@@ -1,7 +1,7 @@
 all: fetch_strongswan docker_build
 
 fetch_strongswan:
-	./fetch_strongswan
+	./fetch-strongswan
 
 docker_build:
 	docker build -t nuage/strongswan:${version} .
