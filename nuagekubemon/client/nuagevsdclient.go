@@ -2039,7 +2039,10 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
 	enableStatsLogging := nvsdc.IsStatsLoggingEnabled(nsEvent)
-	nsDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
+	// OSE sends ns events at regular intervals(every 10mins or so)
+	// this is causing ACL changes on VSD at the frequency
+	// Changes on VSD is required only if something changes in ns annotations
+	newDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
 	if nsPolicyChanged {
 		nvsdc.resourceManager.HandleNsEvent(nsEvent)
 	}
@@ -2051,8 +2054,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			namespace := NamespaceData{
-				Name:          nsEvent.Name,
-				defaultPolicy: nsDefaultPolicy,
+				Name: nsEvent.Name,
+			}
+			if newDefaultPolicy != noPolicy {
+				namespace.defaultPolicy = newDefaultPolicy
 			}
 
 			zoneMetadata := &api.EtcdZoneMetadata{Name: nsEvent.Name}
@@ -2753,12 +2758,16 @@ func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) 
 	}
 
 	if _, ok := nvsdc.namespaces[nsEvent.Name]; !ok {
-		return newPolicy, true
+		//special case: maybe we hit a ns event after monitor restart
+		//we assume policies on VSD are already created
+		return newPolicy, false
 	}
-	if newPolicy != nvsdc.namespaces[nsEvent.Name].defaultPolicy {
-		return newPolicy, true
+
+	if nsData, _ := nvsdc.namespaces[nsEvent.Name]; nsData.defaultPolicy != newPolicy {
+		nsData.defaultPolicy = newPolicy
+		return noPolicy, true
 	}
-	return newPolicy, false
+	return noPolicy, false
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
