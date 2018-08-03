@@ -2765,6 +2765,7 @@ func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) 
 
 	if nsData, _ := nvsdc.namespaces[nsEvent.Name]; nsData.defaultPolicy != newPolicy {
 		nsData.defaultPolicy = newPolicy
+		nvsdc.namespaces[nsEvent.Name] = nsData
 		return noPolicy, true
 	}
 	return noPolicy, false
