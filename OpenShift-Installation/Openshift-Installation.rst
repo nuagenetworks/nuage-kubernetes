@@ -129,7 +129,7 @@ Setup
    
    For Nuage releases 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html>`_. 
 
-   For Nuage releases 5.2.2 & above, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
+   For Nuage releases 5.2.2 & later, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
    
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
 
@@ -235,9 +235,15 @@ Installation for a Single Master
     domain=openshift
     vsc_active_ip=10.100.100.101
     vsc_standby_ip=10.100.100.102
-    uplink_interface=eth0
-    nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
+    nuage_personality=vrs
+    nw_uplink_intf=eth0
+    evdf_uplink_intf=eth0
+    nuage_site_id=-1
+    enable_underlay_support=1
+    enable_stats_logging=1
+    vrs_bridge_mtu_config=1450
     nuage_interface_mtu=1450
+    nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
     # auto scale subnets feature
     # 0 => disabled(default)
     # 1 => enabled
@@ -250,7 +256,6 @@ Installation for a Single Master
     # Complete local host path to the VSD user key file
     vsd_user_key_file=/usr/local/ose-admin-Key.pem
    
-    
     # Set 'make-iptables-util-chains' flag as 'false' while starting kubelet
     # NOTE: This is a mandatory parameter and Nuage Integration does not work if not set
     openshift_node_kubelet_args={'max-pods': ['110'], 'image-gc-high-threshold': ['90'], 'image-gc-low-threshold': ['80'], 'make-iptables-util-chains': ['false']}
