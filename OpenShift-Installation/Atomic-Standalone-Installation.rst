@@ -13,7 +13,9 @@ Supported Platforms
 
 The VSP integration with OpenShift is supported on RHEL Atomic hosts (VERSION 7.4).
 
-The installation procedure in this section is for VSP integration with OpenShift when the master nodes are RHEL Server hosts and slave nodes are RHEL Atomic hosts. This guide documents the installation procedure for Atomic Standalone Installation.
+The installation procedure in this section is for VSP integration with OpenShift when the master and worker nodes are RHEL Atomic hosts. This guide documents the installation procedure for Atomic Standalone Installation.
+
+To see the complete Nuage Openshift supportability matrix go `here <https://github.com/nuagenetworks/nuage-kubernetes#nuage-openshift>`_. 
 
 .. Note:: For information on other supported platforms and distributions, see the *Nuage VSP Release Notes*.
 
@@ -65,7 +67,7 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
 1. Make sure https://github.com is reachable from your Ansible machine.
 
-2. Setup SSH and access the master and the minion nodes, using the ssh command.
+2. Setup SSH and access the master and the worker nodes, using the ssh command.
 
    .. Note:: set-up passwordless ssh between Ansible node and cluster nodes.
 
@@ -120,11 +122,11 @@ Setup
 
 1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide.
    
-   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html/>`_.
+   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html>`_.
    
-   For Nuage releases 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html/>`_. 
+   For Nuage releases 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html>`_. 
    
-   For Nuage releases 5.2.2 and above, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html/>`_. 
+   For Nuage releases 5.2.2 and later, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
       
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
 
@@ -180,7 +182,7 @@ Setup
 Installation for a Single Master
 -----------------------------------
 
-1. Create a nodes file for Ansible configuration for a single master (RHEL Server) in the openshift-ansible directory with the contents shown below.
+1. Create a nodes file for Ansible configuration in the openshift-ansible directory with the contents shown below.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
@@ -198,6 +200,8 @@ Installation for a Single Master
     [OSEv3:vars]
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
+    openshift_release=v3.7
+    containerized=true
     openshift_enable_service_catalog=false
     openshift_master_portal_net=172.30.0.0/16
     osm_cluster_network_cidr=70.70.0.0/16
@@ -205,6 +209,7 @@ Installation for a Single Master
     osm_host_subnet_length=10
     openshift_pkg_version=-3.7.9
     slave_base_host_type=is_atomic
+    master_base_host_type=is_atomic
     openshift_disable_check=disk_availability,memory_availability,package_version,docker_storage,docker_image_availability
     
     # If ansible_ssh_user is not root, ansible_sudo must be set to true
@@ -219,7 +224,14 @@ Installation for a Single Master
     os_sdn_network_plugin_name=cni
     vsd_api_url=https://<VSD-IP/VSD-Hostname>:7443
     vsp_version=v5_0
-    
+    nuage_personality=vrs
+    nw_uplink_intf=eth0
+    evdf_uplink_intf=eth0
+    nuage_site_id=-1
+    enable_underlay_support=1
+    enable_stats_logging=1
+    vrs_bridge_mtu_config=1450
+
     # The below versions should match the TAG version in the output of 'docker images' on the nodes. See point 2 above
     # Example: nuage_monitor_image_version=5.2.2-70
     nuage_monitor_image_version=<version>
@@ -231,9 +243,8 @@ Installation for a Single Master
     domain=openshift
     vsc_active_ip=10.100.100.101
     vsc_standby_ip=10.100.100.102
-    uplink_interface=eth0
     nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
-    nuage_interface_mtu=1500
+    nuage_interface_mtu=1350
     # auto scale subnets feature
     # 0 => disabled(default)
     # 1 => enabled
