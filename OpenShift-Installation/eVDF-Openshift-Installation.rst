@@ -138,14 +138,13 @@ Setup
 
 1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide.
    
-   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html>`_.
+   For Nuage release 5.3.2, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
    
-   For Nuage releases 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html>`_. 
-
-   For Nuage releases 5.2.2 & later, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
+   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
+   ::
    
-   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
-
+      Remove any existing container selinux package and install the below packages
+      yum install -y container-selinux-2.42-1.gitad8f0f7.el7.noarch selinux-policy-3.13.1-166.el7_4.7.noarch
 
 2. Load the following docker images on your master node:
 
