@@ -131,8 +131,15 @@ Setup
 
    For Nuage releases 5.2.2 & later, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
    
-   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide.
+   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. To install the right docker & selinux image for RHEL 7.4, follow the below instructions.
 
+  ::
+   
+       a. Remove any existing docker versions
+       b. Install docker 1.12.6
+          yum install docker-1.12.6
+       c. Install the correct container-selinux & selinux-policy versions.
+          yum install container-selinux-2.42-1.gitad8f0f7.el7.noarch selinux-policy-3.13.1-166.el7_4.7.noarch
 
 2. Load the following docker images on your master node:
 
