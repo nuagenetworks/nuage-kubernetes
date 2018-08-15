@@ -622,7 +622,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 		EntityScope:         "ENTERPRISE",
 		EtherType:           "0x0800",
 		LocationType:        "ANY",
-		NetworkType:         "ENDPOINT_ZONE",
+		NetworkType:         "ANY",
 		PolicyState:         "LIVE",
 		Priority:            0,
 		Protocol:            "ANY",
@@ -634,38 +634,6 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 	if err != nil {
 		glog.Error("Error when creating egress acl entry", err)
 		return err
-	}
-	aclEntry.Action = "DROP"
-	aclEntry.Description = "Drop intra-domain traffic"
-	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
-	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
-	aclEntry.Stateful = false
-	aclEntry.StatsLoggingEnabled = enableStatsLogging
-	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-	if err != nil {
-		glog.Error("Error when creating egress acl entry", err)
-	}
-	networkMacro := &api.VsdNetworkMacro{
-		Name:       `NetworkMacro for Service CIDR`,
-		IPType:     "IPV4",
-		Address:    nvsdc.serviceNetwork.Address.String(),
-		Netmask:    nvsdc.serviceNetwork.Netmask().String(),
-		ExternalID: nvsdc.externalID,
-	}
-	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
-	if err != nil {
-		glog.Error("Error when creating the network macro for service CIDR")
-	} else {
-		//
-		aclEntry.Priority = aclEntry.Priority - 1
-		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
-		aclEntry.NetworkID = networkMacroID
-		aclEntry.Description = "Drop traffic from domain to the service CIDR"
-		aclEntry.StatsLoggingEnabled = enableStatsLogging
-		_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-		if err != nil {
-			glog.Error("Error when creating ingress acl entry", err)
-		}
 	}
 	return nil
 }
