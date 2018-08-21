@@ -179,7 +179,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.privilegedProjectNames = nkmConfig.PrivilegedProject
-	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
+	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
 	}
@@ -187,7 +187,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
-	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.SubnetLength
+	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].SubnetLength
 	if nvsdc.subnetSize < 0 || nvsdc.subnetSize > 32 {
 		glog.Errorf("Invalid hostSubnetLength of %d.  Using default value of 8",
 			nvsdc.subnetSize)
@@ -622,7 +622,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 		EntityScope:         "ENTERPRISE",
 		EtherType:           "0x0800",
 		LocationType:        "ANY",
-		NetworkType:         "ENDPOINT_ZONE",
+		NetworkType:         "ANY",
 		PolicyState:         "LIVE",
 		Priority:            0,
 		Protocol:            "ANY",
@@ -634,38 +634,6 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 	if err != nil {
 		glog.Error("Error when creating egress acl entry", err)
 		return err
-	}
-	aclEntry.Action = "DROP"
-	aclEntry.Description = "Drop intra-domain traffic"
-	aclEntry.NetworkType = "ENDPOINT_DOMAIN"
-	aclEntry.Priority = api.MAX_VSD_ACL_PRIORITY
-	aclEntry.Stateful = false
-	aclEntry.StatsLoggingEnabled = enableStatsLogging
-	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-	if err != nil {
-		glog.Error("Error when creating egress acl entry", err)
-	}
-	networkMacro := &api.VsdNetworkMacro{
-		Name:       `NetworkMacro for Service CIDR`,
-		IPType:     "IPV4",
-		Address:    nvsdc.serviceNetwork.Address.String(),
-		Netmask:    nvsdc.serviceNetwork.Netmask().String(),
-		ExternalID: nvsdc.externalID,
-	}
-	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
-	if err != nil {
-		glog.Error("Error when creating the network macro for service CIDR")
-	} else {
-		//
-		aclEntry.Priority = aclEntry.Priority - 1
-		aclEntry.NetworkType = "ENTERPRISE_NETWORK"
-		aclEntry.NetworkID = networkMacroID
-		aclEntry.Description = "Drop traffic from domain to the service CIDR"
-		aclEntry.StatsLoggingEnabled = enableStatsLogging
-		_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-		if err != nil {
-			glog.Error("Error when creating ingress acl entry", err)
-		}
 	}
 	return nil
 }
@@ -2039,7 +2007,10 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
 	enableStatsLogging := nvsdc.IsStatsLoggingEnabled(nsEvent)
-	nsDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
+	// OSE sends ns events at regular intervals(every 10mins or so)
+	// this is causing ACL changes on VSD at the frequency
+	// Changes on VSD is required only if something changes in ns annotations
+	newDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
 	if nsPolicyChanged {
 		nvsdc.resourceManager.HandleNsEvent(nsEvent)
 	}
@@ -2051,8 +2022,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			namespace := NamespaceData{
-				Name:          nsEvent.Name,
-				defaultPolicy: nsDefaultPolicy,
+				Name: nsEvent.Name,
+			}
+			if newDefaultPolicy != noPolicy {
+				namespace.defaultPolicy = newDefaultPolicy
 			}
 
 			zoneMetadata := &api.EtcdZoneMetadata{Name: nsEvent.Name}
@@ -2279,7 +2252,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, e
 	}
 
 	if nvsdc.encryptionEnabled && nvsdc.isInfraZone(zoneName) {
-		//default to any ACL rule
+		//default to nuage infra zone ACL rule
 		aclEntry.Stateful = true
 		aclEntry.LocationID = zoneID
 		aclEntry.LocationType = "ZONE"
@@ -2292,7 +2265,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, e
 			glog.Error("Error when creating the ACL rules for the default zone")
 			return err
 		}
-		//default to any ACL rule
+		//default to nuage infra zone ACL rule
 		aclEntry.LocationID = ""
 		aclEntry.LocationType = "ANY"
 		aclEntry.NetworkType = "ZONE"
@@ -2753,12 +2726,17 @@ func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) 
 	}
 
 	if _, ok := nvsdc.namespaces[nsEvent.Name]; !ok {
-		return newPolicy, true
+		//special case: maybe we hit a ns event after monitor restart
+		//we assume policies on VSD are already created
+		return newPolicy, false
 	}
-	if newPolicy != nvsdc.namespaces[nsEvent.Name].defaultPolicy {
-		return newPolicy, true
+
+	if nsData, _ := nvsdc.namespaces[nsEvent.Name]; nsData.defaultPolicy != newPolicy {
+		nsData.defaultPolicy = newPolicy
+		nvsdc.namespaces[nsEvent.Name] = nsData
+		return noPolicy, true
 	}
-	return newPolicy, false
+	return noPolicy, false
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
