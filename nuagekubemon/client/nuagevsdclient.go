@@ -179,7 +179,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.privilegedProjectNames = nkmConfig.PrivilegedProject
-	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
+	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
 	}
@@ -187,7 +187,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
-	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.SubnetLength
+	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].SubnetLength
 	if nvsdc.subnetSize < 0 || nvsdc.subnetSize > 32 {
 		glog.Errorf("Invalid hostSubnetLength of %d.  Using default value of 8",
 			nvsdc.subnetSize)
@@ -2252,7 +2252,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, e
 	}
 
 	if nvsdc.encryptionEnabled && nvsdc.isInfraZone(zoneName) {
-		//default to any ACL rule
+		//default to nuage infra zone ACL rule
 		aclEntry.Stateful = true
 		aclEntry.LocationID = zoneID
 		aclEntry.LocationType = "ZONE"
@@ -2265,7 +2265,7 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, e
 			glog.Error("Error when creating the ACL rules for the default zone")
 			return err
 		}
-		//default to any ACL rule
+		//default to nuage infra zone ACL rule
 		aclEntry.LocationID = ""
 		aclEntry.LocationType = "ANY"
 		aclEntry.NetworkType = "ZONE"

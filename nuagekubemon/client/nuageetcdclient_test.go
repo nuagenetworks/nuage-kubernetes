@@ -20,8 +20,8 @@ const MAX_COUNT = 100
 func init() {
 	var err error
 	conf := &config.NuageKubeMonConfig{}
-	conf.MasterConfig.NetworkConfig.ClusterCIDR = "70.70.0.0/16"
-	conf.MasterConfig.NetworkConfig.SubnetLength = 8
+	conf.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR = "70.70.0.0/16"
+	conf.MasterConfig.NetworkConfig.ClusterNetworks[0].SubnetLength = 8
 	nuageetcd, err = NewNuageEtcdClient(conf)
 	if err != nil {
 		fmt.Printf("Starting etcd client failed with error: %v", err)
