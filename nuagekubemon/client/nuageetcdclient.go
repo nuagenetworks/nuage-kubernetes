@@ -80,11 +80,11 @@ func (nuageetcd *NuageEtcdClient) Init(nkmConfig *config.NuageKubeMonConfig) err
 	if len(nuageetcd.etcdBaseURL) == 0 {
 		nuageetcd.etcdBaseURL = []string{"http://127.0.0.1:2379"}
 	}
-	nuageetcd.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
+	nuageetcd.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		return fmt.Errorf("Failure in getting cluster CIDR: %s\n", err)
 	}
-	nuageetcd.subnetSize = nkmConfig.MasterConfig.NetworkConfig.SubnetLength
+	nuageetcd.subnetSize = nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].SubnetLength
 	if nuageetcd.subnetSize < 2 || nuageetcd.subnetSize > 32 {
 		glog.Errorf("Invalid hostSubnetLength of %d.  Using default value of 8",
 			nuageetcd.subnetSize)

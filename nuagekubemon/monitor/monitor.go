@@ -118,6 +118,12 @@ func (nkm *NuageKubeMonitor) Run() {
 			programName))
 		return
 	}
+
+	if len(nkm.mConfig.MasterConfig.NetworkConfig.ClusterNetworks) == 0 {
+		glog.Errorf("No valid cluster network configuration found")
+		return
+	}
+
 	if nkm.metcdClient, err = client.NewNuageEtcdClient(&nkm.mConfig); err != nil {
 		glog.Errorf("Creating etcd client failed with error: %v", err)
 		return

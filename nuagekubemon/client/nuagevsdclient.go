@@ -179,7 +179,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.privilegedProjectNames = nkmConfig.PrivilegedProject
-	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterCIDR)
+	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
 	}
@@ -187,7 +187,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	if err != nil {
 		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
-	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.SubnetLength
+	nvsdc.subnetSize = nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].SubnetLength
 	if nvsdc.subnetSize < 0 || nvsdc.subnetSize > 32 {
 		glog.Errorf("Invalid hostSubnetLength of %d.  Using default value of 8",
 			nvsdc.subnetSize)
