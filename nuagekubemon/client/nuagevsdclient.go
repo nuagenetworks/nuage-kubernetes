@@ -2278,30 +2278,28 @@ func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, e
 		return err
 	}
 
-	if nvsdc.encryptionEnabled && nvsdc.isInfraZone(zoneName) {
-		//default to any ACL rule
-		aclEntry.Stateful = true
-		aclEntry.LocationID = zoneID
-		aclEntry.LocationType = "ZONE"
-		aclEntry.NetworkType = "ANY"
-		aclEntry.NetworkID = ""
-		aclEntry.Priority = nvsdc.NextAvailablePriority()
-		aclEntry.StatsLoggingEnabled = enableStatsLogging
-		_, err = nvsdc.CreateAclEntry(true, &aclEntry)
-		if err != nil {
-			glog.Error("Error when creating the ACL rules for the default zone")
-			return err
-		}
-		//default to any ACL rule
-		aclEntry.LocationID = ""
-		aclEntry.LocationType = "ANY"
-		aclEntry.NetworkType = "ZONE"
-		aclEntry.NetworkID = zoneID
-		_, err = nvsdc.CreateAclEntry(false, &aclEntry)
-		if err != nil {
-			glog.Error("Error when creating the ACL rules for the default zone")
-			return err
-		}
+	//default to any ACL rule
+	aclEntry.Stateful = false
+	aclEntry.LocationID = zoneID
+	aclEntry.LocationType = "ZONE"
+	aclEntry.NetworkType = "ANY"
+	aclEntry.NetworkID = ""
+	aclEntry.Priority = nvsdc.NextAvailablePriority()
+	aclEntry.StatsLoggingEnabled = enableStatsLogging
+	_, err = nvsdc.CreateAclEntry(true, &aclEntry)
+	if err != nil {
+		glog.Error("Error when creating the ACL rules for the default zone")
+		return err
+	}
+	//default to any ACL rule
+	aclEntry.LocationID = ""
+	aclEntry.LocationType = "ANY"
+	aclEntry.NetworkType = "ZONE"
+	aclEntry.NetworkID = zoneID
+	_, err = nvsdc.CreateAclEntry(false, &aclEntry)
+	if err != nil {
+		glog.Error("Error when creating the ACL rules for the default zone")
+		return err
 	}
 	return nil
 }
@@ -2733,13 +2731,6 @@ func (nvsdc *NuageVsdClient) isPrivilegedProject(name string) bool {
 		if pName == name {
 			return true
 		}
-	}
-	return false
-}
-
-func (nvsdc *NuageVsdClient) isInfraZone(name string) bool {
-	if name == api.DEFAULT_INFRA_ZONE {
-		return true
 	}
 	return false
 }

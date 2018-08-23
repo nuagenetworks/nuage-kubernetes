@@ -301,7 +301,6 @@ type VsdAclEntry struct {
 	StatsLoggingEnabled bool   `json:"statsLoggingEnabled"`
 }
 
-const DEFAULT_INFRA_ZONE = "kube-system"
 const MAX_VSD_ACL_PRIORITY = 1000000000 //the maximum priority allowed in VSD is 1 billion.
 
 type VsdNetworkMacro struct {
