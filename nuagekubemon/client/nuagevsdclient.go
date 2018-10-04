@@ -2039,20 +2039,17 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infoln("Received a namespace event: Namespace: ", nsEvent.Name, nsEvent.Type)
 	enableStatsLogging := nvsdc.IsStatsLoggingEnabled(nsEvent)
-	nsDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
-	if nsPolicyChanged {
-		nvsdc.resourceManager.HandleNsEvent(nsEvent)
-	}
+	newDefaultPolicy, nsPolicyChanged := nvsdc.IsPolicyLabelsChanged(nsEvent)
 	//handle regular processing
 	switch nsEvent.Type {
 	case api.Added:
-		fallthrough
-	case api.Modified:
 		namespace, exists := nvsdc.namespaces[nsEvent.Name]
 		if !exists {
 			namespace := NamespaceData{
-				Name:          nsEvent.Name,
-				defaultPolicy: nsDefaultPolicy,
+				Name: nsEvent.Name,
+			}
+			if newDefaultPolicy != noPolicy {
+				namespace.defaultPolicy = newDefaultPolicy
 			}
 
 			zoneMetadata := &api.EtcdZoneMetadata{Name: nsEvent.Name}
@@ -2070,11 +2067,6 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			zoneID, err := nvsdc.CreateZone(nvsdc.domainID, nsEvent.Name)
 			if err != nil {
 				return err
-			}
-			zoneMetadata = &api.EtcdZoneMetadata{Name: nsEvent.Name, ID: zoneID}
-			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateZone, zoneMetadata)
-			if resp.Error != nil {
-				glog.Errorf("updating zone(%s) with id(%s) failed: %v", nsEvent.Name, zoneID, err)
 			}
 			namespace.ZoneID = zoneID
 			nvsdc.namespaces[nsEvent.Name] = namespace
@@ -2127,6 +2119,15 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					return err
 				}
 			}
+
+			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+
+			zoneMetadata = &api.EtcdZoneMetadata{Name: nsEvent.Name, ID: zoneID}
+			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateZone, zoneMetadata)
+			if resp.Error != nil {
+				glog.Errorf("updating zone(%s) with id(%s) failed: %v", nsEvent.Name, zoneID, err)
+			}
+
 			return nil
 		}
 		// else (nvsdc.namespaces[nsEvent.Name] exists)
@@ -2142,6 +2143,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			namespace.ZoneID = id
 			return nil
 		}
+	case api.Modified:
+		if nsPolicyChanged {
+			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+		}
+
 	case api.Deleted:
 		if zone, exists := nvsdc.namespaces[nsEvent.Name]; exists {
 			defer func() {
@@ -2746,10 +2752,13 @@ func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) 
 	if _, ok := nvsdc.namespaces[nsEvent.Name]; !ok {
 		return newPolicy, true
 	}
-	if newPolicy != nvsdc.namespaces[nsEvent.Name].defaultPolicy {
-		return newPolicy, true
+
+	if nsData, _ := nvsdc.namespaces[nsEvent.Name]; nsData.defaultPolicy != newPolicy {
+		nsData.defaultPolicy = newPolicy
+		nvsdc.namespaces[nsEvent.Name] = nsData
+		return noPolicy, true
 	}
-	return newPolicy, false
+	return noPolicy, false
 }
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
