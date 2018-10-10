@@ -1876,6 +1876,8 @@ func (nvsdc *NuageVsdClient) HandlePodAddEvent(podEvent *api.PodEvent) (string, 
 }
 
 func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
+	maxRetries := 5
+	deleteRetryCounter := make(map[string]int)
 	podMetadata := &api.EtcdPodMetadata{
 		PodName:       podEvent.Name,
 		NamespaceName: podEvent.Namespace,
@@ -1894,7 +1896,16 @@ func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
 				//delete subnet on vsd
 				if err := nvsdc.DeleteSubnet(subnetInfo.ID); err != nil {
 					glog.Errorf("delete subnet(%s) failed: %v", subnetInfo.ID, err)
-					delRetrySubnets = append(delRetrySubnets, subnetInfo)
+					//We need not retry if the error is 404.
+					if !strings.Contains(err.Error(), "404") {
+						_count, ok := deleteRetryCounter[subnetInfo.ID]
+						if !ok || _count < maxRetries {
+							delRetrySubnets = append(delRetrySubnets, subnetInfo)
+							deleteRetryCounter[subnetInfo.ID] = _count + 1
+						} else {
+							delete(deleteRetryCounter, subnetInfo.ID)
+						}
+					}
 					continue
 				}
 				//release cidr from local pool
