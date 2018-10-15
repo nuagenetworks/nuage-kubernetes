@@ -1927,6 +1927,8 @@ func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
 			if len(delRetrySubnets) > 0 {
 				emptySubnets = delRetrySubnets
 				time.Sleep(time.Second)
+			} else {
+				break
 			}
 		}
 	}(emptySubnets)
