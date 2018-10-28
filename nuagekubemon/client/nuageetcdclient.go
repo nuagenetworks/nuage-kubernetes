@@ -256,6 +256,7 @@ func (nuageetcd *NuageEtcdClient) DeAllocateSubnetFromPod(data *api.EtcdPodMetad
 			}
 		}
 		snet.ACTIVEIP -= 1
+		deallocatedSubnet := snet.VSDID
 		if b, err := json.Marshal(snet); err != nil {
 			glog.Errorf("marshal struct %v to string failed: %v", snet, err)
 			return false, err
@@ -275,7 +276,11 @@ func (nuageetcd *NuageEtcdClient) DeAllocateSubnetFromPod(data *api.EtcdPodMetad
 				if err := json.Unmarshal(kv.Value, snet); err != nil {
 					glog.Errorf("unmarshal kv pair(%s, %s) to struct failed: %v", kv.Key, kv.Value, err)
 				} else {
-					if snet.ACTIVEIP == 0 {
+					noIpCount := 0
+					if snet.VSDID == deallocatedSubnet {
+						noIpCount = 1
+					}
+					if snet.ACTIVEIP == noIpCount {
 						ops = append(ops, clientv3.OpDelete(string(kv.Key)))
 						subnetList = append(subnetList, &api.EtcdSubnetMetadata{ID: snet.VSDID, CIDR: snet.CIDR})
 					}
