@@ -166,9 +166,13 @@ func TestAutoScaling(t *testing.T) {
 		for i := 0; i < MAX_COUNT; i++ {
 			go func(i int) {
 				podData := &api.EtcdPodMetadata{NamespaceName: "ns", PodName: fmt.Sprintf("pod%d", i)}
-				_, err = nuageetcd.AllocateSubnetForPod(podData)
+				podSubnet, err := nuageetcd.AllocateSubnetForPod(podData)
 				if err != nil {
 					t.Fatalf("incrementing active ip count failed with error: %v", err)
+				}
+				subnet := &api.EtcdSubnetMetadata{Namespace: "ns", Name: podSubnet.ToCreate, ID: fmt.Sprintf("vsdid%d", i), CIDR: "0.0.0.0/24"}
+				if err := nuageetcd.UpdateSubnetInfo(subnet); err != nil {
+					t.Fatalf("updating subnet id failed: %v", err)
 				}
 				done <- true
 			}(i)
