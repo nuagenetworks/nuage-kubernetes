@@ -211,7 +211,7 @@ Installation for a Single Master
     [OSEv3:vars]
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
-    openshift_master_portal_net=172.30.0.0/16
+    openshift_portal_net=172.30.0.0/16
     osm_cluster_network_cidr=70.70.0.0/16
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
@@ -243,8 +243,7 @@ Installation for a Single Master
     vsc_active_ip=10.100.100.101
     vsc_standby_ip=10.100.100.102
     nuage_personality=vrs
-    nw_uplink_intf=eth0
-    evdf_uplink_intf=eth0
+    uplink_interface=eth0
     nuage_site_id=-1
     enable_underlay_support=1
     enable_stats_logging=1
@@ -346,7 +345,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         [OSEv3:vars]
         # SSH user, this user should allow ssh based auth without requiring a password
         ansible_ssh_user=root
-        openshift_master_portal_net=172.30.0.0/16
+        openshift_portal_net=172.30.0.0/16
         osm_cluster_network_cidr=70.70.0.0/16
         deployment_type=openshift-enterprise
         osm_host_subnet_length=10
@@ -378,8 +377,13 @@ Nuage OpenShift only supports HA configuration method described in this section.
         vsc_active_ip=10.100.100.101
         vsc_standby_ip=10.100.100.102
         uplink_interface=eth0
-        nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
+        nuage_site_id=-1
+        enable_underlay_support=1
+        enable_stats_logging=1
+        nuage_personality=vrs
+        vrs_bridge_mtu_config=1450
         nuage_interface_mtu=1450
+        nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
         # auto scale subnets feature
         # 0 => disabled(default)
         # 1 => enabled
