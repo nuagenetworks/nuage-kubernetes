@@ -43,11 +43,11 @@ DaemonSet is used for installation of Nuage containerized services as part of th
 Pre-Installation Steps in VSD
 -----------------------------
 
-1. Login to VSD UI as csproot and under "Platform Configuration" create a new Organization Profile, for example "oseOrgProfile" & enable 'Allow Gateway Management' & 'Encryption'. 
+1. Login to VSD UI as csproot and under "Platform Configuration" create a new Organization Profile, for example "oseOrgProfile" & enable 'Allow Gateway Management', 'Enable Routing Protocols' & 'Encryption'. 
 
 2. Under Infrastructure tab, create an 'Infrastructure eVDF Profile' (under Gateway Profiles). Populate the right values for 'Proxy DNS Name', 'Active & Standby Controller'.
 
-3. Create an "openshift" Enterprise and set the profile to "oseOrgProfile" created in previous step.
+3. Create an "openshift" Enterprise and set the profile to "oseOrgProfile" created in previous step and provide a "Local AS" number.
 
 4. Go to the 'Infrastructure' tab under the Enterprise. Create a 'Gateway Template' with Personality "eVDF" with the right 'Network Port' information.
 
@@ -138,7 +138,7 @@ Setup
 
 1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide.
    
-   For Nuage release 5.3.2, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
+   For Nuage release 5.3.2 and later, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
    
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
    ::
@@ -264,13 +264,13 @@ Installation for a Single Master
     vsc_active_ip=10.100.100.101
     vsc_standby_ip=10.100.100.102
     nuage_personality=evdf
-    nw_uplink_intf=eth0
-    evdf_uplink_intf=eth0
+    uplink_interface=eth0
     nuage_site_id=-1
     enable_underlay_support=1
     enable_stats_logging=1
     vrs_bridge_mtu_config=1450
     nuage_interface_mtu=1350
+    
     nuage_openshift_monitor_log_dir=/var/log/nuage-openshift-monitor
     # auto scale subnets feature
     # 0 => disabled(default)
@@ -399,8 +399,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         vsc_active_ip=10.100.100.101
         vsc_standby_ip=10.100.100.102
         nuage_personality=evdf
-        nw_uplink_intf=eth0
-        evdf_uplink_intf=eth0
+        uplink_interface=eth0
         nuage_site_id=-1
         enable_underlay_support=1
         enable_stats_logging=1
