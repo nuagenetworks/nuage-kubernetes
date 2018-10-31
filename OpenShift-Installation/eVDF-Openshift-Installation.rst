@@ -232,7 +232,7 @@ Installation for a Single Master
     [OSEv3:vars]
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
-    openshift_master_portal_net=172.30.0.0/16
+    openshift_portal_net=172.30.0.0/16
     osm_cluster_network_cidr=70.70.0.0/16
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
@@ -367,7 +367,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         [OSEv3:vars]
         # SSH user, this user should allow ssh based auth without requiring a password
         ansible_ssh_user=root
-        openshift_master_portal_net=172.30.0.0/16
+        openshift_portal_net=172.30.0.0/16
         osm_cluster_network_cidr=70.70.0.0/16
         deployment_type=openshift-enterprise
         osm_host_subnet_length=10
