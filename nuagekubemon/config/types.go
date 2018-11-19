@@ -126,7 +126,7 @@ func (conf *NuageKubeMonConfig) Parse(data []byte) error {
 	}
 
 	if conf.PrivilegedNamespace == nil {
-		conf.PrivilegedNamespace = []string{"kube-system", "default", "nuage-system"}
+		conf.PrivilegedNamespace = []string{"kube-system", "default"}
 	}
 
 	// To simplify execution, we'll use PrivilegedProject everywhere after
