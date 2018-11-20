@@ -1050,7 +1050,6 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		Description:     "Auto-generated domain",
 		TemplateID:      domainTemplateID,
 		UnderlayEnabled: api.UnderlaySupportDisabled,
-		Encryption:      api.EncryptionDisabled,
 		ExternalID:      nvsdc.externalID,
 	}
 

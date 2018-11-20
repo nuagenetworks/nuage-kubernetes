@@ -52,11 +52,6 @@ const (
 )
 
 const (
-	EncryptionEnabled  = "ENABLED"
-	EncryptionDisabled = "DISABLED"
-)
-
-const (
 	IngressAclTemplateName     = "Auto-generated Ingress Policies"
 	EgressAclTemplateName      = "Auto-generated Egress Policies"
 	ZoneAnnotationTemplateName = "Namespace Annotations"
@@ -261,7 +256,6 @@ type VsdDomain struct {
 	Description     string `json:"description"`
 	TemplateID      string `json:"templateID"`
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
-	Encryption      string `json:"encryption,omitempty"`
 	ExternalID      string `json:"externalID"`
 }
 
