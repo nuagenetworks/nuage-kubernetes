@@ -256,6 +256,7 @@ type VsdDomain struct {
 	Description     string `json:"description"`
 	TemplateID      string `json:"templateID"`
 	UnderlayEnabled string `json:"underlayEnabled,omitempty"`
+	Encryption      string `json:"encryption,omitempty"`
 	ExternalID      string `json:"externalID"`
 }
 

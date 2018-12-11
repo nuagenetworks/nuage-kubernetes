@@ -182,7 +182,7 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.setExternalID()
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
-	nvsdc.privilegedProjectName = nkmConfig.PrivilegedProject
+	nvsdc.privilegedProjectNames = nkmConfig.PrivilegedProject
 	nvsdc.clusterNetwork, err = subnet.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
@@ -1050,6 +1050,7 @@ func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name s
 		Description:     "Auto-generated domain",
 		TemplateID:      domainTemplateID,
 		UnderlayEnabled: api.UnderlaySupportDisabled,
+		Encryption:      api.EncryptionDisabled,
 		ExternalID:      nvsdc.externalID,
 	}
 
