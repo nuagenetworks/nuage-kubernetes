@@ -56,9 +56,11 @@ type RestServerConfig struct {
 }
 
 type networkConfig struct {
-	ClusterCIDR  string `yaml:"clusterNetworkCIDR"`
-	SubnetLength int    `yaml:"hostSubnetLength"`
-	ServiceCIDR  string `yaml:"serviceNetworkCIDR"`
+	ClusterNetworks []struct {
+		CIDR         string `yaml:"cidr"`
+		SubnetLength int    `yaml:"hostSubnetLength"`
+	} `yaml:"clusterNetworks"`
+	ServiceCIDR string `yaml:"serviceNetworkCIDR"`
 }
 
 /* Fields we care about in the openshift master-config.yaml */
