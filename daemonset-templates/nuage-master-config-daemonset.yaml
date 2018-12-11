@@ -59,6 +59,8 @@ data:
   net_yaml_config: |
       networkConfig:
         clusterNetworks:
+          # hostSubnetLength is the size of the subnets
+          # created on VSD
           - cidr: 70.70.0.0/16
             hostSubnetLength: 8
         serviceNetworkCIDR: 192.168.0.0/16
