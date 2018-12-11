@@ -2,10 +2,10 @@ package policy
 
 import (
 	"bufio"
+	log "github.com/Sirupsen/logrus"
 	"github.com/nuagenetworks/go-bambou/bambou"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/vspk-go/vspk"
-	log "github.com/sirupsen/logrus"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
