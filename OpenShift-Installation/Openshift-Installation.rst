@@ -11,7 +11,7 @@ OpenShift Installation - Standalone and HA
 Supported Platforms
 ====================
 
-The VSP integration with OpenShift is supported on RHEL Server hosts (Version 7.4).
+The VSP integration with OpenShift is supported on RHEL Server hosts (Version 7.5).
 
 .. Note:: For information on other supported platforms and distributions, see the *Nuage VSP Release Notes*.
 
@@ -23,14 +23,14 @@ You only need to install Ansible once on a machine and it can manage the master 
 
 .. Note:: SSH Protocol does not require a password.
 
-The Ansible Version to be used is 2.3. To check or install ansible version 2.3, follow the below steps:
+The Ansible Version to be used is 2.6.4. To check or install ansible version 2.6.4, follow the below steps:
 
     ::
 
          [root@ansible-host ~]# ansible --version
-         ansible 2.4.2.0
+         ansible 2.6.4
          
-         [root@ansible-host ~]# sudo pip install ansible==2.3
+         [root@ansible-host ~]# sudo pip install ansible==2.6.4
          
          
 OpenShift DaemonSet for Nuage installation
@@ -77,47 +77,21 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
 .. Note:: set-up passwordless **ssh** between Ansible node and cluster nodes.
    
-3. Copy the nuage-ose-rhel-install-<version>.tar file shipped with the specific Nuage Release to a host machine where Ansible is run.
-
-4. Untar the above image
+3. Clone the openshift-ansible github repository and checkout the release-3.11 branch.
 
    ::
    
-       [root@ovs-10 ~]# tar -xvf nuage-ose-rhel-install.tar 
-       etcd_certificates.yml
-       nuage-infra-pod-config-daemonset.j2
-       nuage-openshift-ansible.diff
-       patch-nuage-openshift-ansible.sh
-
-      
-5. Run the patch-nuage-openshift-ansible.sh script to clone the ansible repo and set up Nuage changes.
-
-   .. Note:: The tag version may change based on the Nuage release you use.
-   
-   ::
-
-      [root@ansible-mc ~]# ./patch-nuage-openshift-ansible.sh 
-      Cloning into 'openshift-ansible'...
-      remote: Counting objects: 74439, done.
-      remote: Compressing objects: 100% (7/7), done.
-      remote: Total 74439 (delta 4), reused 2 (delta 2), pack-reused 74430
-      Receiving objects: 100% (74439/74439), 18.85 MiB | 3.60 MiB/s, done.
-      Resolving deltas: 100% (46284/46284), done.
-      Checking connectivity... done.
-      Note: checking out 'tags/openshift-ansible-3.7.0-0.116.0'.
-
-      You are in 'detached HEAD' state. You can look around, make experimental
-      changes and commit them, and you can discard any commits you make in this
-      state without impacting any branches by performing another checkout.
-
-      If you want to create a new branch to retain commits you create, you may
-      do so (now or later) by using -b with the checkout command again. Example:
-
-      git checkout -b <new-branch-name>
-
-      HEAD is now at cc47755... Automatic commit of package [openshift-ansible] release [3.7.0-0.116.0].
-      Successfully patched Nuage ansible changes into openshift-ansible
-      You may now use the openshift-ansible folder for your ansible installation
+       [root@ovs-10 ~]# git clone https://github.com/openshift/openshift-ansible 
+       Cloning into 'openshift-ansible'...
+       remote: Enumerating objects: 39, done.
+       remote: Counting objects: 100% (39/39), done.
+       remote: Compressing objects: 100% (29/29), done.
+       remote: Total 135897 (delta 12), reused 23 (delta 4), pack-reused 135858
+       Receiving objects: 100% (135897/135897), 36.56 MiB | 7.89 MiB/s, done.
+       Resolving deltas: 100% (85013/85013), done.
+       [root@ovs-10 ~]# git checkout -b release-3.11 --track origin/release-3.11
+       Branch release-3.11 set up to track remote branch release-3.11 from origin.
+       Switched to a new branch 'release-3.11'
 
 
 Setup
@@ -129,17 +103,11 @@ Setup
    
    For Nuage releases 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html>`_. 
 
-   For Nuage releases 5.2.2 & later, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_. 
+   For Nuage releases 5.2.2 to 5.3.3, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_.
    
-   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. To install the right docker & selinux image for RHEL 7.4, follow the below instructions.
-
-  ::
+   For Nuage release 5.4.1, go `here <https://docs.openshift.com/container-platform/3.11/install/host_preparation.html>`_.
    
-       a. Remove any existing docker versions
-       b. Install docker 1.12.6
-          yum install docker-1.12.6
-       c. Install the correct container-selinux & selinux-policy versions.
-          yum install container-selinux-2.42-1.gitad8f0f7.el7.noarch selinux-policy-3.13.1-166.el7_4.7.noarch
+   .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
 
 2. Load the following docker images on your master node:
 
@@ -150,7 +118,7 @@ Setup
        nuage-vrs-docker-<version>.tar
        nuage-infra-docker-<version>.tar
 
-3. Load the following docker images on your slave nodes:
+3. Load the following docker images on your worker nodes:
 
    ::
    
@@ -193,11 +161,11 @@ Setup
 Installation for a Single Master
 -----------------------------------
 
-1. Create a nodes file for Ansible configuration for a single master in the openshift-ansible directory with the contents shown below.
+1. Create a nodes or inventory file for Ansible configuration for a single master in the openshift-ansible directory with the contents shown below.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
-  .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.7.9. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5'
+  .. Note:: The following nodes file is just as a sample. Please use or update the values with your actual deployment. The below nodes file deploys OpenShift version 3.11. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5' etc
   
 ::
 
@@ -209,19 +177,20 @@ Installation for a Single Master
     
     # Set variables common for all OSEv3 hosts
     [OSEv3:vars]
+    oreg_auth_user=user.bob@example.com
+    oreg_auth_password=12345
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
     openshift_portal_net=172.30.0.0/16
     osm_cluster_network_cidr=70.70.0.0/16
+    openshift_docker_insecure_registries=172.30.0.0/16
+    openshift_docker_additional_registries=registry.access.redhat.com
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
-    openshift_pkg_version=-3.7.9
-
-    # If ansible_ssh_user is not root, ansible_sudo must be set to true
-    #ansible_sudo=true 
-    
-    deployment_type=openshift-enterprise 
-    openshift_disable_check=disk_availability,memory_availability,docker_storage,docker_image_availability,package_version,package_availability
+    openshift_release=v3.11
+    openshift_pkg_version=-3.11.16
+   
+     openshift_disable_check=disk_availability,memory_availability,docker_storage,docker_image_availability,package_version,package_availability
     
     # Nuage specific parameters
     openshift_use_openshift_sdn=False
@@ -232,19 +201,17 @@ Installation for a Single Master
     vsp_version=v5_0
     
     # The below versions should match the TAG version in the output of 'docker images' on the nodes. See point 2 above
-    # Example: nuage_monitor_image_version=5.2.2-70
+    # Example: nuage_monitor_image_version=5.4.1-1
     nuage_monitor_image_version=<version>
     nuage_vrs_image_version=<version>
     nuage_cni_image_version=<version>
     nuage_infra_image_version=<version>
-    
     enterprise=openshift
     domain=openshift
     vsc_active_ip=10.100.100.101
     vsc_standby_ip=10.100.100.102
     nuage_personality=vrs
     uplink_interface=eth0
-    nuage_site_id=-1
     enable_underlay_support=1
     enable_stats_logging=1
     vrs_bridge_mtu_config=1450
@@ -262,15 +229,14 @@ Installation for a Single Master
     # Complete local host path to the VSD user key file
     vsd_user_key_file=/usr/local/ose-admin-Key.pem
    
-    # Set 'make-iptables-util-chains' flag as 'false' while starting kubelet
-    # NOTE: This is a mandatory parameter and Nuage Integration does not work if not set
-    openshift_node_kubelet_args={'max-pods': ['110'], 'image-gc-high-threshold': ['90'], 'image-gc-low-threshold': ['80'], 'make-iptables-util-chains': ['false']}
-    
     # Required for Nuage Monitor REST server 
     openshift_master_cluster_hostname=master.nuageopenshift.com
     openshift_master_cluster_public_hostname=master.nuageopenshift.com
     nuage_openshift_monitor_rest_server_port=9443
-      
+    
+    # Refer to the official Openshift 3.11 documentation for the correct usage of openshift_node_groups for your environment
+    openshift_node_groups=[{'name': 'node-config-master-all', 'labels': ['node-role.kubernetes.io/master=true', 'node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true', 'install-monitor=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}, {'name': 'node-config-infra-compute', 'labels': ['node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}]
+
     # host group for masters
     [masters]
     master.nuageopenshift.com
@@ -281,22 +247,23 @@ Installation for a Single Master
     
     # host group for nodes, includes region info
     [nodes]
-    node1.nuageopenshift.com openshift_schedulable=True openshift_node_labels="{'region': 'infra'}"
-    node2.nuageopenshift.com
-    master.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
+    node1.nuageopenshift.com openshift_node_group_name='node-config-infra-compute'
+    node2.nuageopenshift.com openshift_node_group_name='node-config-infra-compute'
+    master.nuageopenshift.com openshift_node_group_name='node-config-master-all'
 
 
-.. Note:: It is mandatory to specify the openshift_node_labels="{'install-monitor': 'true'}" parameter for the master node for Nuage OpenShift master to be deployed.
+.. Note:: It is mandatory to add the label install-monitor='true' to the master node for Nuage OpenShift master to be deployed.
 
 Installing the VSP Components for the Single Master
 ----------------------------------------------------
 
-1. Run the following command to install the VSP components:
+1. Run the following commands to install the Openshift cluster:
 
    ::
    
        cd openshift-ansible
-       ansible-playbook -vvvv -i nodes playbooks/byo/config.yml
+       ansible-playbook -vvvv -i nodes playbooks/prerequisites.yml
+       ansible-playbook -vv -i nodes playbooks/deploy_cluster.yml
  
   A successful installation displays the following output:
    ::
@@ -315,22 +282,21 @@ Installing the VSP Components for the Single Master
 
    ::
    
-       oc login -u system:admin
        oc get nodes
 
 
 Installation for Multiple Masters
 ----------------------------------
 
-A High Availability (HA) environment can be configured with multiple masters and multiple nodes.
+A High Availability (HA) cluster can be installed with multiple masters and worker nodes.
 
-Nuage OpenShift only supports HA configuration method described in this section. This can be combined with any load balancing solution, the default being HAProxy. In the inventory file, there are two master hosts, the nodes, an etcd server and a host that functions as the HAProxy to balance the master API on all master hosts. The HAProxy host is defined in the [lb] section of the inventory file enabling Ansible to automatically install and configure HAProxy as the load balancing solution.
+Nuage OpenShift only supports HA configuration method described in this section. This can be combined with any load balancing solution, the default being HAProxy. In the inventory file, there are two master hosts, the nodes, an etcd server and a host that functions as the HAProxy to balance the master API calls on all master hosts. The HAProxy host is defined in the [lb] section of the inventory file enabling Ansible to automatically install and configure HAProxy as the load balancing solution.
 
-1. Create the nodes file for Ansible configuration for multiple masters in the openshift-ansible directory with the content shown below.
+1. Create the nodes/inventory file for Ansible configuration for multiple masters in the openshift-ansible directory with the content shown below.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets.
 
-   .. Note:: The following nodes file is provided as a sample. Please update the values with your actual deployment. The below nodes file deploys OpenShift version 3.7.9. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5'
+   .. Note:: The following nodes file is just as a sample. Please use or update the values with your actual deployment. The below nodes file deploys OpenShift version 3.11. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5'
   
     ::
     
@@ -343,13 +309,19 @@ Nuage OpenShift only supports HA configuration method described in this section.
         
         # Set variables common for all OSEv3 hosts
         [OSEv3:vars]
+        oreg_auth_user=user.bob@example.com
+        oreg_auth_password=12345
         # SSH user, this user should allow ssh based auth without requiring a password
         ansible_ssh_user=root
         openshift_portal_net=172.30.0.0/16
         osm_cluster_network_cidr=70.70.0.0/16
         deployment_type=openshift-enterprise
         osm_host_subnet_length=10
-        openshift_pkg_version=-3.7.9
+        openshift_release=v3.11
+        openshift_pkg_version=-3.11.16
+        openshift_docker_insecure_registries=172.30.0.0/16
+        openshift_docker_additional_registries=registry.access.redhat.com
+
     
         # If ansible_ssh_user is not root, ansible_sudo must be set to true
         #ansible_sudo=true 
@@ -377,7 +349,6 @@ Nuage OpenShift only supports HA configuration method described in this section.
         vsc_active_ip=10.100.100.101
         vsc_standby_ip=10.100.100.102
         uplink_interface=eth0
-        nuage_site_id=-1
         enable_underlay_support=1
         enable_stats_logging=1
         nuage_personality=vrs
@@ -395,10 +366,10 @@ Nuage OpenShift only supports HA configuration method described in this section.
         vsd_user_cert_file=/usr/local/ose-admin.pem
         # Complete local host path to the VSD user key file
         vsd_user_key_file=/usr/local/ose-admin-Key.pem
-    
-        # Set 'make-iptables-util-chains' flag as 'false' while starting kubelet
-        # NOTE: This is a mandatory parameter and Nuage Integration does not work if not set
-        openshift_node_kubelet_args={'max-pods': ['110'], 'image-gc-high-threshold': ['90'], 'image-gc-low-threshold': ['80'], 'make-iptables-util-chains': ['false']}
+        
+        # Refer to the official Openshift 3.11 documentation for the correct usage of openshift_node_groups for your environment
+        openshift_node_groups=[{'name': 'node-config-master-all', 'labels': ['node-role.kubernetes.io/master=true', 'node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true', 'install-monitor=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}, {'name': 'node-config-infra-compute', 'labels': ['node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}]
+       
     
         # Required for Nuage Monitor REST server and HA
         openshift_master_cluster_method=native
@@ -420,13 +391,13 @@ Nuage OpenShift only supports HA configuration method described in this section.
         
         # host group for nodes
         [nodes]
-        node1.nuageopenshift.com openshift_schedulable=True openshift_node_labels="{'region': 'infra'}"
-        node2.nuageopenshift.com
-        master1.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
-        master2.nuageopenshift.com openshift_node_labels="{'install-monitor': 'true'}"
+        node1.nuageopenshift.com openshift_node_group_name='node-config-infra-compute'
+        node2.nuageopenshift.com openshift_node_group_name='node-config-infra-compute'
+        master1.nuageopenshift.com openshift_node_group_name='node-config-master-all'
+        master2.nuageopenshift.com openshift_node_group_name='node-config-master-all'
         
 
-.. Note:: It is mandatory to specify the openshift_node_labels="{'install-monitor': 'true'}" parameter for every master node for Nuage OpenShift master to be deployed.
+.. Note:: It is mandatory to add the label install-monitor='true' to the master node for Nuage OpenShift master to be deployed.
 
 
 Installing the VSP Components for Multiple Masters
@@ -437,7 +408,8 @@ Installing the VSP Components for Multiple Masters
    ::
    
        cd openshift-ansible
-       ansible-playbook -vvvv -i nodes playbooks/byo/config.yml
+       ansible-playbook -vvvv -i nodes playbooks/prerequisites.yml
+       ansible-playbook -vvvv -i nodes playbooks/deploy_cluster.yml
 
   A successful installation displays the following output:
 
@@ -456,7 +428,6 @@ Installing the VSP Components for Multiple Masters
 
    ::
    
-       oc login -u system:admin
        oc get nodes
    
    .. Note:: Both the masters should display all nodes as connected.
