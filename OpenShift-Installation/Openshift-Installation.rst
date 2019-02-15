@@ -6,7 +6,17 @@ OpenShift Installation - Standalone and HA
 .. contents::
    :local:
    :depth: 3
-   
+
+Installation with older Nuage VSP releases
+===============================
+
+* For installation instructions for Nuage VSP 5.3.3, follow this guide: https://github.com/nuagenetworks/nuage-kubernetes/blob/v5.3.3-1/OpenShift-Installation/Openshift-Installation.rst
+* For installation instructions for Nuage VSP 5.3.2, follow this guide: https://github.com/nuagenetworks/nuage-kubernetes/blob/v5.3.2-1/OpenShift-Installation/Openshift-Installation.rst
+* For installation instructions for Nuage VSP 5.3.1, follow this guide: https://github.com/nuagenetworks/nuage-kubernetes/blob/v5.3.1-1/OpenShift-Installation/Openshift-Installation.rst
+* For installation instructions for Nuage VSP 5.2.3, follow this guide: https://github.com/nuagenetworks/nuage-kubernetes/blob/v5.2.3-1/OpenShift-Installation/Openshift-Installation.rst
+* For installation instructions for Nuage VSP 5.2.2, follow this guide: https://github.com/nuagenetworks/nuage-kubernetes/blob/v5.2.2-1/OpenShift-Installation/Openshift-Installation.rst
+* For installation instructions for Nuage VSP 5.2.1, follow this guide: https://github.com/nuagenetworks/nuage-kubernetes/blob/v5.2.1-1/OpenShift-Installation/Openshift-Installation.rst
+
 
 Supported Platforms
 ====================
@@ -99,12 +109,6 @@ Setup
 
 1. To prepare the OpenShift cluster for installation, follow the OpenShift Host Preparation guide.
    
-   For Nuage releases prior to 5.2.1, go `here <https://docs.openshift.com/container-platform/3.5/install_config/install/host_preparation.html>`_.
-   
-   For Nuage releases 5.2.1, go `here <https://docs.openshift.com/container-platform/3.6/install_config/install/host_preparation.html>`_. 
-
-   For Nuage releases 5.2.2 to 5.3.3, go `here <https://docs.openshift.com/container-platform/3.7/install_config/install/host_preparation.html>`_.
-   
    For Nuage release 5.4.1, go `here <https://docs.openshift.com/container-platform/3.11/install/host_preparation.html>`_.
    
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
@@ -165,7 +169,7 @@ Installation for a Single Master
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets: 
 
-  .. Note:: The following nodes file is just as a sample. Please use or update the values with your actual deployment. The below nodes file deploys OpenShift version 3.11. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5' etc
+  .. Note:: The following nodes file is just as a sample. Please use or update the values with your actual deployment. The below nodes file deploys OpenShift version 3.11.
   
 ::
 
@@ -296,7 +300,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
 
 2. Verify that the image versions are accurate by checking the TAG displayed by 'docker images' output for successful deployment of Nuage daemonsets.
 
-   .. Note:: The following nodes file is just as a sample. Please use or update the values with your actual deployment. The below nodes file deploys OpenShift version 3.11. To deploy OpenShift version 3.6, use 'openshift_pkg_version=-3.6.173.0.5' or to deploy OpenShift version 3.5, use 'openshift_pkg_version=-3.5.5.5'
+   .. Note:: The following nodes file is just as a sample. Please use or update the values with your actual deployment. The below nodes file deploys OpenShift version 3.11.
   
     ::
     
