@@ -23,7 +23,8 @@ Follow this release pattern and you can't go wrong:
  |      5.1.2             |  HA 1.6.6/Standalone 1.7.4 |        tags/v5.1.2-1       |
  |      5.2.1             |  HA 1.9.0/Standalone 1.9.0 |        tags/v5.2.1-2       |
  |      5.2.2             |  HA 1.9.0/Standalone 1.9.3 |        tags/v5.2.2-1       |
- |      5.3.2             |  HA 1.9.0/Standalone 1.9.3 |        tags/v5.3.2-1       |
+ |      5.3.2/3           |  HA 1.9.0/Standalone 1.9.3 |        tags/v5.3.2-1       |
+ |      5.4.1             |         1.10.11            |        tags/v5.4.1-1       |
  
  ..Note: Because of a known issue with the Nuage 5.2.1 integration with Kubernetes 1.9, node port functionality on master nodes is currently not supported, node ports on slave nodes are supported.
  
@@ -47,6 +48,8 @@ Follow the below table for Nuage-Openshift on RHEL server:
  |      5.2.2             |         3.7.9              |            2.3             |
  |      5.3.1             |         3.7.9              |            2.3             |
  |      5.3.2             |         3.7.9              |            2.3             |
+ |      5.3.3             |         3.7.9              |            2.3             |
+ |      5.4.1             |         3.11.*             |            2.3             |
  
 Follow the below table for Nuage-Openshift on RHEL Atomic host:
  
