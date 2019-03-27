@@ -91,7 +91,7 @@ You need to have Git installed on your Ansible machine. Perform the following ta
 
    ::
    
-       [root@ovs-10 ~]# git clone https://github.com/openshift/openshift-ansible 
+       # git clone https://github.com/openshift/openshift-ansible 
        Cloning into 'openshift-ansible'...
        remote: Enumerating objects: 39, done.
        remote: Counting objects: 100% (39/39), done.
@@ -99,7 +99,8 @@ You need to have Git installed on your Ansible machine. Perform the following ta
        remote: Total 135897 (delta 12), reused 23 (delta 4), pack-reused 135858
        Receiving objects: 100% (135897/135897), 36.56 MiB | 7.89 MiB/s, done.
        Resolving deltas: 100% (85013/85013), done.
-       [root@ovs-10 ~]# git checkout -b release-3.11 --track origin/release-3.11
+       # cd openshift-ansible
+       # git checkout release-3.11
        Branch release-3.11 set up to track remote branch release-3.11 from origin.
        Switched to a new branch 'release-3.11'
 
