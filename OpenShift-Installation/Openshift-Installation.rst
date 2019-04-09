@@ -184,6 +184,7 @@ Installation for a Single Master
     [OSEv3:vars]
     oreg_auth_user=user.bob@example.com
     oreg_auth_password=12345
+    oreg_url=registry.redhat.io/openshift3/ose-${component}:${version}
     # SSH user, this user should allow ssh based auth without requiring a password
     ansible_ssh_user=root
     openshift_portal_net=172.30.0.0/16
@@ -316,6 +317,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         [OSEv3:vars]
         oreg_auth_user=user.bob@example.com
         oreg_auth_password=12345
+        oreg_url=registry.redhat.io/openshift3/ose-${component}:${version}
         # SSH user, this user should allow ssh based auth without requiring a password
         ansible_ssh_user=root
         openshift_portal_net=172.30.0.0/16
