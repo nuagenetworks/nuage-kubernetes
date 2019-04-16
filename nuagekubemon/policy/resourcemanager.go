@@ -27,6 +27,7 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy/translator"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ type GetEnterpriseFunc func(string) (string, error)
 type GetNetworkMacroFunc func(string, string) (*api.VsdNetworkMacro, error)
 type CreatePgFunc func(string, string) (string, string, error)
 type DeletePgFunc func(string) error
-type CreateNetworkMacroFunc func(string, *api.VsdNetworkMacro) (string, error)
+type CreateNetworkMacroFunc func(*api.VsdNetworkMacro) (string, error)
 type DeleteNetworkMacroFunc func(string) error
 type AddPortsToPgFunc func(string, []string) error
 type DeletePortsFromPgFunc func(string) error
@@ -72,13 +73,13 @@ type VsdMetaData map[string]string
 
 type ResourceManager struct {
 	policyPgMap            PolicyPgMap
-	nwMacroMap             NWMacroMap
-	nwMacroExceptMap       NWMacroExceptMap
+	networkMacroMap        NWMacroMap
 	callBacks              CallBacks
 	clusterClientCallBacks api.ClusterClientCallBacks
 	vsdMeta                VsdMetaData
 	lock                   sync.Mutex
 	implementer            implementer.PolicyImplementer
+	externalID             string
 }
 
 func NewResourceManager(callBacks *CallBacks, clusterCbs *api.ClusterClientCallBacks, vsdMeta *VsdMetaData) (*ResourceManager, error) {
@@ -96,7 +97,7 @@ func (rm *ResourceManager) Init(callBacks *CallBacks, clusterCbs *api.ClusterCli
 	rm.callBacks = *callBacks
 	rm.clusterClientCallBacks = *clusterCbs
 	rm.vsdMeta = *vsdMeta
-
+	rm.externalID, _ = rm.vsdMeta["externalID"]
 	return nil
 }
 
@@ -276,7 +277,7 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
 			rm.policyPgMap[pe.Namespace+pe.Name] = make(PgMap)
 		}
-		if err = rm.createPgAddVports(&pe.Policy.PodSelector, pe); err != nil {
+		if err = rm.createPgAddVports(&pe.Policy.PodSelector, pe); &pe.Policy.PodSelector == nil || err != nil {
 			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
 			return err
 		}
@@ -345,78 +346,136 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 
 func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent, namespaceLabelsMap map[string][]string) error {
 
-	if peer.NamespaceSelector != nil && peer.PodSelector != nil {
-		return fmt.Errorf("Unsupported network policy. Both pod/namespace selector specified. Use only one.")
+	if peer.IPBlock && (peer.podSelector || peer.NamespaceSelector) {
+		return fmt.Errorf("Unsupported network policy. Both ip block and pod/namespace selector specified. Use only one.")
 	}
 
-	if peer.NamespaceSelector == nil && peer.PodSelector == nil {
-		return fmt.Errorf("Unsupported network policy. Make sure to provide either pod/namespace Selector")
-	}
-
-	if peer.NamespaceSelector != nil {
-		if err := rm.findNamespacesWithLabel(peer, namespaceLabelsMap); err != nil {
+	if peer.PodSelector && peer.NamespaceSelector {
+		if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
+			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+			return err
+		}
+	} else if peer.NamespaceSelector {
+		if err := rm.findNamespacesWithLabel(peer.NamespaceSelector, namespaceLabelsMap); err != nil {
 			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
+			return err
+		}
+	} else if peer.PodSelector {
+		if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
+			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
 			return err
 		}
 	}
 
-	if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
-		glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+	if err := rm.createNetworkMacros(peer.IPBlock, pe); err != nil {
+		glog.Errorf("creating network macros failed: %v", err)
 		return err
+	}
+
+	return nil
+}
+
+func (rm *ResourceManager) createNetworkMacros(ipBlock *networkingV1.IPBlock, pe *api.NetworkPolicyEvent) error {
+
+	if ipBlock == nil {
+		return nil
+	}
+
+	allowCidr := ipBlock.CIDR
+	exceptList := ipBlock.Except
+
+	if err := rm.checkAndCreateNM(allowCidr); err != nil {
+		return err
+	}
+
+	for _, exceptCidr := range exceptList {
+		if err := rm.checkAndCreateNM(exceptCidr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rm *ResourceManager) checkAndCreateNM(cidr string) error {
+	if _, ok := rm.networkMacroMap[cidr]; !ok {
+		nm, err := rm.createNetworkMacroObject(cidr)
+		if err != nil {
+			glog.Errorf("creating network macro object failed: %v", err)
+			return err
+		}
+		if _, err := rm.callBacks.AddNetworkMacro(nm); err != nil {
+			glog.Errorf("adding network macro to VSD failed: %v", err)
+			return err
+		}
+	} else {
+		rm.networkMacroMap[cidr]++
 	}
 	return nil
 }
 
-func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
+func (rm *ResourceManager) createNetworkMacroObject(cidr string) (*api.VsdNetworkMacro, error) {
+	macroCidr, err := subnet.IPv4SubnetFromString(cidr)
+	if err != nil {
+		glog.Errorf("Failed converting cidr string to cidr object: %v\n", err)
+		return nil, err
+	}
+
+	return &api.VsdNetworkMacro{
+		Name:       cidr,
+		IPType:     "IPV4",
+		Address:    macroCidr.Address.String(),
+		Netmask:    macroCidr.Netmask().String(),
+		ExternalID: rm.externalID,
+	}, nil
+}
+
+func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector, ns string) error {
 	var err error
 	var pgId string
 	var podList []string
-	var labelKvPair string
 	var pods *[]*api.PodEvent
 	var podSelectorLabel labels.Selector
 
 	if selectorLabel == nil {
 		return nil
 	}
+
 	//will be part of the name used for pg
 	for k, v := range selectorLabel.MatchLabels {
-		labelKvPair = k + "=" + v
+		selector := labels.SelectorFromSet(labels.Set{k: v})
+		pgName := ns + " ns pods with label " + k + "=" + v
+		selectorStr := selector.String()
+
+		if _, found := rm.policyPgMap[ns][selectorStr]; found {
+			glog.Infof("Policy group for selector %s exists already", selectorStr)
+			continue
+		}
+
+		_, pgId, err = rm.callBacks.AddPg(pgName, selectorStr)
+		if pgId == "" && err != nil {
+			glog.Errorf("creating policy group for %s failed %v", selectorStr, err)
+			continue
+		}
+
+		rm.policyPgMap[ns][selectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: selector}
+
+		//get pods for this selector and add them to pg.
+		if pods, err = rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: selectorStr,
+			FieldSelector: fields.Everything().String()}, ns); err != nil {
+			glog.Error("retrieving pods from the cluster client failed: %v", err)
+			continue
+		}
+		for _, pod := range *pods {
+			podList = append(podList, pod.Name)
+		}
+
+		if err = rm.callBacks.AddPortsToPg(pgId, podList); err != nil {
+			glog.Errorf("adding ports %s to policy group %s failed: %v", podList, pgId, err)
+			continue
+		}
 	}
 
-	pgName := pe.Namespace + " ns pods with label " + labelKvPair
-	podSelectorLabel, err = metav1.LabelSelectorAsSelector(selectorLabel)
-	if err != nil {
-		glog.Errorf("error extracting label failed %v", err)
-		return err
-	}
-	podSelectorStr := podSelectorLabel.String()
-
-	if _, found := rm.policyPgMap[pe.Namespace+pe.Name][podSelectorStr]; found {
-		glog.Infof("Policy group for podSelectorStr %s exists already", podSelectorStr)
-		return nil
-	}
-
-	_, pgId, err = rm.callBacks.AddPg(pgName, podSelectorStr)
-	if pgId == "" && err != nil {
-		glog.Errorf("creating policy group for %s failed %v", podSelectorStr, err)
-		return err
-	}
-	rm.policyPgMap[pe.Namespace+pe.Name][podSelectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: pe.Policy.PodSelector}
-
-	//get pods for this selector and add them to pg.
-	if pods, err = rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: podSelectorLabel.String(),
-		FieldSelector: fields.Everything().String()}, pe.Namespace); err != nil {
-		glog.Error("retrieving pods from the cluster client failed: %v", err)
-		return err
-	}
-	for _, pod := range *pods {
-		podList = append(podList, pod.Name)
-	}
-
-	if err = rm.callBacks.AddPortsToPg(pgId, podList); err != nil {
-		glog.Errorf("adding ports %s to policy group %s failed: %v", podList, pgId, err)
-		return err
-	}
 	return nil
 }
 
@@ -454,21 +513,28 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	return nil
 }
 
-func (rm *ResourceManager) findNamespacesWithLabel(peer networkingV1.NetworkPolicyPeer,
+func (rm *ResourceManager) filterPodsWithLabel(podSelectorLabel, nsSelectorLabel *metav1.LabelSelector, ns string) error {
+	if nsSelectorLabel == nil {
+
+	}
+}
+
+func (rm *ResourceManager) findNamespacesWithLabel(selectorLabel *metav1.LabelSelector,
 	namespaceLabelsMap map[string][]string) error {
 	var err error
 	var namespaces *[]*api.NamespaceEvent
 	namespaceList := []string{}
 
-	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(peer.NamespaceSelector)
+	if selectorLabel == nil {
+		return nil
+	}
+
+	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(selectorLabel)
 	if err != nil {
 		glog.Errorf("Extracting namespace label failed %v", err)
 		return err
 	}
 
-	if nsSelectorLabel == nil {
-		return nil
-	}
 	if _, ok := namespaceLabelsMap[nsSelectorLabel.String()]; ok {
 		return nil
 	}
