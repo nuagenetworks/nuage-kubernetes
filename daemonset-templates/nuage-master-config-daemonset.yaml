@@ -86,14 +86,23 @@ spec:
     metadata:
       labels:
         k8s-app: nuage-master-monitor-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
-      hostNetwork: true
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+        install-monitor: "true"
       tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
           operator: Exists
-      nodeSelector:
-        install-monitor: "true"
+      hostNetwork: true
       containers:
         # This container configures Nuage Master node
         - name: install-nuage-master-config

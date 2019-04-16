@@ -69,12 +69,19 @@ spec:
     metadata:
       labels:
         k8s-app: nuage-cni-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
-      hostNetwork: true
+      nodeSelector:
+        beta.kubernetes.io/os: linux
       tolerations:
-        - key: node-role.kubernetes.io/master
-          effect: NoSchedule
+        - effect: NoSchedule
           operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      hostNetwork: true
       containers:
         # This container installs Nuage CNI binaries
         # and CNI network config file on each node.
@@ -170,12 +177,19 @@ spec:
     metadata:
       labels:
         k8s-app: nuage-vrs-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
-      hostNetwork: true
+      nodeSelector:
+        beta.kubernetes.io/os: linux
       tolerations:
-        - key: node-role.kubernetes.io/master
-          effect: NoSchedule
+        - effect: NoSchedule
           operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      hostNetwork: true
       containers:
         # This container installs Nuage VRS running as a 
         # container on each worker node
