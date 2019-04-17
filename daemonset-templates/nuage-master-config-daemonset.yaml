@@ -44,11 +44,11 @@ data:
           serverKey: ""
       # etcd config required for HA
       etcdClientConfig:
-          ca: ""
-          certFile: ""
-          keyFile: ""
+          ca: /etc/kubernetes/pki/etcd/ca.crt
+          certFile: /etc/kubernetes/pki/etcd/peer.crt
+          keyFile: /etc/kubernetes/pki/etcd/peer.key
           urls:
-             - http://127.0.0.1:2379
+             - https://127.0.0.1:2379
       # auto scale subnets feature
       # 0 => disabled(default) 
       # 1 => enabled
