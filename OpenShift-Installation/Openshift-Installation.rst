@@ -194,7 +194,7 @@ Installation for a Single Master
     deployment_type=openshift-enterprise
     osm_host_subnet_length=10
     openshift_release=v3.11
-    openshift_pkg_version=-3.11.16
+    openshift_pkg_version=-3.11.82
    
      openshift_disable_check=disk_availability,memory_availability,docker_storage,docker_image_availability,package_version,package_availability
     
@@ -226,7 +226,7 @@ Installation for a Single Master
     # auto scale subnets feature
     # 0 => disabled(default)
     # 1 => enabled
-    auto_scale_subnets=0
+    auto_scale_subnets=1
     
     # VSD user in the admin group
     vsd_user=ose-admin
@@ -242,6 +242,8 @@ Installation for a Single Master
     
     # Refer to the official Openshift 3.11 documentation for the correct usage of openshift_node_groups for your environment
     openshift_node_groups=[{'name': 'node-config-master-all', 'labels': ['node-role.kubernetes.io/master=true', 'node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true', 'install-monitor=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}, {'name': 'node-config-infra-compute', 'labels': ['node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}]
+    # Making sure all required ports are open
+    openshift_node_open_ports=[{"service":"dns","port":"53/udp"},{"service":"bgp","port":"179/tcp"}]
 
     # host group for masters
     [masters]
@@ -258,7 +260,10 @@ Installation for a Single Master
     master.nuageopenshift.com openshift_node_group_name='node-config-master-all'
 
 
-.. Note:: It is mandatory to add the label install-monitor='true' to the master node for Nuage OpenShift master to be deployed.
+.. Note:: It is mandatory to add the label `install-monitor='true'` & `node-role.kubernetes.io/compute=true` to the master node for Nuage OpenShift master to be deployed.
+
+.. Note:: The `uplink_interface` needs to be the same interface as to which the OpenShift API will be listening (by default, this is the first interface). If this differs from the control/data interface, make sure to configure routes on the node that point the connection to VSC over a different interface.
+
 
 Installing the VSP Components for the Single Master
 ----------------------------------------------------
@@ -325,7 +330,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         deployment_type=openshift-enterprise
         osm_host_subnet_length=10
         openshift_release=v3.11
-        openshift_pkg_version=-3.11.16
+        openshift_pkg_version=-3.11.82
         openshift_docker_insecure_registries=172.30.0.0/16
         openshift_docker_additional_registries=registry.access.redhat.com
 
@@ -334,8 +339,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         #ansible_sudo=true 
         
         deployment_type=openshift-enterprise
-        openshift_disable_check=disk_availability,memory_availability,package_version,docker_storage,docker_image_availability
-        
+        openshift_disable_check=disk_availability,memory_availability,docker_storage,docker_image_availability,package_version,package_availability
         # Nuage specific parameters
         openshift_use_openshift_sdn=False
         openshift_use_nuage=True
@@ -365,7 +369,7 @@ Nuage OpenShift only supports HA configuration method described in this section.
         # auto scale subnets feature
         # 0 => disabled(default)
         # 1 => enabled
-        auto_scale_subnets=0
+        auto_scale_subnets=1
                 
         # VSD user in the admin group
         vsd_user=ose-admin
@@ -376,6 +380,8 @@ Nuage OpenShift only supports HA configuration method described in this section.
         
         # Refer to the official Openshift 3.11 documentation for the correct usage of openshift_node_groups for your environment
         openshift_node_groups=[{'name': 'node-config-master-all', 'labels': ['node-role.kubernetes.io/master=true', 'node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true', 'install-monitor=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}, {'name': 'node-config-infra-compute', 'labels': ['node-role.kubernetes.io/infra=true', 'node-role.kubernetes.io/compute=true'], 'edits': [{ 'key': 'kubeletArguments.make-iptables-util-chains','value': ['false']}]}]
+        # Making sure all required ports are open
+        openshift_node_open_ports=[{"service":"dns","port":"53/udp"},{"service":"bgp","port":"179/tcp"}]
        
     
         # Required for Nuage Monitor REST server and HA
@@ -404,7 +410,9 @@ Nuage OpenShift only supports HA configuration method described in this section.
         master2.nuageopenshift.com openshift_node_group_name='node-config-master-all'
         
 
-.. Note:: It is mandatory to add the label install-monitor='true' to the master node for Nuage OpenShift master to be deployed.
+.. Note:: It is mandatory to add the label `install-monitor='true'` & `node-role.kubernetes.io/compute=true` to the master node for Nuage OpenShift master to be deployed.
+
+.. Note:: The `uplink_interface` needs to be the same interface as to which the OpenShift API will be listening (by default, this is the first interface). If this differs from the control/data interface, make sure to configure routes on the node that point the connection to VSC over a different interface.
 
 
 Installing the VSP Components for Multiple Masters
