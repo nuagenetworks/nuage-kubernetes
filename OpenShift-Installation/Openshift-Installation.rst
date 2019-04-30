@@ -33,15 +33,7 @@ You only need to install Ansible once on a machine and it can manage the master 
 
 .. Note:: SSH Protocol does not require a password.
 
-The Ansible Version to be used is 2.6.4. To check or install ansible version 2.6.4, follow the below steps:
-
-    ::
-
-         [root@ansible-host ~]# ansible --version
-         ansible 2.6.4
-         
-         [root@ansible-host ~]# sudo pip install ansible==2.6.4
-         
+The Ansible Version to be used is the one supported by Openshift-Ansible, check https://github.com/openshift/openshift-ansible/tree/release-3.11#setup
          
 OpenShift DaemonSet for Nuage installation
 ===========================================
@@ -112,7 +104,11 @@ Setup
    
    For Nuage release 5.4.1, go `here <https://docs.openshift.com/container-platform/3.11/install/host_preparation.html>`_.
    
+   .. Note:: Lock all your hosts to RHEL 7.5 as the supported platform. This can be done by using the command ``subscription-manager release --set=7.5``
+   
    .. Note:: Skip the yum update part in the OpenShift Host Preparation guide. 
+   
+   .. Note:: We have noticed that sometimes ``iptables-1.4.21-28`` and ``iptables-services-1.4.21-28`` can cause issues with kube-proxy. It is advised to use ``iptables-1.4.21-24.1`` and ``iptables-services-1.4.21-24.1`` instead. This is a known Red Hat issue on RHEL 7.5 (https://bugzilla.redhat.com/show_bug.cgi?id=1616150).
 
 2. Load the following docker images on your master node:
 
