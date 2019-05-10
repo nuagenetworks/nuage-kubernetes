@@ -181,6 +181,10 @@ spec:
         # container on each worker node
         - name: install-nuage-vrs
           image: nuage/vrs:<nuage-release>
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/usr/share/openvswitch/scripts/openvswitch.init","stop"]
           securityContext:
             privileged: true
           env:
