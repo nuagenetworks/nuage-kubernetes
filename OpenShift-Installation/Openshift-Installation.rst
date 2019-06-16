@@ -256,7 +256,7 @@ Installation for a Single Master
     master.nuageopenshift.com openshift_node_group_name='node-config-master-all'
 
 
-.. Note:: It is mandatory to add the label `install-monitor='true'` & `node-role.kubernetes.io/compute=true` to the master node for Nuage OpenShift master to be deployed.
+.. Note:: It is mandatory to add the label `install-monitor='true'` & `node-role.kubernetes.io/compute=true` to the master node for Nuage OpenShift master to be deployed. In case you use Infra nodes, these require the `node-role.kubernetes.io/compute=true` label as well.
 
 .. Note:: The `uplink_interface` needs to be the same interface as to which the OpenShift API will be listening (by default, this is the first interface). If this differs from the control/data interface, make sure to configure routes on the node that point the connection to VSC over a different interface.
 
