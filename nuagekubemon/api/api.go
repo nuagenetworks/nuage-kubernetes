@@ -27,9 +27,11 @@ import (
 )
 
 type PgInfo struct {
-	PgName   string
-	PgId     string
-	Selector metav1.LabelSelector
+	PgName     string
+	PgId       string
+	PolicyName string
+	Selector   metav1.LabelSelector
+	RefCount   int
 }
 
 type EventType string

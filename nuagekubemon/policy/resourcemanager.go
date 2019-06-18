@@ -27,80 +27,42 @@ import (
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy/translator"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-type GetEnterpriseFunc func(string) (string, error)
-type GetNetworkMacroFunc func(string, string) (*api.VsdNetworkMacro, error)
-type CreatePgFunc func(string, string) (string, string, error)
-type DeletePgFunc func(string) error
-type CreateNetworkMacroFunc func(*api.VsdNetworkMacro) (string, error)
-type DeleteNetworkMacroFunc func(string) error
-type AddPortsToPgFunc func(string, []string) error
-type DeletePortsFromPgFunc func(string) error
-
-//map of LabelSelector as selector as string => pg corresponding to it.
-
-type CallBacks struct {
-	GetEnterprise      GetEnterpriseFunc
-	GetNetworkMacro    GetNetworkMacroFunc
-	AddPg              CreatePgFunc
-	DeletePg           DeletePgFunc
-	AddPortsToPg       AddPortsToPgFunc
-	DeletePortsFromPg  DeletePortsFromPgFunc
-	AddNetworkMacro    CreateNetworkMacroFunc
-	DeleteNetworkMacro DeleteNetworkMacroFunc
-}
-
-//map of label selector for a policy group to policy group info
-type PgMap map[string]api.PgInfo
-
-//map of policy name to policy group map
-type PolicyPgMap map[string]PgMap
-
-//map of network macros on VSD per zone
-type NWMacroMap map[string]int
-
-//map of network macros for except CIDR on VSD per zone
-type NWMacroExceptMap map[string]int
-
-type VsdMetaData map[string]string
-
+//ResourceManager for network policy constructs
 type ResourceManager struct {
-	policyPgMap            PolicyPgMap
+	pgMap                  PgMap
 	networkMacroMap        NWMacroMap
-	callBacks              CallBacks
-	clusterClientCallBacks api.ClusterClientCallBacks
-	vsdMeta                VsdMetaData
+	nsLabelsMap            NamespaceLabelsMap
+	callBacks              *CallBacks
+	clusterClientCallBacks *api.ClusterClientCallBacks
+	vsdMeta                VSDMetaData
 	lock                   sync.Mutex
 	implementer            implementer.PolicyImplementer
 	externalID             string
 }
 
-func NewResourceManager(callBacks *CallBacks, clusterCbs *api.ClusterClientCallBacks, vsdMeta *VsdMetaData) (*ResourceManager, error) {
-	rm := new(ResourceManager)
-	if err := rm.Init(callBacks, clusterCbs, vsdMeta); err != nil {
-		glog.Error("Cannot instantiate a new resource manager")
-		return rm, err
-	} else {
-		return rm, nil
-	}
+//NewResourceManager creates a new resource manager
+func NewResourceManager(callBacks *CallBacks, clusterCbs *api.ClusterClientCallBacks, vsdMeta *VSDMetaData) (*ResourceManager, error) {
+	rm := &ResourceManager{}
+	rm.Init(callBacks, clusterCbs, vsdMeta)
+	return rm, nil
 }
 
-func (rm *ResourceManager) Init(callBacks *CallBacks, clusterCbs *api.ClusterClientCallBacks, vsdMeta *VsdMetaData) error {
-	rm.policyPgMap = make(PolicyPgMap)
-	rm.callBacks = *callBacks
-	rm.clusterClientCallBacks = *clusterCbs
+//Init initializes the resource manager
+func (rm *ResourceManager) Init(callBacks *CallBacks, clusterCbs *api.ClusterClientCallBacks, vsdMeta *VSDMetaData) {
+	rm.initPGInfoMap()
+	rm.callBacks = callBacks
+	rm.clusterClientCallBacks = clusterCbs
 	rm.vsdMeta = *vsdMeta
 	rm.externalID, _ = rm.vsdMeta["externalID"]
-	return nil
 }
 
+//InitPolicyImplementer initializes the policy implementer
 func (rm *ResourceManager) InitPolicyImplementer() error {
 	var url string
 	var usercert string
@@ -138,17 +100,16 @@ func (rm *ResourceManager) InitPolicyImplementer() error {
 	return rm.implementer.Init(&vsdCredentials)
 }
 
+//GetPolicyGroupsForPod fetches the policy groups that can be applied to a pod
 func (rm *ResourceManager) GetPolicyGroupsForPod(podName string, podNs string) (*[]string, error) {
 	var pgList []string
 	if pod, err := rm.clusterClientCallBacks.GetPod(podName, podNs); err == nil {
 		rm.lock.Lock()
 		defer rm.lock.Unlock()
-		for _, pgMap := range rm.policyPgMap {
-			for _, pgInfo := range pgMap {
-				if selector, err := metav1.LabelSelectorAsSelector(&pgInfo.Selector); err == nil {
-					if selector.Matches(labels.Set(pod.Labels)) {
-						pgList = append(pgList, pgInfo.PgName)
-					}
+		for _, pgInfo := range rm.pgMap[podNs] {
+			if selector, err := metav1.LabelSelectorAsSelector(&pgInfo.Selector); err == nil {
+				if selector.Matches(labels.Set(pod.Labels)) {
+					pgList = append(pgList, pgInfo.PgName)
 				}
 			}
 		}
@@ -180,7 +141,7 @@ func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
 	}
 
 	defaultPolicyElementTCP := policies.DefaultPolicyElement{
-		Name:   fmt.Sprint("Namespace annotation for %s - TCP", namespace),
+		Name:   fmt.Sprintf("Namespace annotation for %s - TCP", namespace),
 		From:   policies.EndPoint{Name: namespace, Type: policies.Zone},
 		To:     policies.EndPoint{Name: namespace, Type: policies.Zone},
 		Action: policies.Deny,
@@ -191,7 +152,7 @@ func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
 	}
 
 	defaultPolicyElementUDP := policies.DefaultPolicyElement{
-		Name:   fmt.Sprint("Namespace annotation for %s - UDP", namespace),
+		Name:   fmt.Sprintf("Namespace annotation for %s - UDP", namespace),
 		From:   policies.EndPoint{Name: namespace, Type: policies.Zone},
 		To:     policies.EndPoint{Name: namespace, Type: policies.Zone},
 		Action: policies.Deny,
@@ -216,6 +177,7 @@ func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
 	return nil
 }
 
+//HandleNsEvent handles default annotations on a namespace
 func (rm *ResourceManager) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 	glog.Infof("Received namespace event for policy parsing %+v", nsEvent)
 
@@ -256,9 +218,13 @@ func (rm *ResourceManager) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			return err
 		}
 	}
+
+	//TODO: Handle the case where ns labels are updated after policy is created
+
 	return nil
 }
 
+//HandlePolicyEvent handles policy add/del event
 func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 	rm.lock.Lock()
 	defer rm.lock.Unlock()
@@ -272,95 +238,113 @@ func (rm *ResourceManager) HandlePolicyEvent(pe *api.NetworkPolicyEvent) error {
 
 	switch pe.Type {
 	case api.Added:
-		var err error
-		namespaceLabelsMap := make(map[string][]string)
-		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
-			rm.policyPgMap[pe.Namespace+pe.Name] = make(PgMap)
-		}
-		if err = rm.createPgAddVports(&pe.Policy.PodSelector, pe); &pe.Policy.PodSelector == nil || err != nil {
-			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
-			return err
-		}
-		for _, ingressRule := range pe.Policy.Ingress {
-			for _, from := range ingressRule.From {
-				rm.translatePeerPolicy(from, pe, namespaceLabelsMap)
-			}
-		}
-		for _, egressRule := range pe.Policy.Egress {
-			for _, to := range egressRule.To {
-				rm.translatePeerPolicy(to, pe, namespaceLabelsMap)
-			}
-		}
-		if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.policyPgMap[pe.Namespace+pe.Name], rm.vsdMeta, namespaceLabelsMap); err == nil {
-			if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
-				glog.Errorf("Got a %s error when implementing policy", notImplemented)
-			}
-		} else {
-			glog.Errorf("Got an error %s when creating nuage policy", err)
-			return errors.New("Got an error when creating nuage policy")
-		}
+		rm.policyAddEvent(pe)
 	case api.Deleted:
-		glog.Infof("Starting deletion of policy %+v", pe.Name)
-		if _, ok := rm.policyPgMap[pe.Namespace+pe.Name]; !ok {
-			glog.Info("No policy group map entry found for this policy")
-			return errors.New("No policy group map entry found")
-		} else {
-			if err := rm.destroyPgRemoveVports(&pe.Policy.PodSelector, pe); err != nil {
-				glog.Errorf("removing vports and deleting pg failed: %v, err")
-				return err
-			}
-			for _, ingressRule := range pe.Policy.Ingress {
-				for _, from := range ingressRule.From {
-					if err := rm.destroyPgRemoveVports(from.PodSelector, pe); err != nil {
-						glog.Errorf("removing vports and deleting pg failed: %v", err)
-					}
-				}
-			}
-			for _, egressRule := range pe.Policy.Egress {
-				for _, to := range egressRule.To {
-					if err := rm.destroyPgRemoveVports(to.PodSelector, pe); err != nil {
-						glog.Errorf("removing vports and deleting pg failed: %v", err)
-					}
-				}
-			}
-			delete(rm.policyPgMap, pe.Namespace+pe.Name)
-			enterprise, ok := rm.vsdMeta["enterpriseName"]
-			if !ok {
-				glog.Error("Failed to get enterprise when deleting policy")
-				return errors.New("Failed to get enterprise when deleting policy")
-			}
-			domain, ok := rm.vsdMeta["domainName"]
-			if !ok {
-				glog.Error("Failed to get domain when deleting policy")
-				return errors.New("Failed to get domain when deleting policy")
-			}
-
-			glog.Infof("Trying to delete policy %+v", pe.Name)
-			if err := rm.implementer.DeletePolicy(pe.Name, enterprise, domain); err != nil {
-				return errors.New("Got an error when deleting nuage policy")
-			}
-		}
+		rm.policyDelEvent(pe)
 	}
 	return nil
 }
 
-func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent, namespaceLabelsMap map[string][]string) error {
-
-	if peer.IPBlock && (peer.podSelector || peer.NamespaceSelector) {
-		return fmt.Errorf("Unsupported network policy. Both ip block and pod/namespace selector specified. Use only one.")
+func (rm *ResourceManager) policyAddEvent(pe *api.NetworkPolicyEvent) error {
+	if err := rm.createPgAddVports(&pe.Policy.PodSelector, pe); err != nil {
+		glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+		return err
 	}
 
-	if peer.PodSelector && peer.NamespaceSelector {
+	for _, ingressRule := range pe.Policy.Ingress {
+		for _, from := range ingressRule.From {
+			rm.translatePeerPolicy(from, pe)
+		}
+	}
+
+	for _, egressRule := range pe.Policy.Egress {
+		for _, to := range egressRule.To {
+			rm.translatePeerPolicy(to, pe)
+		}
+	}
+
+	if nuagePolicy, err := translator.CreateNuagePGPolicy(pe, rm.pgMap[pe.Namespace], rm.vsdMeta, rm.nsLabelsMap); err == nil {
+		if notImplemented := rm.implementer.ImplementPolicy(nuagePolicy); notImplemented != nil {
+			glog.Errorf("Got a %s error when implementing policy", notImplemented)
+		}
+	} else {
+		glog.Errorf("Got an error %s when creating nuage policy", err)
+		return errors.New("Got an error when creating nuage policy")
+	}
+
+	return nil
+}
+
+func (rm *ResourceManager) policyDelEvent(pe *api.NetworkPolicyEvent) error {
+	glog.Infof("Starting deletion of policy %+v", pe.Name)
+	if _, ok := rm.pgMap[pe.Namespace]; !ok {
+		glog.Info("No policy group map entry found for this policy")
+		return errors.New("No policy group map entry found")
+	}
+
+	if err := rm.destroyPgRemoveVports(&pe.Policy.PodSelector, pe); err != nil {
+		glog.Errorf("removing vports and deleting pg failed: %v", err)
+		return err
+	}
+
+	for _, ingressRule := range pe.Policy.Ingress {
+		for _, from := range ingressRule.From {
+			if err := rm.destroyPgRemoveVports(from.PodSelector, pe); err != nil {
+				glog.Errorf("removing vports and deleting pg failed: %v", err)
+			}
+		}
+	}
+
+	for _, egressRule := range pe.Policy.Egress {
+		for _, to := range egressRule.To {
+			if err := rm.destroyPgRemoveVports(to.PodSelector, pe); err != nil {
+				glog.Errorf("removing vports and deleting pg failed: %v", err)
+			}
+		}
+	}
+
+	rm.deletePGInfo(pe.Namespace, pe.Name)
+	enterprise, ok := rm.vsdMeta["enterpriseName"]
+
+	if !ok {
+		glog.Error("Failed to get enterprise when deleting policy")
+		return errors.New("Failed to get enterprise when deleting policy")
+	}
+
+	domain, ok := rm.vsdMeta["domainName"]
+
+	if !ok {
+		glog.Error("Failed to get domain when deleting policy")
+		return errors.New("Failed to get domain when deleting policy")
+	}
+
+	glog.Infof("Trying to delete policy %+v", pe.Name)
+
+	if err := rm.implementer.DeletePolicy(pe.Name, enterprise, domain); err != nil {
+		return errors.New("Got an error when deleting nuage policy")
+	}
+	return nil
+}
+
+func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent) error {
+
+	if peer.IPBlock != nil {
+		if (peer.PodSelector != nil) || (peer.NamespaceSelector != nil) {
+			return fmt.Errorf("unsupported network policy. ip block and pod/namespace selector cannot be specified together")
+		}
+	}
+
+	if peer.PodSelector != nil && peer.NamespaceSelector != nil {
 		if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
 			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
 			return err
 		}
-	} else if peer.NamespaceSelector {
-		if err := rm.findNamespacesWithLabel(peer.NamespaceSelector, namespaceLabelsMap); err != nil {
+	} else if peer.NamespaceSelector != nil {
+		if err := rm.findNamespacesWithLabel(peer.NamespaceSelector); err != nil {
 			glog.Errorf("finding namespaces from selector label %s failed: %v", peer.NamespaceSelector.String(), err)
 			return err
 		}
-	} else if peer.PodSelector {
+	} else if peer.PodSelector != nil {
 		if err := rm.createPgAddVports(peer.PodSelector, pe); err != nil {
 			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
 			return err
@@ -372,180 +356,5 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 		return err
 	}
 
-	return nil
-}
-
-func (rm *ResourceManager) createNetworkMacros(ipBlock *networkingV1.IPBlock, pe *api.NetworkPolicyEvent) error {
-
-	if ipBlock == nil {
-		return nil
-	}
-
-	allowCidr := ipBlock.CIDR
-	exceptList := ipBlock.Except
-
-	if err := rm.checkAndCreateNM(allowCidr); err != nil {
-		return err
-	}
-
-	for _, exceptCidr := range exceptList {
-		if err := rm.checkAndCreateNM(exceptCidr); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (rm *ResourceManager) checkAndCreateNM(cidr string) error {
-	if _, ok := rm.networkMacroMap[cidr]; !ok {
-		nm, err := rm.createNetworkMacroObject(cidr)
-		if err != nil {
-			glog.Errorf("creating network macro object failed: %v", err)
-			return err
-		}
-		if _, err := rm.callBacks.AddNetworkMacro(nm); err != nil {
-			glog.Errorf("adding network macro to VSD failed: %v", err)
-			return err
-		}
-	} else {
-		rm.networkMacroMap[cidr]++
-	}
-	return nil
-}
-
-func (rm *ResourceManager) createNetworkMacroObject(cidr string) (*api.VsdNetworkMacro, error) {
-	macroCidr, err := subnet.IPv4SubnetFromString(cidr)
-	if err != nil {
-		glog.Errorf("Failed converting cidr string to cidr object: %v\n", err)
-		return nil, err
-	}
-
-	return &api.VsdNetworkMacro{
-		Name:       cidr,
-		IPType:     "IPV4",
-		Address:    macroCidr.Address.String(),
-		Netmask:    macroCidr.Netmask().String(),
-		ExternalID: rm.externalID,
-	}, nil
-}
-
-func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector, ns string) error {
-	var err error
-	var pgId string
-	var podList []string
-	var pods *[]*api.PodEvent
-	var podSelectorLabel labels.Selector
-
-	if selectorLabel == nil {
-		return nil
-	}
-
-	//will be part of the name used for pg
-	for k, v := range selectorLabel.MatchLabels {
-		selector := labels.SelectorFromSet(labels.Set{k: v})
-		pgName := ns + " ns pods with label " + k + "=" + v
-		selectorStr := selector.String()
-
-		if _, found := rm.policyPgMap[ns][selectorStr]; found {
-			glog.Infof("Policy group for selector %s exists already", selectorStr)
-			continue
-		}
-
-		_, pgId, err = rm.callBacks.AddPg(pgName, selectorStr)
-		if pgId == "" && err != nil {
-			glog.Errorf("creating policy group for %s failed %v", selectorStr, err)
-			continue
-		}
-
-		rm.policyPgMap[ns][selectorStr] = api.PgInfo{PgName: pgName, PgId: pgId, Selector: selector}
-
-		//get pods for this selector and add them to pg.
-		if pods, err = rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: selectorStr,
-			FieldSelector: fields.Everything().String()}, ns); err != nil {
-			glog.Error("retrieving pods from the cluster client failed: %v", err)
-			continue
-		}
-		for _, pod := range *pods {
-			podList = append(podList, pod.Name)
-		}
-
-		if err = rm.callBacks.AddPortsToPg(pgId, podList); err != nil {
-			glog.Errorf("adding ports %s to policy group %s failed: %v", podList, pgId, err)
-			continue
-		}
-	}
-
-	return nil
-}
-
-func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
-	var err error
-	var found bool
-	var pgInfo api.PgInfo
-	var podSelectorLabel labels.Selector
-
-	if selectorLabel == nil {
-		return fmt.Errorf("empty label found when cleaning up pg and vports")
-	}
-
-	podSelectorLabel, err = metav1.LabelSelectorAsSelector(selectorLabel)
-	if err != nil {
-		glog.Errorf("error extracting label %v", err)
-		return err
-	}
-	podSelectorStr := podSelectorLabel.String()
-
-	if pgInfo, found = rm.policyPgMap[pe.Namespace+pe.Name][podSelectorStr]; !found {
-		glog.Errorf("Policy group for podSelectorStr %s is not found", podSelectorStr)
-		return err
-	}
-	//first unassign pods from pg
-	if err = rm.callBacks.DeletePortsFromPg(pgInfo.PgId); err != nil {
-		glog.Errorf("Removing ports from policy group %s failed: %v", pgInfo.PgId, err)
-		return err
-	}
-	if err = rm.callBacks.DeletePg(pgInfo.PgId); err != nil {
-		glog.Errorf("deleting policy group %s failed %v", pgInfo.PgId, err)
-		return err
-	}
-	delete(rm.policyPgMap[pe.Namespace+pe.Name], podSelectorStr)
-	return nil
-}
-
-func (rm *ResourceManager) filterPodsWithLabel(podSelectorLabel, nsSelectorLabel *metav1.LabelSelector, ns string) error {
-	if nsSelectorLabel == nil {
-
-	}
-}
-
-func (rm *ResourceManager) findNamespacesWithLabel(selectorLabel *metav1.LabelSelector,
-	namespaceLabelsMap map[string][]string) error {
-	var err error
-	var namespaces *[]*api.NamespaceEvent
-	namespaceList := []string{}
-
-	if selectorLabel == nil {
-		return nil
-	}
-
-	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(selectorLabel)
-	if err != nil {
-		glog.Errorf("Extracting namespace label failed %v", err)
-		return err
-	}
-
-	if _, ok := namespaceLabelsMap[nsSelectorLabel.String()]; ok {
-		return nil
-	}
-
-	if namespaces, err = rm.clusterClientCallBacks.FilterNamespaces(&metav1.ListOptions{LabelSelector: nsSelectorLabel.String()}); err != nil {
-		glog.Errorf("call to cluster client to filter namespaces failed: %v", nsSelectorLabel.String(), err)
-		return err
-	}
-	for _, namespace := range *namespaces {
-		namespaceList = append(namespaceList, namespace.Name)
-	}
-	namespaceLabelsMap[nsSelectorLabel.String()] = namespaceList
 	return nil
 }

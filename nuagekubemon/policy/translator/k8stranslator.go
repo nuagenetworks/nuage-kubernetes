@@ -16,9 +16,10 @@ import (
 
 const priorityLabel = "nuage.io/priority"
 
+//CreateNuagePGPolicy translates NetworkPolicyEvent to Nuage VSP Constructs
 func CreateNuagePGPolicy(
 	pe *api.NetworkPolicyEvent,
-	policyGroupMap map[string]api.PgInfo,
+	policyGroupMap map[string]*api.PgInfo,
 	nuageMetadata map[string]string,
 	namespaceLabelsMap map[string][]string) (*policies.NuagePolicy, error) {
 
