@@ -1,4 +1,4 @@
-package policy
+package translator
 
 import (
 	"errors"
@@ -6,51 +6,42 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	xlateApi "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/apis/translate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//SelectorMap map of selectors to policy groups
-type SelectorMap map[string]*api.PgInfo
-
-//PgMap map of namespace to policies in a namespace
-type PgMap map[string]SelectorMap
-
-func (rm *ResourceManager) initPGInfoMap() {
-	rm.pgMap = make(PgMap)
-}
-
 func (rm *ResourceManager) deletePGInfo(ns, selector string) {
-	pgInfo, _ := rm.pgMap[ns][selector]
+	pgInfo, _ := rm.vsdObjsMap.PGMap[ns][selector]
 	pgInfo.RefCount = pgInfo.RefCount - 1
 	if pgInfo.RefCount == 0 {
-		delete(rm.pgMap[ns], selector)
+		delete(rm.vsdObjsMap.PGMap[ns], selector)
 	}
 }
 
-func (rm *ResourceManager) findPGInfo(ns, selector string) (*api.PgInfo, bool) {
-	pgInfo, ok := rm.pgMap[ns][selector]
+func (rm *ResourceManager) findPGInfo(ns, selector string) (*xlateApi.PgInfo, bool) {
+	pgInfo, ok := rm.vsdObjsMap.PGMap[ns][selector]
 	return pgInfo, ok
 }
 
-func (rm *ResourceManager) appendPGInfo(ns, selector string, pgInfo *api.PgInfo) {
-	if _, ok := rm.pgMap[ns]; !ok {
-		rm.pgMap[ns] = make(map[string]*api.PgInfo)
+func (rm *ResourceManager) appendPGInfo(ns, selector string, pgInfo *xlateApi.PgInfo) {
+	if _, ok := rm.vsdObjsMap.PGMap[ns]; !ok {
+		rm.vsdObjsMap.PGMap[ns] = make(map[string]*xlateApi.PgInfo)
 	}
-	rm.pgMap[ns][selector] = pgInfo
+	rm.vsdObjsMap.PGMap[ns][selector] = pgInfo
 }
 
 func (rm *ResourceManager) incPGInfoRefCount(ns, selector string) {
-	pgInfo, _ := rm.pgMap[ns][selector]
+	pgInfo, _ := rm.vsdObjsMap.PGMap[ns][selector]
 	pgInfo.RefCount = pgInfo.RefCount + 1
 }
 
-func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
+func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector, ns, name string) error {
 	var pgID string
 	var err error
 
-	if pgID, err = rm.createPG(selectorLabel, pe); err != nil {
+	if pgID, err = rm.createPG(selectorLabel, ns, name); err != nil {
 		glog.Infof("creating pg failed %v", err)
 		return err
 	} else if pgID == "" {
@@ -58,7 +49,7 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 		return nil
 	}
 
-	if err = rm.addVPorts(pgID, selectorLabel, pe); err != nil {
+	if err = rm.addVPorts(pgID, selectorLabel, ns); err != nil {
 		glog.Errorf("add vport to pg %s failed: %v", pgID, err)
 		return err
 	}
@@ -66,7 +57,7 @@ func (rm *ResourceManager) createPgAddVports(selectorLabel *metav1.LabelSelector
 	return nil
 }
 
-func (rm *ResourceManager) createPG(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) (string, error) {
+func (rm *ResourceManager) createPG(selectorLabel *metav1.LabelSelector, ns, name string) (string, error) {
 
 	var err error
 	var pgID string
@@ -83,10 +74,10 @@ func (rm *ResourceManager) createPG(selectorLabel *metav1.LabelSelector, pe *api
 	}
 
 	podSelectorStr := podSelectorLabel.String()
-	pgName := pe.Namespace + " " + pe.Name + " " + podSelectorStr
+	pgName := ns + " " + name + " " + podSelectorStr
 
-	if pgInfo, found := rm.findPGInfo(pe.Namespace, podSelectorStr); found {
-		rm.incPGInfoRefCount(pe.Namespace, podSelectorStr)
+	if _, found := rm.findPGInfo(ns, podSelectorStr); found {
+		rm.incPGInfoRefCount(ns, podSelectorStr)
 		glog.Infof("Policy group for selector %s exists already. nothing to do", podSelectorStr)
 		return "", nil
 	}
@@ -97,18 +88,18 @@ func (rm *ResourceManager) createPG(selectorLabel *metav1.LabelSelector, pe *api
 		return "", err
 	}
 
-	rm.appendPGInfo(pe.Namespace, podSelectorStr, &api.PgInfo{
+	rm.appendPGInfo(ns, podSelectorStr, &xlateApi.PgInfo{
 		PgName:     pgName,
-		PgId:       pgID,
+		PgID:       pgID,
 		Selector:   *selectorLabel,
-		PolicyName: pe.Name,
+		PolicyName: name,
 		RefCount:   1,
 	})
 
 	return pgID, nil
 }
 
-func (rm *ResourceManager) addVPorts(id string, selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
+func (rm *ResourceManager) addVPorts(id string, selectorLabel *metav1.LabelSelector, ns string) error {
 	var err error
 	var podList []string
 	var pods *[]*api.PodEvent
@@ -123,7 +114,7 @@ func (rm *ResourceManager) addVPorts(id string, selectorLabel *metav1.LabelSelec
 	podSelectorStr := podSelectorLabel.String()
 	//get pods for this selector and add them to pg.
 	if pods, err = rm.clusterClientCallBacks.FilterPods(&metav1.ListOptions{LabelSelector: podSelectorStr,
-		FieldSelector: fields.Everything().String()}, pe.Namespace); err != nil {
+		FieldSelector: fields.Everything().String()}, ns); err != nil {
 		glog.Errorf("retrieving pods from the cluster client failed: %v", err)
 		return err
 	}
@@ -143,7 +134,7 @@ func (rm *ResourceManager) addVPorts(id string, selectorLabel *metav1.LabelSelec
 func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
 	var err error
 	var found bool
-	var pgInfo *api.PgInfo
+	var pgInfo *xlateApi.PgInfo
 	var podSelectorLabel labels.Selector
 
 	if selectorLabel == nil {
@@ -162,13 +153,13 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 		return err
 	}
 
-	if err = rm.callBacks.DeletePortsFromPg(pgInfo.PgId); err != nil {
-		glog.Errorf("Removing ports from policy group %s failed: %v", pgInfo.PgId, err)
+	if err = rm.callBacks.DeletePortsFromPg(pgInfo.PgID); err != nil {
+		glog.Errorf("Removing ports from policy group %s failed: %v", pgInfo.PgID, err)
 		return err
 	}
 
-	if err = rm.callBacks.DeletePg(pgInfo.PgId); err != nil {
-		glog.Errorf("deleting policy group %s failed %v", pgInfo.PgId, err)
+	if err = rm.callBacks.DeletePg(pgInfo.PgID); err != nil {
+		glog.Errorf("deleting policy group %s failed %v", pgInfo.PgID, err)
 		return err
 	}
 

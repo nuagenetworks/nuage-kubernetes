@@ -1,15 +1,14 @@
-package policy
+package translator
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//NamespaceLabelsMap label to list of namespaces mapping
-type NamespaceLabelsMap map[string][]string
-
-func (rm *ResourceManager) findNamespacesWithLabel(selectorLabel *metav1.LabelSelector) error {
+func (rm *ResourceManager) populateNamespacesWithLabel(selectorLabel *metav1.LabelSelector) error {
 	var err error
 	var namespaces *[]*api.NamespaceEvent
 	namespaceList := []string{}
@@ -20,7 +19,7 @@ func (rm *ResourceManager) findNamespacesWithLabel(selectorLabel *metav1.LabelSe
 
 	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(selectorLabel)
 	if err != nil {
-		glog.Errorf("Extracting namespace label failed %v", err)
+		glog.Errorf("extracting namespace label failed %v", err)
 		return err
 	}
 	nsSelectorStr := nsSelectorLabel.String()
@@ -34,6 +33,23 @@ func (rm *ResourceManager) findNamespacesWithLabel(selectorLabel *metav1.LabelSe
 		namespaceList = append(namespaceList, namespace.Name)
 	}
 
-	rm.nsLabelsMap[nsSelectorStr] = namespaceList
+	rm.vsdObjsMap.NSLabelsMap[nsSelectorStr] = namespaceList
 	return nil
+}
+
+func (rm *ResourceManager) getNamespacesWithLabel(selectorLabel *metav1.LabelSelector) ([]string, error) {
+
+	if selectorLabel == nil {
+		return nil, fmt.Errorf("selector label is nil")
+	}
+
+	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(selectorLabel)
+	if err != nil {
+		glog.Errorf("extracting namespace label failed %v", err)
+		return nil, err
+	}
+	nsSelectorStr := nsSelectorLabel.String()
+
+	nsList, _ := rm.vsdObjsMap.NSLabelsMap[nsSelectorStr]
+	return nsList, nil
 }

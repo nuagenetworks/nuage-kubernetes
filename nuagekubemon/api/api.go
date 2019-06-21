@@ -26,14 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type PgInfo struct {
-	PgName     string
-	PgId       string
-	PolicyName string
-	Selector   metav1.LabelSelector
-	RefCount   int
-}
-
 type EventType string
 
 const (

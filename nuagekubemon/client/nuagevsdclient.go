@@ -35,9 +35,10 @@ import (
 	"github.com/jmcvetta/napping"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
+	xlateApi "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/apis/translate"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/sleepy"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy"
+	xlate "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/translator"
 	"github.com/nuagenetworks/vspk-go/vspk"
 )
 
@@ -63,7 +64,7 @@ type NuageVsdClient struct {
 	restServer                         *http.Server
 	podChannel                         chan *api.PodEvent //list of namespaces that need new subnets
 	privilegedProjectNames             []string
-	resourceManager                    *policy.ResourceManager
+	resourceManager                    *xlate.ResourceManager
 	etcdChannel                        chan *api.EtcdEvent
 	externalID                         string //unique id to be attached with each object created by monitor
 	encryptionEnabled                  bool
@@ -168,7 +169,7 @@ func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile stri
 }
 
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdChannel chan *api.EtcdEvent) {
-	cb := &policy.CallBacks{
+	cb := &xlateApi.CallBacks{
 		GetEnterprise:      nvsdc.GetEnterpriseID,
 		AddPg:              nvsdc.CreatePolicyGroup,
 		DeletePg:           nvsdc.DeletePolicyGroup,
@@ -229,14 +230,14 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.podChannel = make(chan *api.PodEvent)
 
 	//initialize the resource manager
-	vsdMeta := make(policy.VsdMetaData)
+	vsdMeta := make(xlateApi.VSDMetaData)
 	vsdMeta["domainName"] = nkmConfig.DomainName
 	vsdMeta["enterpriseName"] = nkmConfig.EnterpriseName
 	vsdMeta["vsdUrl"] = nkmConfig.NuageVsdApiUrl
 	vsdMeta["usercertfile"] = nkmConfig.UserCertificateFile
 	vsdMeta["userkeyfile"] = nkmConfig.UserKeyFile
 	vsdMeta["externalID"] = nvsdc.externalID
-	rm, err := policy.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
+	rm, err := xlate.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
 	if err != nil {
 		glog.Error("Failed to initialize the resource manager properly")
 	} else {

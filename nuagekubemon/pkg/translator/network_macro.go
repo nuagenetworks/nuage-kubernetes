@@ -1,17 +1,12 @@
-package policy
+package translator
 
 import (
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	xlateApi "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/apis/translate"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	networkingV1 "k8s.io/api/networking/v1"
 )
-
-//NWMacroMap map of network macros on VSD per zone
-type NWMacroMap map[string]int
-
-//NWMacroExceptMap map of network macros for except CIDR on VSD per zone
-type NWMacroExceptMap map[string]int
 
 func (rm *ResourceManager) createNetworkMacros(ipBlock *networkingV1.IPBlock, pe *api.NetworkPolicyEvent) error {
 
@@ -36,18 +31,27 @@ func (rm *ResourceManager) createNetworkMacros(ipBlock *networkingV1.IPBlock, pe
 }
 
 func (rm *ResourceManager) checkAndCreateNM(cidr string) error {
-	if _, ok := rm.networkMacroMap[cidr]; !ok {
+	if _, ok := rm.vsdObjsMap.NWMacroMap[cidr]; !ok {
 		nm, err := rm.createNetworkMacroObject(cidr)
 		if err != nil {
 			glog.Errorf("creating network macro object failed: %v", err)
 			return err
 		}
-		if _, err := rm.callBacks.AddNetworkMacro(nm); err != nil {
+		id, err := rm.callBacks.AddNetworkMacro(nm)
+		if err != nil {
 			glog.Errorf("adding network macro to VSD failed: %v", err)
 			return err
 		}
+		rm.vsdObjsMap.NWMacroMap[cidr] = xlateApi.NWMacroInfo{
+			Name: nm.Name,
+			ID:   id,
+			CIDR: cidr,
+		}
 	} else {
-		rm.networkMacroMap[cidr]++
+		nwMacroInfo := rm.vsdObjsMap.NWMacroMap[cidr]
+		nwMacroInfo.RefCount = nwMacroInfo.RefCount + 1
+		rm.vsdObjsMap.NWMacroMap[cidr] = nwMacroInfo
+
 	}
 	return nil
 }
