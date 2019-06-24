@@ -1,6 +1,8 @@
 package translator
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	xlateApi "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/apis/translate"
@@ -10,14 +12,10 @@ import (
 
 func (rm *ResourceManager) createNetworkMacros(ipBlock *networkingV1.IPBlock, pe *api.NetworkPolicyEvent) error {
 
-	if ipBlock == nil {
-		return nil
-	}
-
-	allowCidr := ipBlock.CIDR
+	allowCIDR := ipBlock.CIDR
 	exceptList := ipBlock.Except
 
-	if err := rm.checkAndCreateNM(allowCidr); err != nil {
+	if err := rm.checkAndCreateNM(allowCIDR); err != nil {
 		return err
 	}
 
@@ -27,6 +25,44 @@ func (rm *ResourceManager) createNetworkMacros(ipBlock *networkingV1.IPBlock, pe
 		}
 	}
 
+	return nil
+}
+
+func (rm *ResourceManager) deleteNetworkMacros(ipBlock *networkingV1.IPBlock, pe *api.NetworkPolicyEvent) error {
+	allowCIDR := ipBlock.CIDR
+	exceptList := ipBlock.Except
+
+	if err := rm.deleteNM(allowCIDR); err != nil {
+		return err
+	}
+
+	for _, exceptCIDR := range exceptList {
+		if err := rm.deleteNM(exceptCIDR); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rm *ResourceManager) deleteNM(cidr string) error {
+	nwMacroInfo, ok := rm.vsdObjsMap.NWMacroMap[cidr]
+	if !ok {
+		return fmt.Errorf("network macro not found in cache")
+	}
+
+	refCount := nwMacroInfo.RefCount
+	refCount = refCount - 1
+
+	if refCount == 0 {
+		if err := rm.callBacks.DeleteNetworkMacro(nwMacroInfo.ID); err != nil {
+			glog.Errorf("deleting network macro from VSD failed: %v", err)
+			return err
+		}
+	} else {
+		nwMacroInfo.RefCount = refCount
+		rm.vsdObjsMap.NWMacroMap[cidr] = nwMacroInfo
+	}
 	return nil
 }
 

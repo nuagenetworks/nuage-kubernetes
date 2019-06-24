@@ -14,7 +14,7 @@ func (rm *ResourceManager) populateNamespacesWithLabel(selectorLabel *metav1.Lab
 	namespaceList := []string{}
 
 	if selectorLabel == nil {
-		return nil
+		return fmt.Errorf("selector label is nil")
 	}
 
 	nsSelectorLabel, err := metav1.LabelSelectorAsSelector(selectorLabel)

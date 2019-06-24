@@ -24,13 +24,15 @@ func (rm *ResourceManager) CreateNuagePGPolicy(pe *api.NetworkPolicyEvent) (*pol
 		return nil, fmt.Errorf("Getting priority from labels failed %v", err)
 	}
 
-	nuagePolicy := policies.NewNuagePolicy(
-		rm.vsdMetaData["enterprise"],
-		rm.vsdMetaData["domain"],
-		pe.Name,
-		pe.Name,
-		priority,
-	)
+	nuagePolicy := policies.NuagePolicy{
+		Version:    policies.V1Alpha,
+		Type:       policies.Default,
+		Enterprise: rm.vsdMetaData["enterprise"],
+		Domain:     rm.vsdMetaData["domain"],
+		Name:       pe.Name,
+		ID:         pe.Name,
+		Priority:   priority,
+	}
 
 	policyElements, err := rm.convertNetworkPolicySpec(pe)
 	if err != nil {
@@ -89,7 +91,7 @@ func (rm *ResourceManager) convertNetworkPolicySpec(pe *api.NetworkPolicyEvent) 
 	return policyElements, nil
 }
 
-func createPolicyElements(ports []networkingV1.NetworkPolicyPort,
+func createNuagePolicyElements(ports []networkingV1.NetworkPolicyPort,
 	p *xlateApi.PolicyData) []policies.DefaultPolicyElement {
 
 	policyElement := policies.DefaultPolicyElement{}
@@ -103,14 +105,19 @@ func createPolicyElements(ports []networkingV1.NetworkPolicyPort,
 			if proto == kapi.ProtocolUDP {
 				protocol = policies.UDP
 			}
-			policyElement := policies.NewPolicyElement(
-				fmt.Sprintf("%s-%s-deny", p.Name, proto),
-				p.SourceType, p.SourceName,
-				p.TargetType, p.TargetName,
-				p.Action,
-				protocol,
-				1, 65535,
-			)
+			policyElement := policies.DefaultPolicyElement{
+				Name:   fmt.Sprintf("%s-%s-deny", p.Name, proto),
+				From:   policies.EndPoint{Type: p.SourceType, Name: p.SourceName},
+				To:     policies.EndPoint{Type: p.TargetType, Name: p.TargetName},
+				Action: p.Action,
+				NetworkParameters: policies.NetworkParameters{
+					Protocol: protocol,
+					DestinationPortRange: policies.PortRange{
+						StartPort: 1,
+						EndPort:   65535,
+					},
+				},
+			}
 			glog.Infof("Adding policy event %+v", policyElement)
 			policyElements = append(policyElements, policyElement)
 		}
@@ -122,13 +129,19 @@ func createPolicyElements(ports []networkingV1.NetworkPolicyPort,
 				protocol = policies.UDP
 			}
 
-			policyElement = policies.NewPolicyElement(
-				fmt.Sprintf("%s-%d", p.Name, idx),
-				p.SourceType, p.SourceName,
-				p.TargetType, p.TargetName,
-				p.Action,
-				protocol,
-				port, port)
+			policyElement = policies.DefaultPolicyElement{
+				Name:   fmt.Sprintf("%s-%d", p.Name, idx),
+				From:   policies.EndPoint{Type: p.SourceType, Name: p.SourceName},
+				To:     policies.EndPoint{Type: p.TargetType, Name: p.TargetName},
+				Action: p.Action,
+				NetworkParameters: policies.NetworkParameters{
+					Protocol: protocol,
+					DestinationPortRange: policies.PortRange{
+						StartPort: port,
+						EndPort:   port,
+					},
+				},
+			}
 
 			glog.Infof("Adding policy event %+v", policyElement)
 			policyElements = append(policyElements, policyElement)
@@ -261,7 +274,7 @@ func (rm *ResourceManager) convertPodSelector(peer networkingV1.NetworkPolicyPee
 		return policyElements, fmt.Errorf("Policy group missing for %s", sourceSelector.String())
 	}
 
-	policyElements = createPolicyElementsUtil(ports,
+	policyElements = createNuagePolicyElementsUtil(ports,
 		&xlateApi.PolicyData{
 			Name:       policyName,
 			SourceType: policies.PolicyGroup,
@@ -292,7 +305,7 @@ func (rm *ResourceManager) convertNSSelector(peer networkingV1.NetworkPolicyPeer
 	namespaces, _ := rm.vsdObjsMap.NSLabelsMap[nsSelectorLabel.String()]
 	for _, namespace := range namespaces {
 		policyElements = append(policyElements,
-			createPolicyElementsUtil(ports,
+			createNuagePolicyElementsUtil(ports,
 				&xlateApi.PolicyData{
 					Name:       policyName,
 					SourceType: policies.Zone,
@@ -324,27 +337,27 @@ func (rm *ResourceManager) convertIPBlock(peer networkingV1.NetworkPolicyPeer,
 		Action:     policies.Allow,
 	}
 
-	policyElements := createPolicyElementsUtil(ports, policyData, ingress)
+	policyElements := createNuagePolicyElementsUtil(ports, policyData, ingress)
 
 	policyData.Action = policies.Deny
 	for _, exceptCIDR := range peer.IPBlock.Except {
 		cidrInfo, _ := rm.vsdObjsMap.NWMacroMap[exceptCIDR]
 		policyData.SourceName = cidrInfo.Name
-		policyElements = append(policyElements, createPolicyElementsUtil(ports, policyData, ingress)...)
+		policyElements = append(policyElements, createNuagePolicyElementsUtil(ports, policyData, ingress)...)
 	}
 	return policyElements, nil
 }
 
-func createPolicyElementsUtil(ports []networkingV1.NetworkPolicyPort, policyData *xlateApi.PolicyData,
+func createNuagePolicyElementsUtil(ports []networkingV1.NetworkPolicyPort, policyData *xlateApi.PolicyData,
 	ingress bool) []policies.DefaultPolicyElement {
 
 	tmpPolicyElements := []policies.DefaultPolicyElement{}
 	if ingress {
-		tmpPolicyElements = createPolicyElements(ports, policyData)
+		tmpPolicyElements = createNuagePolicyElements(ports, policyData)
 	} else {
 		policyData.SourceType, policyData.TargetType = policyData.TargetType, policyData.SourceType
 		policyData.SourceName, policyData.TargetName = policyData.TargetName, policyData.SourceName
-		tmpPolicyElements = createPolicyElements(ports, policyData)
+		tmpPolicyElements = createNuagePolicyElements(ports, policyData)
 	}
 	return tmpPolicyElements
 }

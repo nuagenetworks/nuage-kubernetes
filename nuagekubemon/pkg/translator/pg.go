@@ -131,7 +131,7 @@ func (rm *ResourceManager) addVPorts(id string, selectorLabel *metav1.LabelSelec
 	return nil
 }
 
-func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSelector, pe *api.NetworkPolicyEvent) error {
+func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSelector, namespace string) error {
 	var err error
 	var found bool
 	var pgInfo *xlateApi.PgInfo
@@ -148,7 +148,7 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 	}
 	podSelectorStr := podSelectorLabel.String()
 
-	if pgInfo, found = rm.findPGInfo(pe.Namespace, podSelectorStr); !found {
+	if pgInfo, found = rm.findPGInfo(namespace, podSelectorStr); !found {
 		glog.Errorf("Policy group for podSelectorStr %s is not found", podSelectorStr)
 		return err
 	}
@@ -163,6 +163,6 @@ func (rm *ResourceManager) destroyPgRemoveVports(selectorLabel *metav1.LabelSele
 		return err
 	}
 
-	rm.deletePGInfo(pe.Namespace, podSelectorStr)
+	rm.deletePGInfo(namespace, podSelectorStr)
 	return nil
 }

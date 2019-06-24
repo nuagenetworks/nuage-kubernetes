@@ -112,37 +112,3 @@ func ConvertPolicyEndPointStringToEndPointType(endPointTypeString string) (EndPo
 
 	return Invalid, fmt.Errorf(fmt.Sprintf("Invalid endpoint type %s %s", endPointTypeString, endptTypeStr))
 }
-
-// NewNuagePolicy creates a new NuagePolicy object
-func NewNuagePolicy(enterprise, domain, name, id string, priority int) NuagePolicy {
-	return NuagePolicy{
-		Version:    V1Alpha,
-		Type:       Default,
-		Enterprise: enterprise,
-		Domain:     domain,
-		Name:       name,
-		ID:         id,
-		Priority:   priority,
-	}
-}
-
-// NewPolicyElement creates a new policy element
-func NewPolicyElement(policyName string,
-	sourceType EndPointType,
-	sourceName string,
-	targetType EndPointType,
-	targetName string,
-	action ActionType,
-	protocol Protocol,
-	startPort, endPort int) DefaultPolicyElement {
-	return DefaultPolicyElement{
-		Name:   policyName,
-		From:   EndPoint{Type: sourceType, Name: sourceName},
-		To:     EndPoint{Type: targetType, Name: targetName},
-		Action: action,
-		NetworkParameters: NetworkParameters{
-			Protocol: protocol,
-			DestinationPortRange: PortRange{StartPort: startPort,
-				EndPort: endPort}},
-	}
-}

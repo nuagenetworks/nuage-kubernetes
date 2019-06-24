@@ -137,7 +137,7 @@ func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
 		Enterprise:     rm.vsdMetaData["enterprise"],
 		Domain:         rm.vsdMetaData["domain"],
 		Name:           api.ZoneAnnotationTemplateName,
-		PolicyElements: createPolicyElements([]networkingV1.NetworkPolicyPort{}, p),
+		PolicyElements: createNuagePolicyElements([]networkingV1.NetworkPolicyPort{}, p),
 	}
 
 	err := rm.InitPolicyImplementer()
@@ -261,14 +261,14 @@ func (rm *ResourceManager) policyDelEvent(pe *api.NetworkPolicyEvent) error {
 		return errors.New("No policy group map entry found")
 	}
 
-	if err := rm.destroyPgRemoveVports(&pe.Policy.PodSelector, pe); err != nil {
+	if err := rm.destroyPgRemoveVports(&pe.Policy.PodSelector, pe.Namespace); err != nil {
 		glog.Errorf("removing vports and deleting pg failed: %v", err)
 		return err
 	}
 
 	for _, ingressRule := range pe.Policy.Ingress {
 		for _, from := range ingressRule.From {
-			if err := rm.destroyPgRemoveVports(from.PodSelector, pe); err != nil {
+			if err := rm.deletePeerPolicy(from, pe); err != nil {
 				glog.Errorf("removing vports and deleting pg failed: %v", err)
 			}
 		}
@@ -276,7 +276,7 @@ func (rm *ResourceManager) policyDelEvent(pe *api.NetworkPolicyEvent) error {
 
 	for _, egressRule := range pe.Policy.Egress {
 		for _, to := range egressRule.To {
-			if err := rm.destroyPgRemoveVports(to.PodSelector, pe); err != nil {
+			if err := rm.deletePeerPolicy(to, pe); err != nil {
 				glog.Errorf("removing vports and deleting pg failed: %v", err)
 			}
 		}
@@ -332,6 +332,36 @@ func (rm *ResourceManager) translatePeerPolicy(peer networkingV1.NetworkPolicyPe
 	if err := rm.createNetworkMacros(peer.IPBlock, pe); err != nil {
 		glog.Errorf("creating network macros failed: %v", err)
 		return err
+	}
+
+	return nil
+}
+
+func (rm *ResourceManager) deletePeerPolicy(peer networkingV1.NetworkPolicyPeer, pe *api.NetworkPolicyEvent) error {
+	if peer.PodSelector != nil && peer.NamespaceSelector != nil {
+		nsList, err := rm.getNamespacesWithLabel(peer.NamespaceSelector)
+		if err != nil {
+			glog.Errorf("cannot find namespaces with label %v", peer.NamespaceSelector)
+			return err
+		}
+		for _, ns := range nsList {
+			if err := rm.destroyPgRemoveVports(peer.PodSelector, ns); err != nil {
+				glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+				return err
+			}
+		}
+	} else if peer.NamespaceSelector != nil {
+		//Do nothing
+	} else if peer.PodSelector != nil {
+		if err := rm.destroyPgRemoveVports(peer.PodSelector, pe.Namespace); err != nil {
+			glog.Errorf("converting pod label to vports and adding them to pg failed: %v", err)
+			return err
+		}
+	} else if peer.IPBlock != nil {
+		if err := rm.deleteNetworkMacros(peer.IPBlock, pe); err != nil {
+			glog.Errorf("deleting network macros failed for ip block %v with error %v", peer.IPBlock, err)
+			return err
+		}
 	}
 
 	return nil
