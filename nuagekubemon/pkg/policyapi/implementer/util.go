@@ -2,10 +2,11 @@ package implementer
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/nuagenetworks/go-bambou/bambou"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
 	"github.com/nuagenetworks/vspk-go/vspk"
-	"time"
 )
 
 func createACLTemplates(policy *policies.NuagePolicy) (*vspk.IngressACLTemplate, *vspk.EgressACLTemplate) {
@@ -124,7 +125,6 @@ func (implementer *PolicyImplementer) getACLEntriesFromPolicy(policy *policies.N
 		ingressACLEntry.Protocol = defaultPolicyElement.NetworkParameters.Protocol.String()
 		ingressACLEntry.PolicyState = "LIVE"
 		if defaultPolicyElement.Action == policies.Allow {
-			ingressACLEntry.Reflexive = true
 			ingressACLEntry.Stateful = true
 		}
 		ingressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
@@ -140,7 +140,6 @@ func (implementer *PolicyImplementer) getACLEntriesFromPolicy(policy *policies.N
 		egressACLEntry.Protocol = defaultPolicyElement.NetworkParameters.Protocol.String()
 		egressACLEntry.PolicyState = "LIVE"
 		if defaultPolicyElement.Action == policies.Allow {
-			egressACLEntry.Reflexive = true
 			egressACLEntry.Stateful = true
 		}
 		egressACLEntry.SourcePort = defaultPolicyElement.NetworkParameters.SourcePortRange.String()
