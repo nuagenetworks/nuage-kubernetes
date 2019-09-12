@@ -55,25 +55,31 @@ type EgressQOSPoliciesParent interface {
 
 // EgressQOSPolicy represents the model of a egressqospolicy
 type EgressQOSPolicy struct {
-	ID                                 string        `json:"ID,omitempty"`
-	ParentID                           string        `json:"parentID,omitempty"`
-	ParentType                         string        `json:"parentType,omitempty"`
-	Owner                              string        `json:"owner,omitempty"`
-	Name                               string        `json:"name,omitempty"`
-	ParentQueueAssociatedRateLimiterID string        `json:"parentQueueAssociatedRateLimiterID,omitempty"`
-	LastUpdatedBy                      string        `json:"lastUpdatedBy,omitempty"`
-	Description                        string        `json:"description,omitempty"`
-	EntityScope                        string        `json:"entityScope,omitempty"`
-	AssocEgressQosId                   string        `json:"assocEgressQosId,omitempty"`
-	Queue1AssociatedRateLimiterID      string        `json:"queue1AssociatedRateLimiterID,omitempty"`
-	Queue1ForwardingClasses            []interface{} `json:"queue1ForwardingClasses,omitempty"`
-	Queue2AssociatedRateLimiterID      string        `json:"queue2AssociatedRateLimiterID,omitempty"`
-	Queue2ForwardingClasses            []interface{} `json:"queue2ForwardingClasses,omitempty"`
-	Queue3AssociatedRateLimiterID      string        `json:"queue3AssociatedRateLimiterID,omitempty"`
-	Queue3ForwardingClasses            []interface{} `json:"queue3ForwardingClasses,omitempty"`
-	Queue4AssociatedRateLimiterID      string        `json:"queue4AssociatedRateLimiterID,omitempty"`
-	Queue4ForwardingClasses            []interface{} `json:"queue4ForwardingClasses,omitempty"`
-	ExternalID                         string        `json:"externalID,omitempty"`
+	ID                                      string        `json:"ID,omitempty"`
+	ParentID                                string        `json:"parentID,omitempty"`
+	ParentType                              string        `json:"parentType,omitempty"`
+	Owner                                   string        `json:"owner,omitempty"`
+	Name                                    string        `json:"name,omitempty"`
+	ParentQueueAssociatedRateLimiterID      string        `json:"parentQueueAssociatedRateLimiterID,omitempty"`
+	LastUpdatedBy                           string        `json:"lastUpdatedBy,omitempty"`
+	DefaultServiceClass                     string        `json:"defaultServiceClass,omitempty"`
+	Description                             string        `json:"description,omitempty"`
+	NetworkCtrlQueueAssociatedRateLimiterID string        `json:"networkCtrlQueueAssociatedRateLimiterID,omitempty"`
+	MgmtQueueAssociatedRateLimiterID        string        `json:"mgmtQueueAssociatedRateLimiterID,omitempty"`
+	EmbeddedMetadata                        []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                             string        `json:"entityScope,omitempty"`
+	AssocEgressQosId                        string        `json:"assocEgressQosId,omitempty"`
+	AssociatedCOSRemarkingPolicyTableID     string        `json:"associatedCOSRemarkingPolicyTableID,omitempty"`
+	AssociatedDSCPRemarkingPolicyTableID    string        `json:"associatedDSCPRemarkingPolicyTableID,omitempty"`
+	Queue1AssociatedRateLimiterID           string        `json:"queue1AssociatedRateLimiterID,omitempty"`
+	Queue1ForwardingClasses                 []interface{} `json:"queue1ForwardingClasses,omitempty"`
+	Queue2AssociatedRateLimiterID           string        `json:"queue2AssociatedRateLimiterID,omitempty"`
+	Queue2ForwardingClasses                 []interface{} `json:"queue2ForwardingClasses,omitempty"`
+	Queue3AssociatedRateLimiterID           string        `json:"queue3AssociatedRateLimiterID,omitempty"`
+	Queue3ForwardingClasses                 []interface{} `json:"queue3ForwardingClasses,omitempty"`
+	Queue4AssociatedRateLimiterID           string        `json:"queue4AssociatedRateLimiterID,omitempty"`
+	Queue4ForwardingClasses                 []interface{} `json:"queue4ForwardingClasses,omitempty"`
+	ExternalID                              string        `json:"externalID,omitempty"`
 }
 
 // NewEgressQOSPolicy returns a new *EgressQOSPolicy

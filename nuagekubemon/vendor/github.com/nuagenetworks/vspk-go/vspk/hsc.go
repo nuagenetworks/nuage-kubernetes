@@ -64,12 +64,14 @@ type HSC struct {
 	LastStateChange             int           `json:"lastStateChange,omitempty"`
 	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
 	Address                     string        `json:"address,omitempty"`
+	Addresses                   []interface{} `json:"addresses,omitempty"`
 	PeakCPUUsage                float64       `json:"peakCPUUsage,omitempty"`
 	PeakMemoryUsage             float64       `json:"peakMemoryUsage,omitempty"`
 	Description                 string        `json:"description,omitempty"`
 	Messages                    []interface{} `json:"messages,omitempty"`
 	Disks                       []interface{} `json:"disks,omitempty"`
 	AlreadyMarkedForUnavailable bool          `json:"alreadyMarkedForUnavailable"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
 	UnavailableTimestamp        int           `json:"unavailableTimestamp,omitempty"`
 	EntityScope                 string        `json:"entityScope,omitempty"`
 	Location                    string        `json:"location,omitempty"`
@@ -185,11 +187,11 @@ func (o *HSC) MonitoringPorts(info *bambou.FetchingInfo) (MonitoringPortsList, *
 	return list, err
 }
 
-// VRSs retrieves the list of child VRSs of the HSC
-func (o *HSC) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
+// ControllerVRSLinks retrieves the list of child ControllerVRSLinks of the HSC
+func (o *HSC) ControllerVRSLinks(info *bambou.FetchingInfo) (ControllerVRSLinksList, *bambou.Error) {
 
-	var list VRSsList
-	err := bambou.CurrentSession().FetchChildren(o, VRSIdentity, &list, info)
+	var list ControllerVRSLinksList
+	err := bambou.CurrentSession().FetchChildren(o, ControllerVRSLinkIdentity, &list, info)
 	return list, err
 }
 

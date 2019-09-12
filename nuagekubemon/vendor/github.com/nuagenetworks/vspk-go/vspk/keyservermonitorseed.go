@@ -55,19 +55,21 @@ type KeyServerMonitorSeedsParent interface {
 
 // KeyServerMonitorSeed represents the model of a keyservermonitorseed
 type KeyServerMonitorSeed struct {
-	ID                                 string `json:"ID,omitempty"`
-	ParentID                           string `json:"parentID,omitempty"`
-	ParentType                         string `json:"parentType,omitempty"`
-	Owner                              string `json:"owner,omitempty"`
-	LastUpdatedBy                      string `json:"lastUpdatedBy,omitempty"`
-	SeedTrafficAuthenticationAlgorithm string `json:"seedTrafficAuthenticationAlgorithm,omitempty"`
-	SeedTrafficEncryptionAlgorithm     string `json:"seedTrafficEncryptionAlgorithm,omitempty"`
-	SeedTrafficEncryptionKeyLifetime   int    `json:"seedTrafficEncryptionKeyLifetime,omitempty"`
-	Lifetime                           int    `json:"lifetime,omitempty"`
-	EntityScope                        string `json:"entityScope,omitempty"`
-	CreationTime                       int    `json:"creationTime,omitempty"`
-	StartTime                          int    `json:"startTime,omitempty"`
-	ExternalID                         string `json:"externalID,omitempty"`
+	ID                                 string        `json:"ID,omitempty"`
+	ParentID                           string        `json:"parentID,omitempty"`
+	ParentType                         string        `json:"parentType,omitempty"`
+	Owner                              string        `json:"owner,omitempty"`
+	LastUpdatedBy                      string        `json:"lastUpdatedBy,omitempty"`
+	SeedTrafficAuthenticationAlgorithm string        `json:"seedTrafficAuthenticationAlgorithm,omitempty"`
+	SeedTrafficEncryptionAlgorithm     string        `json:"seedTrafficEncryptionAlgorithm,omitempty"`
+	SeedTrafficEncryptionKeyLifetime   int           `json:"seedTrafficEncryptionKeyLifetime,omitempty"`
+	SeedType                           string        `json:"seedType,omitempty"`
+	Lifetime                           int           `json:"lifetime,omitempty"`
+	EmbeddedMetadata                   []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                        string        `json:"entityScope,omitempty"`
+	CreationTime                       int           `json:"creationTime,omitempty"`
+	StartTime                          int           `json:"startTime,omitempty"`
+	ExternalID                         string        `json:"externalID,omitempty"`
 }
 
 // NewKeyServerMonitorSeed returns a new *KeyServerMonitorSeed

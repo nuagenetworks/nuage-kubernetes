@@ -55,20 +55,22 @@ type MonitoringPortsParent interface {
 
 // MonitoringPort represents the model of a monitoringport
 type MonitoringPort struct {
-	ID              string `json:"ID,omitempty"`
-	ParentID        string `json:"parentID,omitempty"`
-	ParentType      string `json:"parentType,omitempty"`
-	Owner           string `json:"owner,omitempty"`
-	Name            string `json:"name,omitempty"`
-	LastStateChange int    `json:"lastStateChange,omitempty"`
-	Access          bool   `json:"access"`
-	Description     string `json:"description,omitempty"`
-	ResiliencyState string `json:"resiliencyState,omitempty"`
-	Resilient       bool   `json:"resilient"`
-	EntityScope     string `json:"entityScope,omitempty"`
-	Uplink          bool   `json:"uplink"`
-	State           string `json:"state,omitempty"`
-	ExternalID      string `json:"externalID,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	LastStateChange  int           `json:"lastStateChange,omitempty"`
+	Access           bool          `json:"access"`
+	Description      string        `json:"description,omitempty"`
+	ResiliencyState  string        `json:"resiliencyState,omitempty"`
+	Resilient        bool          `json:"resilient"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	DpdkEnabled      bool          `json:"dpdkEnabled"`
+	Uplink           bool          `json:"uplink"`
+	State            string        `json:"state,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewMonitoringPort returns a new *MonitoringPort

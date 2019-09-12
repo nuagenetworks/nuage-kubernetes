@@ -55,16 +55,17 @@ type VMResyncsParent interface {
 
 // VMResync represents the model of a resync
 type VMResync struct {
-	ID                      string `json:"ID,omitempty"`
-	ParentID                string `json:"parentID,omitempty"`
-	ParentType              string `json:"parentType,omitempty"`
-	Owner                   string `json:"owner,omitempty"`
-	LastRequestTimestamp    int    `json:"lastRequestTimestamp,omitempty"`
-	LastTimeResyncInitiated int    `json:"lastTimeResyncInitiated,omitempty"`
-	LastUpdatedBy           string `json:"lastUpdatedBy,omitempty"`
-	EntityScope             string `json:"entityScope,omitempty"`
-	Status                  string `json:"status,omitempty"`
-	ExternalID              string `json:"externalID,omitempty"`
+	ID                      string        `json:"ID,omitempty"`
+	ParentID                string        `json:"parentID,omitempty"`
+	ParentType              string        `json:"parentType,omitempty"`
+	Owner                   string        `json:"owner,omitempty"`
+	LastRequestTimestamp    int           `json:"lastRequestTimestamp,omitempty"`
+	LastTimeResyncInitiated int           `json:"lastTimeResyncInitiated,omitempty"`
+	LastUpdatedBy           string        `json:"lastUpdatedBy,omitempty"`
+	EmbeddedMetadata        []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope             string        `json:"entityScope,omitempty"`
+	Status                  string        `json:"status,omitempty"`
+	ExternalID              string        `json:"externalID,omitempty"`
 }
 
 // NewVMResync returns a new *VMResync

@@ -66,7 +66,9 @@ type GlobalMetadata struct {
 	NetworkNotificationDisabled bool          `json:"networkNotificationDisabled"`
 	Blob                        string        `json:"blob,omitempty"`
 	GlobalMetadata              bool          `json:"globalMetadata"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
 	EntityScope                 string        `json:"entityScope,omitempty"`
+	AssocEntityType             string        `json:"assocEntityType,omitempty"`
 	ExternalID                  string        `json:"externalID,omitempty"`
 }
 
@@ -124,14 +126,6 @@ func (o *GlobalMetadata) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *b
 func (o *GlobalMetadata) CreateMetadata(child *Metadata) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// MetadataTags retrieves the list of child MetadataTags of the GlobalMetadata
-func (o *GlobalMetadata) MetadataTags(info *bambou.FetchingInfo) (MetadataTagsList, *bambou.Error) {
-
-	var list MetadataTagsList
-	err := bambou.CurrentSession().FetchChildren(o, MetadataTagIdentity, &list, info)
-	return list, err
 }
 
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the GlobalMetadata

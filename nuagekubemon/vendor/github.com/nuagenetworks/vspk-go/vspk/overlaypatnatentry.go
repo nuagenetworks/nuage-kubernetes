@@ -55,21 +55,27 @@ type OverlayPATNATEntriesParent interface {
 
 // OverlayPATNATEntry represents the model of a overlaypatnatentry
 type OverlayPATNATEntry struct {
-	ID                 string `json:"ID,omitempty"`
-	ParentID           string `json:"parentID,omitempty"`
-	ParentType         string `json:"parentType,omitempty"`
-	Owner              string `json:"owner,omitempty"`
-	NATEnabled         string `json:"NATEnabled,omitempty"`
-	PrivateIP          string `json:"privateIP,omitempty"`
-	AssociatedDomainID string `json:"associatedDomainID,omitempty"`
-	AssociatedLinkID   string `json:"associatedLinkID,omitempty"`
-	PublicIP           string `json:"publicIP,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	NATEnabled         bool          `json:"NATEnabled"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	PrivateIP          string        `json:"privateIP,omitempty"`
+	AssociatedDomainID string        `json:"associatedDomainID,omitempty"`
+	AssociatedLinkID   string        `json:"associatedLinkID,omitempty"`
+	PublicIP           string        `json:"publicIP,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewOverlayPATNATEntry returns a new *OverlayPATNATEntry
 func NewOverlayPATNATEntry() *OverlayPATNATEntry {
 
-	return &OverlayPATNATEntry{}
+	return &OverlayPATNATEntry{
+		NATEnabled: true,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -106,4 +112,32 @@ func (o *OverlayPATNATEntry) Save() *bambou.Error {
 func (o *OverlayPATNATEntry) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the OverlayPATNATEntry
+func (o *OverlayPATNATEntry) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the OverlayPATNATEntry
+func (o *OverlayPATNATEntry) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the OverlayPATNATEntry
+func (o *OverlayPATNATEntry) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the OverlayPATNATEntry
+func (o *OverlayPATNATEntry) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

@@ -55,18 +55,19 @@ type FloatingIpsParent interface {
 
 // FloatingIp represents the model of a floatingip
 type FloatingIp struct {
-	ID                                string `json:"ID,omitempty"`
-	ParentID                          string `json:"parentID,omitempty"`
-	ParentType                        string `json:"parentType,omitempty"`
-	Owner                             string `json:"owner,omitempty"`
-	LastUpdatedBy                     string `json:"lastUpdatedBy,omitempty"`
-	AccessControl                     bool   `json:"accessControl"`
-	Address                           string `json:"address,omitempty"`
-	EntityScope                       string `json:"entityScope,omitempty"`
-	Assigned                          bool   `json:"assigned"`
-	AssignedToObjectType              string `json:"assignedToObjectType,omitempty"`
-	AssociatedSharedNetworkResourceID string `json:"associatedSharedNetworkResourceID,omitempty"`
-	ExternalID                        string `json:"externalID,omitempty"`
+	ID                                string        `json:"ID,omitempty"`
+	ParentID                          string        `json:"parentID,omitempty"`
+	ParentType                        string        `json:"parentType,omitempty"`
+	Owner                             string        `json:"owner,omitempty"`
+	LastUpdatedBy                     string        `json:"lastUpdatedBy,omitempty"`
+	AccessControl                     bool          `json:"accessControl"`
+	Address                           string        `json:"address,omitempty"`
+	EmbeddedMetadata                  []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                       string        `json:"entityScope,omitempty"`
+	Assigned                          bool          `json:"assigned"`
+	AssignedToObjectType              string        `json:"assignedToObjectType,omitempty"`
+	AssociatedSharedNetworkResourceID string        `json:"associatedSharedNetworkResourceID,omitempty"`
+	ExternalID                        string        `json:"externalID,omitempty"`
 }
 
 // NewFloatingIp returns a new *FloatingIp

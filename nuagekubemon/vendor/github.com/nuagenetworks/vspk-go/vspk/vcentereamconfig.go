@@ -55,19 +55,20 @@ type VCenterEAMConfigsParent interface {
 
 // VCenterEAMConfig represents the model of a eamconfig
 type VCenterEAMConfig struct {
-	ID                  string `json:"ID,omitempty"`
-	ParentID            string `json:"parentID,omitempty"`
-	ParentType          string `json:"parentType,omitempty"`
-	Owner               string `json:"owner,omitempty"`
-	EamServerIP         string `json:"eamServerIP,omitempty"`
-	EamServerPortNumber int    `json:"eamServerPortNumber,omitempty"`
-	EamServerPortType   string `json:"eamServerPortType,omitempty"`
-	LastUpdatedBy       string `json:"lastUpdatedBy,omitempty"`
-	VibURL              string `json:"vibURL,omitempty"`
-	EntityScope         string `json:"entityScope,omitempty"`
-	OvfURL              string `json:"ovfURL,omitempty"`
-	ExtensionKey        string `json:"extensionKey,omitempty"`
-	ExternalID          string `json:"externalID,omitempty"`
+	ID                  string        `json:"ID,omitempty"`
+	ParentID            string        `json:"parentID,omitempty"`
+	ParentType          string        `json:"parentType,omitempty"`
+	Owner               string        `json:"owner,omitempty"`
+	EamServerIP         string        `json:"eamServerIP,omitempty"`
+	EamServerPortNumber int           `json:"eamServerPortNumber,omitempty"`
+	EamServerPortType   string        `json:"eamServerPortType,omitempty"`
+	LastUpdatedBy       string        `json:"lastUpdatedBy,omitempty"`
+	VibURL              string        `json:"vibURL,omitempty"`
+	EmbeddedMetadata    []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope         string        `json:"entityScope,omitempty"`
+	OvfURL              string        `json:"ovfURL,omitempty"`
+	ExtensionKey        string        `json:"extensionKey,omitempty"`
+	ExternalID          string        `json:"externalID,omitempty"`
 }
 
 // NewVCenterEAMConfig returns a new *VCenterEAMConfig

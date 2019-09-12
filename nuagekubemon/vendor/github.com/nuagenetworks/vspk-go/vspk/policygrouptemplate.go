@@ -55,18 +55,19 @@ type PolicyGroupTemplatesParent interface {
 
 // PolicyGroupTemplate represents the model of a policygrouptemplate
 type PolicyGroupTemplate struct {
-	ID               string `json:"ID,omitempty"`
-	ParentID         string `json:"parentID,omitempty"`
-	ParentType       string `json:"parentType,omitempty"`
-	Owner            string `json:"owner,omitempty"`
-	EVPNCommunityTag string `json:"EVPNCommunityTag,omitempty"`
-	Name             string `json:"name,omitempty"`
-	LastUpdatedBy    string `json:"lastUpdatedBy,omitempty"`
-	Description      string `json:"description,omitempty"`
-	EntityScope      string `json:"entityScope,omitempty"`
-	External         bool   `json:"external"`
-	ExternalID       string `json:"externalID,omitempty"`
-	Type             string `json:"type,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	EVPNCommunityTag string        `json:"EVPNCommunityTag,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	Description      string        `json:"description,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	External         bool          `json:"external"`
+	ExternalID       string        `json:"externalID,omitempty"`
+	Type             string        `json:"type,omitempty"`
 }
 
 // NewPolicyGroupTemplate returns a new *PolicyGroupTemplate
@@ -137,12 +138,6 @@ func (o *PolicyGroupTemplate) GlobalMetadatas(info *bambou.FetchingInfo) (Global
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the PolicyGroupTemplate
 func (o *PolicyGroupTemplate) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// CreateJob creates a new child Job under the PolicyGroupTemplate
-func (o *PolicyGroupTemplate) CreateJob(child *Job) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

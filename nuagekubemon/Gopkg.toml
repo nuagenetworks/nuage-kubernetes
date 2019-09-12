@@ -19,6 +19,9 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+ignored = [
+  "golang.org/x/text", "golang.org/x/sys", "golang.org/x/net"
+]
 
 [[constraint]]
   branch = "master"
@@ -38,7 +41,7 @@
 
 [[constraint]]
   name = "github.com/nuagenetworks/vspk-go"
-  version = "r4.0.7"
+  version = "r6.0.1"
 
 [[constraint]]
   branch = "v2"

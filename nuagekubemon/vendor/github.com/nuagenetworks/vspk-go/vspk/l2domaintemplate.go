@@ -55,35 +55,44 @@ type L2DomainTemplatesParent interface {
 
 // L2DomainTemplate represents the model of a l2domaintemplate
 type L2DomainTemplate struct {
-	ID                              string `json:"ID,omitempty"`
-	ParentID                        string `json:"parentID,omitempty"`
-	ParentType                      string `json:"parentType,omitempty"`
-	Owner                           string `json:"owner,omitempty"`
-	DHCPManaged                     bool   `json:"DHCPManaged"`
-	DPI                             string `json:"DPI,omitempty"`
-	IPType                          string `json:"IPType,omitempty"`
-	Name                            string `json:"name,omitempty"`
-	LastUpdatedBy                   string `json:"lastUpdatedBy,omitempty"`
-	Gateway                         string `json:"gateway,omitempty"`
-	GatewayMACAddress               string `json:"gatewayMACAddress,omitempty"`
-	Address                         string `json:"address,omitempty"`
-	Description                     string `json:"description,omitempty"`
-	Netmask                         string `json:"netmask,omitempty"`
-	Encryption                      string `json:"encryption,omitempty"`
-	EntityScope                     string `json:"entityScope,omitempty"`
-	PolicyChangeStatus              string `json:"policyChangeStatus,omitempty"`
-	UseGlobalMAC                    string `json:"useGlobalMAC,omitempty"`
-	AssociatedMulticastChannelMapID string `json:"associatedMulticastChannelMapID,omitempty"`
-	Multicast                       string `json:"multicast,omitempty"`
-	ExternalID                      string `json:"externalID,omitempty"`
+	ID                              string        `json:"ID,omitempty"`
+	ParentID                        string        `json:"parentID,omitempty"`
+	ParentType                      string        `json:"parentType,omitempty"`
+	Owner                           string        `json:"owner,omitempty"`
+	DHCPManaged                     bool          `json:"DHCPManaged"`
+	DPI                             string        `json:"DPI,omitempty"`
+	IPType                          string        `json:"IPType,omitempty"`
+	IPv6Address                     string        `json:"IPv6Address,omitempty"`
+	IPv6Gateway                     string        `json:"IPv6Gateway,omitempty"`
+	Name                            string        `json:"name,omitempty"`
+	LastUpdatedBy                   string        `json:"lastUpdatedBy,omitempty"`
+	Gateway                         string        `json:"gateway,omitempty"`
+	Address                         string        `json:"address,omitempty"`
+	Description                     string        `json:"description,omitempty"`
+	Netmask                         string        `json:"netmask,omitempty"`
+	EmbeddedMetadata                []interface{} `json:"embeddedMetadata,omitempty"`
+	EnableDHCPv4                    bool          `json:"enableDHCPv4"`
+	EnableDHCPv6                    bool          `json:"enableDHCPv6"`
+	Encryption                      string        `json:"encryption,omitempty"`
+	EntityScope                     string        `json:"entityScope,omitempty"`
+	EntityState                     string        `json:"entityState,omitempty"`
+	PolicyChangeStatus              string        `json:"policyChangeStatus,omitempty"`
+	UseGlobalMAC                    string        `json:"useGlobalMAC,omitempty"`
+	AssociatedMulticastChannelMapID string        `json:"associatedMulticastChannelMapID,omitempty"`
+	DualStackDynamicIPAllocation    bool          `json:"dualStackDynamicIPAllocation"`
+	Multicast                       string        `json:"multicast,omitempty"`
+	ExternalID                      string        `json:"externalID,omitempty"`
 }
 
 // NewL2DomainTemplate returns a new *L2DomainTemplate
 func NewL2DomainTemplate() *L2DomainTemplate {
 
 	return &L2DomainTemplate{
-		DPI:          "false",
-		UseGlobalMAC: "DISABLED",
+		DPI:                          "DISABLED",
+		EnableDHCPv4:                 true,
+		EnableDHCPv6:                 false,
+		UseGlobalMAC:                 "DISABLED",
+		DualStackDynamicIPAllocation: true,
 	}
 }
 
@@ -187,6 +196,20 @@ func (o *L2DomainTemplate) CreateMetadata(child *Metadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// PGExpressionTemplates retrieves the list of child PGExpressionTemplates of the L2DomainTemplate
+func (o *L2DomainTemplate) PGExpressionTemplates(info *bambou.FetchingInfo) (PGExpressionTemplatesList, *bambou.Error) {
+
+	var list PGExpressionTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, PGExpressionTemplateIdentity, &list, info)
+	return list, err
+}
+
+// CreatePGExpressionTemplate creates a new child PGExpressionTemplate under the L2DomainTemplate
+func (o *L2DomainTemplate) CreatePGExpressionTemplate(child *PGExpressionTemplate) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // EgressACLTemplates retrieves the list of child EgressACLTemplates of the L2DomainTemplate
 func (o *L2DomainTemplate) EgressACLTemplates(info *bambou.FetchingInfo) (EgressACLTemplatesList, *bambou.Error) {
 
@@ -197,6 +220,34 @@ func (o *L2DomainTemplate) EgressACLTemplates(info *bambou.FetchingInfo) (Egress
 
 // CreateEgressACLTemplate creates a new child EgressACLTemplate under the L2DomainTemplate
 func (o *L2DomainTemplate) CreateEgressACLTemplate(child *EgressACLTemplate) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// EgressAdvFwdTemplates retrieves the list of child EgressAdvFwdTemplates of the L2DomainTemplate
+func (o *L2DomainTemplate) EgressAdvFwdTemplates(info *bambou.FetchingInfo) (EgressAdvFwdTemplatesList, *bambou.Error) {
+
+	var list EgressAdvFwdTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, EgressAdvFwdTemplateIdentity, &list, info)
+	return list, err
+}
+
+// CreateEgressAdvFwdTemplate creates a new child EgressAdvFwdTemplate under the L2DomainTemplate
+func (o *L2DomainTemplate) CreateEgressAdvFwdTemplate(child *EgressAdvFwdTemplate) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// VirtualFirewallPolicies retrieves the list of child VirtualFirewallPolicies of the L2DomainTemplate
+func (o *L2DomainTemplate) VirtualFirewallPolicies(info *bambou.FetchingInfo) (VirtualFirewallPoliciesList, *bambou.Error) {
+
+	var list VirtualFirewallPoliciesList
+	err := bambou.CurrentSession().FetchChildren(o, VirtualFirewallPolicyIdentity, &list, info)
+	return list, err
+}
+
+// CreateVirtualFirewallPolicy creates a new child VirtualFirewallPolicy under the L2DomainTemplate
+func (o *L2DomainTemplate) CreateVirtualFirewallPolicy(child *VirtualFirewallPolicy) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -239,20 +290,6 @@ func (o *L2DomainTemplate) IngressAdvFwdTemplates(info *bambou.FetchingInfo) (In
 
 // CreateIngressAdvFwdTemplate creates a new child IngressAdvFwdTemplate under the L2DomainTemplate
 func (o *L2DomainTemplate) CreateIngressAdvFwdTemplate(child *IngressAdvFwdTemplate) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// IngressExternalServiceTemplates retrieves the list of child IngressExternalServiceTemplates of the L2DomainTemplate
-func (o *L2DomainTemplate) IngressExternalServiceTemplates(info *bambou.FetchingInfo) (IngressExternalServiceTemplatesList, *bambou.Error) {
-
-	var list IngressExternalServiceTemplatesList
-	err := bambou.CurrentSession().FetchChildren(o, IngressExternalServiceTemplateIdentity, &list, info)
-	return list, err
-}
-
-// CreateIngressExternalServiceTemplate creates a new child IngressExternalServiceTemplate under the L2DomainTemplate
-func (o *L2DomainTemplate) CreateIngressExternalServiceTemplate(child *IngressExternalServiceTemplate) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -305,4 +342,18 @@ func (o *L2DomainTemplate) EventLogs(info *bambou.FetchingInfo) (EventLogsList, 
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
+}
+
+// OverlayMirrorDestinationTemplates retrieves the list of child OverlayMirrorDestinationTemplates of the L2DomainTemplate
+func (o *L2DomainTemplate) OverlayMirrorDestinationTemplates(info *bambou.FetchingInfo) (OverlayMirrorDestinationTemplatesList, *bambou.Error) {
+
+	var list OverlayMirrorDestinationTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, OverlayMirrorDestinationTemplateIdentity, &list, info)
+	return list, err
+}
+
+// CreateOverlayMirrorDestinationTemplate creates a new child OverlayMirrorDestinationTemplate under the L2DomainTemplate
+func (o *L2DomainTemplate) CreateOverlayMirrorDestinationTemplate(child *OverlayMirrorDestinationTemplate) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

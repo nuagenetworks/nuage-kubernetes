@@ -55,32 +55,37 @@ type ZFBRequestsParent interface {
 
 // ZFBRequest represents the model of a zfbrequest
 type ZFBRequest struct {
-	ID                       string  `json:"ID,omitempty"`
-	ParentID                 string  `json:"parentID,omitempty"`
-	ParentType               string  `json:"parentType,omitempty"`
-	Owner                    string  `json:"owner,omitempty"`
-	MACAddress               string  `json:"MACAddress,omitempty"`
-	ZFBApprovalStatus        string  `json:"ZFBApprovalStatus,omitempty"`
-	ZFBBootstrapEnabled      bool    `json:"ZFBBootstrapEnabled"`
-	ZFBInfo                  string  `json:"ZFBInfo,omitempty"`
-	ZFBRequestRetryTimer     int     `json:"ZFBRequestRetryTimer,omitempty"`
-	SKU                      string  `json:"SKU,omitempty"`
-	IPAddress                string  `json:"IPAddress,omitempty"`
-	CPUType                  string  `json:"CPUType,omitempty"`
-	NSGVersion               string  `json:"NSGVersion,omitempty"`
-	UUID                     string  `json:"UUID,omitempty"`
-	Family                   string  `json:"family,omitempty"`
-	LastConnectedTime        float64 `json:"lastConnectedTime,omitempty"`
-	LastUpdatedBy            string  `json:"lastUpdatedBy,omitempty"`
-	SerialNumber             string  `json:"serialNumber,omitempty"`
-	EntityScope              string  `json:"entityScope,omitempty"`
-	Hostname                 string  `json:"hostname,omitempty"`
-	AssociatedEnterpriseID   string  `json:"associatedEnterpriseID,omitempty"`
-	AssociatedEnterpriseName string  `json:"associatedEnterpriseName,omitempty"`
-	AssociatedNSGatewayID    string  `json:"associatedNSGatewayID,omitempty"`
-	AssociatedNSGatewayName  string  `json:"associatedNSGatewayName,omitempty"`
-	StatusString             string  `json:"statusString,omitempty"`
-	ExternalID               string  `json:"externalID,omitempty"`
+	ID                       string        `json:"ID,omitempty"`
+	ParentID                 string        `json:"parentID,omitempty"`
+	ParentType               string        `json:"parentType,omitempty"`
+	Owner                    string        `json:"owner,omitempty"`
+	MACAddress               string        `json:"MACAddress,omitempty"`
+	ZFBApprovalStatus        string        `json:"ZFBApprovalStatus,omitempty"`
+	ZFBBootstrapEnabled      bool          `json:"ZFBBootstrapEnabled"`
+	ZFBInfo                  string        `json:"ZFBInfo,omitempty"`
+	ZFBRequestRetryTimer     int           `json:"ZFBRequestRetryTimer,omitempty"`
+	SKU                      string        `json:"SKU,omitempty"`
+	IPAddress                string        `json:"IPAddress,omitempty"`
+	CPUType                  string        `json:"CPUType,omitempty"`
+	NSGVersion               string        `json:"NSGVersion,omitempty"`
+	UUID                     string        `json:"UUID,omitempty"`
+	Family                   string        `json:"family,omitempty"`
+	LastConnectedTime        float64       `json:"lastConnectedTime,omitempty"`
+	LastUpdatedBy            string        `json:"lastUpdatedBy,omitempty"`
+	RegistrationURL          string        `json:"registrationURL,omitempty"`
+	SerialNumber             string        `json:"serialNumber,omitempty"`
+	EmbeddedMetadata         []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope              string        `json:"entityScope,omitempty"`
+	Hostname                 string        `json:"hostname,omitempty"`
+	AssociatedEnterpriseID   string        `json:"associatedEnterpriseID,omitempty"`
+	AssociatedEnterpriseName string        `json:"associatedEnterpriseName,omitempty"`
+	AssociatedEntityType     string        `json:"associatedEntityType,omitempty"`
+	AssociatedGatewayID      string        `json:"associatedGatewayID,omitempty"`
+	AssociatedGatewayName    string        `json:"associatedGatewayName,omitempty"`
+	AssociatedNSGatewayID    string        `json:"associatedNSGatewayID,omitempty"`
+	AssociatedNSGatewayName  string        `json:"associatedNSGatewayName,omitempty"`
+	StatusString             string        `json:"statusString,omitempty"`
+	ExternalID               string        `json:"externalID,omitempty"`
 }
 
 // NewZFBRequest returns a new *ZFBRequest

@@ -55,22 +55,26 @@ type NetworkMacroGroupsParent interface {
 
 // NetworkMacroGroup represents the model of a networkmacrogroup
 type NetworkMacroGroup struct {
-	ID            string        `json:"ID,omitempty"`
-	ParentID      string        `json:"parentID,omitempty"`
-	ParentType    string        `json:"parentType,omitempty"`
-	Owner         string        `json:"owner,omitempty"`
-	Name          string        `json:"name,omitempty"`
-	LastUpdatedBy string        `json:"lastUpdatedBy,omitempty"`
-	Description   string        `json:"description,omitempty"`
-	NetworkMacros []interface{} `json:"networkMacros,omitempty"`
-	EntityScope   string        `json:"entityScope,omitempty"`
-	ExternalID    string        `json:"externalID,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	MacroGroupType   string        `json:"macroGroupType,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	Description      string        `json:"description,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	IsSaaSType       bool          `json:"isSaaSType"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewNetworkMacroGroup returns a new *NetworkMacroGroup
 func NewNetworkMacroGroup() *NetworkMacroGroup {
 
-	return &NetworkMacroGroup{}
+	return &NetworkMacroGroup{
+		IsSaaSType: false,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -143,4 +147,15 @@ func (o *NetworkMacroGroup) EnterpriseNetworks(info *bambou.FetchingInfo) (Enter
 	var list EnterpriseNetworksList
 	err := bambou.CurrentSession().FetchChildren(o, EnterpriseNetworkIdentity, &list, info)
 	return list, err
+}
+
+// AssignEnterpriseNetworks assigns the list of EnterpriseNetworks to the NetworkMacroGroup
+func (o *NetworkMacroGroup) AssignEnterpriseNetworks(children EnterpriseNetworksList) *bambou.Error {
+
+	list := []bambou.Identifiable{}
+	for _, c := range children {
+		list = append(list, c)
+	}
+
+	return bambou.CurrentSession().AssignChildren(o, list, EnterpriseNetworkIdentity)
 }

@@ -55,31 +55,32 @@ type WANServicesParent interface {
 
 // WANService represents the model of a service
 type WANService struct {
-	ID                     string `json:"ID,omitempty"`
-	ParentID               string `json:"parentID,omitempty"`
-	ParentType             string `json:"parentType,omitempty"`
-	Owner                  string `json:"owner,omitempty"`
-	WANServiceIdentifier   string `json:"WANServiceIdentifier,omitempty"`
-	IRBEnabled             bool   `json:"IRBEnabled"`
-	Name                   string `json:"name,omitempty"`
-	LastUpdatedBy          string `json:"lastUpdatedBy,omitempty"`
-	PermittedAction        string `json:"permittedAction,omitempty"`
-	ServicePolicy          string `json:"servicePolicy,omitempty"`
-	ServiceType            string `json:"serviceType,omitempty"`
-	Description            string `json:"description,omitempty"`
-	VnId                   int    `json:"vnId,omitempty"`
-	EnterpriseName         string `json:"enterpriseName,omitempty"`
-	EntityScope            string `json:"entityScope,omitempty"`
-	DomainName             string `json:"domainName,omitempty"`
-	ConfigType             string `json:"configType,omitempty"`
-	Orphan                 bool   `json:"orphan"`
-	UseUserMnemonic        bool   `json:"useUserMnemonic"`
-	UserMnemonic           string `json:"userMnemonic,omitempty"`
-	AssociatedDomainID     string `json:"associatedDomainID,omitempty"`
-	AssociatedVPNConnectID string `json:"associatedVPNConnectID,omitempty"`
-	TunnelType             string `json:"tunnelType,omitempty"`
-	ExternalID             string `json:"externalID,omitempty"`
-	ExternalRouteTarget    string `json:"externalRouteTarget,omitempty"`
+	ID                     string        `json:"ID,omitempty"`
+	ParentID               string        `json:"parentID,omitempty"`
+	ParentType             string        `json:"parentType,omitempty"`
+	Owner                  string        `json:"owner,omitempty"`
+	WANServiceIdentifier   string        `json:"WANServiceIdentifier,omitempty"`
+	IRBEnabled             bool          `json:"IRBEnabled"`
+	Name                   string        `json:"name,omitempty"`
+	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
+	PermittedAction        string        `json:"permittedAction,omitempty"`
+	ServicePolicy          string        `json:"servicePolicy,omitempty"`
+	ServiceType            string        `json:"serviceType,omitempty"`
+	Description            string        `json:"description,omitempty"`
+	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
+	VnId                   int           `json:"vnId,omitempty"`
+	EnterpriseName         string        `json:"enterpriseName,omitempty"`
+	EntityScope            string        `json:"entityScope,omitempty"`
+	DomainName             string        `json:"domainName,omitempty"`
+	ConfigType             string        `json:"configType,omitempty"`
+	Orphan                 bool          `json:"orphan"`
+	UseUserMnemonic        bool          `json:"useUserMnemonic"`
+	UserMnemonic           string        `json:"userMnemonic,omitempty"`
+	AssociatedDomainID     string        `json:"associatedDomainID,omitempty"`
+	AssociatedVPNConnectID string        `json:"associatedVPNConnectID,omitempty"`
+	TunnelType             string        `json:"tunnelType,omitempty"`
+	ExternalID             string        `json:"externalID,omitempty"`
+	ExternalRouteTarget    string        `json:"externalRouteTarget,omitempty"`
 }
 
 // NewWANService returns a new *WANService

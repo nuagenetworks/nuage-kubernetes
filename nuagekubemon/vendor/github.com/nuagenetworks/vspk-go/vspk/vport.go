@@ -55,41 +55,72 @@ type VPortsParent interface {
 
 // VPort represents the model of a vport
 type VPort struct {
-	ID                                  string `json:"ID,omitempty"`
-	ParentID                            string `json:"parentID,omitempty"`
-	ParentType                          string `json:"parentType,omitempty"`
-	Owner                               string `json:"owner,omitempty"`
-	VLANID                              string `json:"VLANID,omitempty"`
-	DPI                                 string `json:"DPI,omitempty"`
-	Name                                string `json:"name,omitempty"`
-	HasAttachedInterfaces               bool   `json:"hasAttachedInterfaces"`
-	LastUpdatedBy                       string `json:"lastUpdatedBy,omitempty"`
-	Active                              bool   `json:"active"`
-	AddressSpoofing                     string `json:"addressSpoofing,omitempty"`
-	Description                         string `json:"description,omitempty"`
-	EntityScope                         string `json:"entityScope,omitempty"`
-	DomainID                            string `json:"domainID,omitempty"`
-	ZoneID                              string `json:"zoneID,omitempty"`
-	OperationalState                    string `json:"operationalState,omitempty"`
-	AssociatedFloatingIPID              string `json:"associatedFloatingIPID,omitempty"`
-	AssociatedMulticastChannelMapID     string `json:"associatedMulticastChannelMapID,omitempty"`
-	AssociatedSendMulticastChannelMapID string `json:"associatedSendMulticastChannelMapID,omitempty"`
-	MultiNICVPortID                     string `json:"multiNICVPortID,omitempty"`
-	Multicast                           string `json:"multicast,omitempty"`
-	ExternalID                          string `json:"externalID,omitempty"`
-	Type                                string `json:"type,omitempty"`
-	SystemType                          string `json:"systemType,omitempty"`
+	ID                                  string        `json:"ID,omitempty"`
+	ParentID                            string        `json:"parentID,omitempty"`
+	ParentType                          string        `json:"parentType,omitempty"`
+	Owner                               string        `json:"owner,omitempty"`
+	FIPIgnoreDefaultRoute               string        `json:"FIPIgnoreDefaultRoute,omitempty"`
+	VLAN                                int           `json:"VLAN,omitempty"`
+	VLANID                              string        `json:"VLANID,omitempty"`
+	DPI                                 string        `json:"DPI,omitempty"`
+	BackhaulSubnetVNID                  int           `json:"backhaulSubnetVNID,omitempty"`
+	Name                                string        `json:"name,omitempty"`
+	HasAttachedInterfaces               bool          `json:"hasAttachedInterfaces"`
+	LastUpdatedBy                       string        `json:"lastUpdatedBy,omitempty"`
+	GatewayMACMoveRole                  string        `json:"gatewayMACMoveRole,omitempty"`
+	GatewayPortName                     string        `json:"gatewayPortName,omitempty"`
+	AccessRestrictionEnabled            bool          `json:"accessRestrictionEnabled"`
+	Active                              bool          `json:"active"`
+	AddressSpoofing                     string        `json:"addressSpoofing,omitempty"`
+	PeerOperationalState                string        `json:"peerOperationalState,omitempty"`
+	SegmentationID                      int           `json:"segmentationID,omitempty"`
+	SegmentationType                    string        `json:"segmentationType,omitempty"`
+	ServiceID                           int           `json:"serviceID,omitempty"`
+	Description                         string        `json:"description,omitempty"`
+	EmbeddedMetadata                    []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                         string        `json:"entityScope,omitempty"`
+	Color                               int           `json:"color,omitempty"`
+	DomainID                            string        `json:"domainID,omitempty"`
+	DomainName                          string        `json:"domainName,omitempty"`
+	DomainServiceLabel                  string        `json:"domainServiceLabel,omitempty"`
+	DomainVLANID                        int           `json:"domainVLANID,omitempty"`
+	ZoneID                              string        `json:"zoneID,omitempty"`
+	OperationalState                    string        `json:"operationalState,omitempty"`
+	TrunkRole                           string        `json:"trunkRole,omitempty"`
+	AssocEntityID                       string        `json:"assocEntityID,omitempty"`
+	AssociatedEgressProfileID           string        `json:"associatedEgressProfileID,omitempty"`
+	AssociatedFloatingIPID              string        `json:"associatedFloatingIPID,omitempty"`
+	AssociatedGatewayID                 string        `json:"associatedGatewayID,omitempty"`
+	AssociatedGatewayPersonality        string        `json:"associatedGatewayPersonality,omitempty"`
+	AssociatedGatewayType               string        `json:"associatedGatewayType,omitempty"`
+	AssociatedIngressProfileID          string        `json:"associatedIngressProfileID,omitempty"`
+	AssociatedMulticastChannelMapID     string        `json:"associatedMulticastChannelMapID,omitempty"`
+	AssociatedSSID                      string        `json:"associatedSSID,omitempty"`
+	AssociatedSendMulticastChannelMapID string        `json:"associatedSendMulticastChannelMapID,omitempty"`
+	AssociatedTrunkID                   string        `json:"associatedTrunkID,omitempty"`
+	SubType                             string        `json:"subType,omitempty"`
+	SubnetVNID                          int           `json:"subnetVNID,omitempty"`
+	MultiNICVPortID                     string        `json:"multiNICVPortID,omitempty"`
+	Multicast                           string        `json:"multicast,omitempty"`
+	GwEligible                          bool          `json:"gwEligible"`
+	ExternalID                          string        `json:"externalID,omitempty"`
+	Type                                string        `json:"type,omitempty"`
+	SystemType                          string        `json:"systemType,omitempty"`
 }
 
 // NewVPort returns a new *VPort
 func NewVPort() *VPort {
 
 	return &VPort{
-		DPI:              "INHERITED",
-		AddressSpoofing:  "INHERITED",
-		OperationalState: "INIT",
-		Multicast:        "INHERITED",
-		Type:             "VM",
+		DPI: "INHERITED",
+		AccessRestrictionEnabled: false,
+		AddressSpoofing:          "INHERITED",
+		Color:                    0,
+		OperationalState:         "INIT",
+		SubType:                  "NONE",
+		Multicast:                "INHERITED",
+		GwEligible:               false,
+		Type:                     "VM",
 	}
 }
 
@@ -162,6 +193,34 @@ func (o *VPort) AssignRedirectionTargets(children RedirectionTargetsList) *bambo
 	return bambou.CurrentSession().AssignChildren(o, list, RedirectionTargetIdentity)
 }
 
+// DeploymentFailures retrieves the list of child DeploymentFailures of the VPort
+func (o *VPort) DeploymentFailures(info *bambou.FetchingInfo) (DeploymentFailuresList, *bambou.Error) {
+
+	var list DeploymentFailuresList
+	err := bambou.CurrentSession().FetchChildren(o, DeploymentFailureIdentity, &list, info)
+	return list, err
+}
+
+// CreateDeploymentFailure creates a new child DeploymentFailure under the VPort
+func (o *VPort) CreateDeploymentFailure(child *DeploymentFailure) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// TestSuiteRuns retrieves the list of child TestSuiteRuns of the VPort
+func (o *VPort) TestSuiteRuns(info *bambou.FetchingInfo) (TestSuiteRunsList, *bambou.Error) {
+
+	var list TestSuiteRunsList
+	err := bambou.CurrentSession().FetchChildren(o, TestSuiteRunIdentity, &list, info)
+	return list, err
+}
+
+// CreateTestSuiteRun creates a new child TestSuiteRun under the VPort
+func (o *VPort) CreateTestSuiteRun(child *TestSuiteRun) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Metadatas retrieves the list of child Metadatas of the VPort
 func (o *VPort) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
 
@@ -184,6 +243,28 @@ func (o *VPort) AggregateMetadatas(info *bambou.FetchingInfo) (AggregateMetadata
 	return list, err
 }
 
+// BGPNeighbors retrieves the list of child BGPNeighbors of the VPort
+func (o *VPort) BGPNeighbors(info *bambou.FetchingInfo) (BGPNeighborsList, *bambou.Error) {
+
+	var list BGPNeighborsList
+	err := bambou.CurrentSession().FetchChildren(o, BGPNeighborIdentity, &list, info)
+	return list, err
+}
+
+// CreateBGPNeighbor creates a new child BGPNeighbor under the VPort
+func (o *VPort) CreateBGPNeighbor(child *BGPNeighbor) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// EgressACLEntryTemplates retrieves the list of child EgressACLEntryTemplates of the VPort
+func (o *VPort) EgressACLEntryTemplates(info *bambou.FetchingInfo) (EgressACLEntryTemplatesList, *bambou.Error) {
+
+	var list EgressACLEntryTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, EgressACLEntryTemplateIdentity, &list, info)
+	return list, err
+}
+
 // DHCPOptions retrieves the list of child DHCPOptions of the VPort
 func (o *VPort) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptionsList, *bambou.Error) {
 
@@ -194,6 +275,20 @@ func (o *VPort) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptionsList, *bambou
 
 // CreateDHCPOption creates a new child DHCPOption under the VPort
 func (o *VPort) CreateDHCPOption(child *DHCPOption) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// DHCPv6Options retrieves the list of child DHCPv6Options of the VPort
+func (o *VPort) DHCPv6Options(info *bambou.FetchingInfo) (DHCPv6OptionsList, *bambou.Error) {
+
+	var list DHCPv6OptionsList
+	err := bambou.CurrentSession().FetchChildren(o, DHCPv6OptionIdentity, &list, info)
+	return list, err
+}
+
+// CreateDHCPv6Option creates a new child DHCPv6Option under the VPort
+func (o *VPort) CreateDHCPv6Option(child *DHCPv6Option) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -248,6 +343,50 @@ func (o *VPort) VMInterfaces(info *bambou.FetchingInfo) (VMInterfacesList, *bamb
 	var list VMInterfacesList
 	err := bambou.CurrentSession().FetchChildren(o, VMInterfaceIdentity, &list, info)
 	return list, err
+}
+
+// CreateVMInterface creates a new child VMInterface under the VPort
+func (o *VPort) CreateVMInterface(child *VMInterface) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// VNFInterfaces retrieves the list of child VNFInterfaces of the VPort
+func (o *VPort) VNFInterfaces(info *bambou.FetchingInfo) (VNFInterfacesList, *bambou.Error) {
+
+	var list VNFInterfacesList
+	err := bambou.CurrentSession().FetchChildren(o, VNFInterfaceIdentity, &list, info)
+	return list, err
+}
+
+// IngressACLEntryTemplates retrieves the list of child IngressACLEntryTemplates of the VPort
+func (o *VPort) IngressACLEntryTemplates(info *bambou.FetchingInfo) (IngressACLEntryTemplatesList, *bambou.Error) {
+
+	var list IngressACLEntryTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, IngressACLEntryTemplateIdentity, &list, info)
+	return list, err
+}
+
+// IngressAdvFwdEntryTemplates retrieves the list of child IngressAdvFwdEntryTemplates of the VPort
+func (o *VPort) IngressAdvFwdEntryTemplates(info *bambou.FetchingInfo) (IngressAdvFwdEntryTemplatesList, *bambou.Error) {
+
+	var list IngressAdvFwdEntryTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, IngressAdvFwdEntryTemplateIdentity, &list, info)
+	return list, err
+}
+
+// Jobs retrieves the list of child Jobs of the VPort
+func (o *VPort) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
+
+	var list JobsList
+	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
+	return list, err
+}
+
+// CreateJob creates a new child Job under the VPort
+func (o *VPort) CreateJob(child *Job) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // PolicyGroups retrieves the list of child PolicyGroups of the VPort
@@ -335,25 +474,6 @@ func (o *VPort) CreateVPortMirror(child *VPortMirror) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// Applicationperformancemanagements retrieves the list of child Applicationperformancemanagements of the VPort
-func (o *VPort) Applicationperformancemanagements(info *bambou.FetchingInfo) (ApplicationperformancemanagementsList, *bambou.Error) {
-
-	var list ApplicationperformancemanagementsList
-	err := bambou.CurrentSession().FetchChildren(o, ApplicationperformancemanagementIdentity, &list, info)
-	return list, err
-}
-
-// AssignApplicationperformancemanagements assigns the list of Applicationperformancemanagements to the VPort
-func (o *VPort) AssignApplicationperformancemanagements(children ApplicationperformancemanagementsList) *bambou.Error {
-
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
-
-	return bambou.CurrentSession().AssignChildren(o, list, ApplicationperformancemanagementIdentity)
-}
-
 // BridgeInterfaces retrieves the list of child BridgeInterfaces of the VPort
 func (o *VPort) BridgeInterfaces(info *bambou.FetchingInfo) (BridgeInterfacesList, *bambou.Error) {
 
@@ -373,6 +493,14 @@ func (o *VPort) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
 
 	var list VRSsList
 	err := bambou.CurrentSession().FetchChildren(o, VRSIdentity, &list, info)
+	return list, err
+}
+
+// Trunks retrieves the list of child Trunks of the VPort
+func (o *VPort) Trunks(info *bambou.FetchingInfo) (TrunksList, *bambou.Error) {
+
+	var list TrunksList
+	err := bambou.CurrentSession().FetchChildren(o, TrunkIdentity, &list, info)
 	return list, err
 }
 

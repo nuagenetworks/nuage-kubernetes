@@ -55,21 +55,38 @@ type L7applicationsignaturesParent interface {
 
 // L7applicationsignature represents the model of a l7applicationsignature
 type L7applicationsignature struct {
-	ID                string `json:"ID,omitempty"`
-	ParentID          string `json:"parentID,omitempty"`
-	ParentType        string `json:"parentType,omitempty"`
-	Owner             string `json:"owner,omitempty"`
-	GUID              string `json:"GUID,omitempty"`
-	Name              string `json:"name,omitempty"`
-	Category          string `json:"category,omitempty"`
-	Description       string `json:"description,omitempty"`
-	DictionaryVersion int    `json:"dictionaryVersion,omitempty"`
+	ID                string        `json:"ID,omitempty"`
+	ParentID          string        `json:"parentID,omitempty"`
+	ParentType        string        `json:"parentType,omitempty"`
+	Owner             string        `json:"owner,omitempty"`
+	Name              string        `json:"name,omitempty"`
+	LastUpdatedBy     string        `json:"lastUpdatedBy,omitempty"`
+	Category          string        `json:"category,omitempty"`
+	Readonly          bool          `json:"readonly"`
+	Reference         string        `json:"reference,omitempty"`
+	Deprecated        bool          `json:"deprecated"`
+	DeprecatedVersion string        `json:"deprecatedVersion,omitempty"`
+	Description       string        `json:"description,omitempty"`
+	DictionaryVersion int           `json:"dictionaryVersion,omitempty"`
+	SignatureIndex    int           `json:"signatureIndex,omitempty"`
+	SignatureVersion  string        `json:"signatureVersion,omitempty"`
+	Risk              int           `json:"risk,omitempty"`
+	PluginName        string        `json:"pluginName,omitempty"`
+	EmbeddedMetadata  []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope       string        `json:"entityScope,omitempty"`
+	SoftwareFlags     string        `json:"softwareFlags,omitempty"`
+	Productivity      int           `json:"productivity,omitempty"`
+	Guidstring        string        `json:"guidstring,omitempty"`
+	ExternalID        string        `json:"externalID,omitempty"`
 }
 
 // NewL7applicationsignature returns a new *L7applicationsignature
 func NewL7applicationsignature() *L7applicationsignature {
 
-	return &L7applicationsignature{}
+	return &L7applicationsignature{
+		Readonly:   false,
+		Deprecated: false,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -106,6 +123,34 @@ func (o *L7applicationsignature) Save() *bambou.Error {
 func (o *L7applicationsignature) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the L7applicationsignature
+func (o *L7applicationsignature) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the L7applicationsignature
+func (o *L7applicationsignature) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the L7applicationsignature
+func (o *L7applicationsignature) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the L7applicationsignature
+func (o *L7applicationsignature) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Applications retrieves the list of child Applications of the L7applicationsignature

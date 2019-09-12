@@ -61,6 +61,7 @@ type BulkStatistics struct {
 	Owner              string        `json:"owner,omitempty"`
 	Data               []interface{} `json:"data,omitempty"`
 	Version            int           `json:"version,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
 	EndTime            int           `json:"endTime,omitempty"`
 	StartTime          int           `json:"startTime,omitempty"`
 	NumberOfDataPoints int           `json:"numberOfDataPoints,omitempty"`

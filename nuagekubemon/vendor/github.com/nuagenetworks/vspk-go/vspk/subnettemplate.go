@@ -55,37 +55,45 @@ type SubnetTemplatesParent interface {
 
 // SubnetTemplate represents the model of a subnettemplate
 type SubnetTemplate struct {
-	ID                              string `json:"ID,omitempty"`
-	ParentID                        string `json:"parentID,omitempty"`
-	ParentType                      string `json:"parentType,omitempty"`
-	Owner                           string `json:"owner,omitempty"`
-	DPI                             string `json:"DPI,omitempty"`
-	IPType                          string `json:"IPType,omitempty"`
-	IPv6Gateway                     string `json:"IPv6Gateway,omitempty"`
-	IPv6address                     string `json:"IPv6address,omitempty"`
-	Name                            string `json:"name,omitempty"`
-	LastUpdatedBy                   string `json:"lastUpdatedBy,omitempty"`
-	Gateway                         string `json:"gateway,omitempty"`
-	Address                         string `json:"address,omitempty"`
-	Description                     string `json:"description,omitempty"`
-	Netmask                         string `json:"netmask,omitempty"`
-	Encryption                      string `json:"encryption,omitempty"`
-	EntityScope                     string `json:"entityScope,omitempty"`
-	SplitSubnet                     bool   `json:"splitSubnet"`
-	ProxyARP                        bool   `json:"proxyARP"`
-	UseGlobalMAC                    string `json:"useGlobalMAC,omitempty"`
-	AssociatedMulticastChannelMapID string `json:"associatedMulticastChannelMapID,omitempty"`
-	Multicast                       string `json:"multicast,omitempty"`
-	ExternalID                      string `json:"externalID,omitempty"`
+	ID                              string        `json:"ID,omitempty"`
+	ParentID                        string        `json:"parentID,omitempty"`
+	ParentType                      string        `json:"parentType,omitempty"`
+	Owner                           string        `json:"owner,omitempty"`
+	DPI                             string        `json:"DPI,omitempty"`
+	IPType                          string        `json:"IPType,omitempty"`
+	IPv6Address                     string        `json:"IPv6Address,omitempty"`
+	IPv6Gateway                     string        `json:"IPv6Gateway,omitempty"`
+	Name                            string        `json:"name,omitempty"`
+	LastUpdatedBy                   string        `json:"lastUpdatedBy,omitempty"`
+	Gateway                         string        `json:"gateway,omitempty"`
+	Address                         string        `json:"address,omitempty"`
+	Description                     string        `json:"description,omitempty"`
+	Netmask                         string        `json:"netmask,omitempty"`
+	EmbeddedMetadata                []interface{} `json:"embeddedMetadata,omitempty"`
+	EnableDHCPv4                    bool          `json:"enableDHCPv4"`
+	EnableDHCPv6                    bool          `json:"enableDHCPv6"`
+	Encryption                      string        `json:"encryption,omitempty"`
+	EntityScope                     string        `json:"entityScope,omitempty"`
+	SplitSubnet                     bool          `json:"splitSubnet"`
+	ProxyARP                        bool          `json:"proxyARP"`
+	UseGlobalMAC                    string        `json:"useGlobalMAC,omitempty"`
+	AssociatedMulticastChannelMapID string        `json:"associatedMulticastChannelMapID,omitempty"`
+	DualStackDynamicIPAllocation    bool          `json:"dualStackDynamicIPAllocation"`
+	Multicast                       string        `json:"multicast,omitempty"`
+	ExternalID                      string        `json:"externalID,omitempty"`
 }
 
 // NewSubnetTemplate returns a new *SubnetTemplate
 func NewSubnetTemplate() *SubnetTemplate {
 
 	return &SubnetTemplate{
-		DPI:       "INHERITED",
-		IPType:    "IPV4",
-		Multicast: "INHERITED",
+		DPI:                          "INHERITED",
+		IPType:                       "IPV4",
+		EnableDHCPv4:                 true,
+		EnableDHCPv6:                 false,
+		UseGlobalMAC:                 "ENTERPRISE_DEFAULT",
+		DualStackDynamicIPAllocation: false,
+		Multicast:                    "INHERITED",
 	}
 }
 

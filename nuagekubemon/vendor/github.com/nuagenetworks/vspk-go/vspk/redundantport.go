@@ -55,33 +55,39 @@ type RedundantPortsParent interface {
 
 // RedundantPort represents the model of a nsredundantport
 type RedundantPort struct {
-	ID                          string `json:"ID,omitempty"`
-	ParentID                    string `json:"parentID,omitempty"`
-	ParentType                  string `json:"parentType,omitempty"`
-	Owner                       string `json:"owner,omitempty"`
-	VLANRange                   string `json:"VLANRange,omitempty"`
-	Name                        string `json:"name,omitempty"`
-	LastUpdatedBy               string `json:"lastUpdatedBy,omitempty"`
-	PermittedAction             string `json:"permittedAction,omitempty"`
-	Description                 string `json:"description,omitempty"`
-	PhysicalName                string `json:"physicalName,omitempty"`
-	InfrastructureProfileID     string `json:"infrastructureProfileID,omitempty"`
-	EntityScope                 string `json:"entityScope,omitempty"`
-	PortPeer1ID                 string `json:"portPeer1ID,omitempty"`
-	PortPeer2ID                 string `json:"portPeer2ID,omitempty"`
-	PortType                    string `json:"portType,omitempty"`
-	UseUntaggedHeartbeatVlan    bool   `json:"useUntaggedHeartbeatVlan"`
-	UseUserMnemonic             bool   `json:"useUserMnemonic"`
-	UserMnemonic                string `json:"userMnemonic,omitempty"`
-	AssociatedEgressQOSPolicyID string `json:"associatedEgressQOSPolicyID,omitempty"`
-	Status                      string `json:"status,omitempty"`
-	ExternalID                  string `json:"externalID,omitempty"`
+	ID                          string        `json:"ID,omitempty"`
+	ParentID                    string        `json:"parentID,omitempty"`
+	ParentType                  string        `json:"parentType,omitempty"`
+	Owner                       string        `json:"owner,omitempty"`
+	VLANRange                   string        `json:"VLANRange,omitempty"`
+	MTU                         int           `json:"MTU,omitempty"`
+	Name                        string        `json:"name,omitempty"`
+	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
+	PermittedAction             string        `json:"permittedAction,omitempty"`
+	Description                 string        `json:"description,omitempty"`
+	PhysicalName                string        `json:"physicalName,omitempty"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
+	InfrastructureProfileID     string        `json:"infrastructureProfileID,omitempty"`
+	EntityScope                 string        `json:"entityScope,omitempty"`
+	PortPeer1ID                 string        `json:"portPeer1ID,omitempty"`
+	PortPeer2ID                 string        `json:"portPeer2ID,omitempty"`
+	PortType                    string        `json:"portType,omitempty"`
+	Speed                       string        `json:"speed,omitempty"`
+	UseUntaggedHeartbeatVlan    bool          `json:"useUntaggedHeartbeatVlan"`
+	UseUserMnemonic             bool          `json:"useUserMnemonic"`
+	UserMnemonic                string        `json:"userMnemonic,omitempty"`
+	AssociatedEgressQOSPolicyID string        `json:"associatedEgressQOSPolicyID,omitempty"`
+	Status                      string        `json:"status,omitempty"`
+	ExternalID                  string        `json:"externalID,omitempty"`
 }
 
 // NewRedundantPort returns a new *RedundantPort
 func NewRedundantPort() *RedundantPort {
 
-	return &RedundantPort{}
+	return &RedundantPort{
+		VLANRange: "0-4094",
+		MTU:       1500,
+	}
 }
 
 // Identity returns the Identity of the object.
@@ -118,6 +124,20 @@ func (o *RedundantPort) Save() *bambou.Error {
 func (o *RedundantPort) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Permissions retrieves the list of child Permissions of the RedundantPort
+func (o *RedundantPort) Permissions(info *bambou.FetchingInfo) (PermissionsList, *bambou.Error) {
+
+	var list PermissionsList
+	err := bambou.CurrentSession().FetchChildren(o, PermissionIdentity, &list, info)
+	return list, err
+}
+
+// CreatePermission creates a new child Permission under the RedundantPort
+func (o *RedundantPort) CreatePermission(child *Permission) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Metadatas retrieves the list of child Metadatas of the RedundantPort
@@ -158,6 +178,20 @@ func (o *RedundantPort) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetada
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the RedundantPort
 func (o *RedundantPort) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// EnterprisePermissions retrieves the list of child EnterprisePermissions of the RedundantPort
+func (o *RedundantPort) EnterprisePermissions(info *bambou.FetchingInfo) (EnterprisePermissionsList, *bambou.Error) {
+
+	var list EnterprisePermissionsList
+	err := bambou.CurrentSession().FetchChildren(o, EnterprisePermissionIdentity, &list, info)
+	return list, err
+}
+
+// CreateEnterprisePermission creates a new child EnterprisePermission under the RedundantPort
+func (o *RedundantPort) CreateEnterprisePermission(child *EnterprisePermission) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

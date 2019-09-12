@@ -72,6 +72,7 @@ type VSD struct {
 	Messages                    []interface{} `json:"messages,omitempty"`
 	Disks                       []interface{} `json:"disks,omitempty"`
 	AlreadyMarkedForUnavailable bool          `json:"alreadyMarkedForUnavailable"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
 	UnavailableTimestamp        int           `json:"unavailableTimestamp,omitempty"`
 	EntityScope                 string        `json:"entityScope,omitempty"`
 	Location                    string        `json:"location,omitempty"`

@@ -115,3 +115,11 @@ func (o *PATMapper) SharedNetworkResources(info *bambou.FetchingInfo) (SharedNet
 	err := bambou.CurrentSession().FetchChildren(o, SharedNetworkResourceIdentity, &list, info)
 	return list, err
 }
+
+// Subnets retrieves the list of child Subnets of the PATMapper
+func (o *PATMapper) Subnets(info *bambou.FetchingInfo) (SubnetsList, *bambou.Error) {
+
+	var list SubnetsList
+	err := bambou.CurrentSession().FetchChildren(o, SubnetIdentity, &list, info)
+	return list, err
+}

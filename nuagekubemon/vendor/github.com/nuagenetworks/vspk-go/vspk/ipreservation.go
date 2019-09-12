@@ -55,16 +55,17 @@ type IPReservationsParent interface {
 
 // IPReservation represents the model of a ipreservation
 type IPReservation struct {
-	ID                       string `json:"ID,omitempty"`
-	ParentID                 string `json:"parentID,omitempty"`
-	ParentType               string `json:"parentType,omitempty"`
-	Owner                    string `json:"owner,omitempty"`
-	MAC                      string `json:"MAC,omitempty"`
-	IPAddress                string `json:"IPAddress,omitempty"`
-	LastUpdatedBy            string `json:"lastUpdatedBy,omitempty"`
-	EntityScope              string `json:"entityScope,omitempty"`
-	ExternalID               string `json:"externalID,omitempty"`
-	DynamicAllocationEnabled bool   `json:"dynamicAllocationEnabled"`
+	ID                       string        `json:"ID,omitempty"`
+	ParentID                 string        `json:"parentID,omitempty"`
+	ParentType               string        `json:"parentType,omitempty"`
+	Owner                    string        `json:"owner,omitempty"`
+	MAC                      string        `json:"MAC,omitempty"`
+	IPAddress                string        `json:"IPAddress,omitempty"`
+	LastUpdatedBy            string        `json:"lastUpdatedBy,omitempty"`
+	EmbeddedMetadata         []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope              string        `json:"entityScope,omitempty"`
+	ExternalID               string        `json:"externalID,omitempty"`
+	DynamicAllocationEnabled bool          `json:"dynamicAllocationEnabled"`
 }
 
 // NewIPReservation returns a new *IPReservation

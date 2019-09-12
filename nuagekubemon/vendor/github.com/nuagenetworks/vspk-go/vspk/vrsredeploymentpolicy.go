@@ -55,24 +55,28 @@ type VRSRedeploymentpoliciesParent interface {
 
 // VRSRedeploymentpolicy represents the model of a vrsredeploymentpolicy
 type VRSRedeploymentpolicy struct {
-	ID                                   string  `json:"ID,omitempty"`
-	ParentID                             string  `json:"parentID,omitempty"`
-	ParentType                           string  `json:"parentType,omitempty"`
-	Owner                                string  `json:"owner,omitempty"`
-	ALUbr0StatusRedeploymentEnabled      bool    `json:"ALUbr0StatusRedeploymentEnabled"`
-	CPUUtilizationRedeploymentEnabled    bool    `json:"CPUUtilizationRedeploymentEnabled"`
-	CPUUtilizationThreshold              float64 `json:"CPUUtilizationThreshold,omitempty"`
-	VRSCorrectiveActionDelay             int     `json:"VRSCorrectiveActionDelay,omitempty"`
-	VRSProcessRedeploymentEnabled        bool    `json:"VRSProcessRedeploymentEnabled"`
-	VRSVSCStatusRedeploymentEnabled      bool    `json:"VRSVSCStatusRedeploymentEnabled"`
-	LastUpdatedBy                        string  `json:"lastUpdatedBy,omitempty"`
-	RedeploymentDelay                    int     `json:"redeploymentDelay,omitempty"`
-	MemoryUtilizationRedeploymentEnabled bool    `json:"memoryUtilizationRedeploymentEnabled"`
-	MemoryUtilizationThreshold           float64 `json:"memoryUtilizationThreshold,omitempty"`
-	DeploymentCountThreshold             int     `json:"deploymentCountThreshold,omitempty"`
-	JesxmonProcessRedeploymentEnabled    bool    `json:"jesxmonProcessRedeploymentEnabled"`
-	EntityScope                          string  `json:"entityScope,omitempty"`
-	ExternalID                           string  `json:"externalID,omitempty"`
+	ID                                     string  `json:"ID,omitempty"`
+	ParentID                               string  `json:"parentID,omitempty"`
+	ParentType                             string  `json:"parentType,omitempty"`
+	Owner                                  string  `json:"owner,omitempty"`
+	ALUbr0StatusRedeploymentEnabled        bool    `json:"ALUbr0StatusRedeploymentEnabled"`
+	CPUUtilizationRedeploymentEnabled      bool    `json:"CPUUtilizationRedeploymentEnabled"`
+	CPUUtilizationThreshold                float64 `json:"CPUUtilizationThreshold,omitempty"`
+	VRSCorrectiveActionDelay               int     `json:"VRSCorrectiveActionDelay,omitempty"`
+	VRSProcessRedeploymentEnabled          bool    `json:"VRSProcessRedeploymentEnabled"`
+	VRSVSCStatusRedeploymentEnabled        bool    `json:"VRSVSCStatusRedeploymentEnabled"`
+	LastUpdatedBy                          string  `json:"lastUpdatedBy,omitempty"`
+	RedeploymentDelay                      int     `json:"redeploymentDelay,omitempty"`
+	MemoryUtilizationRedeploymentEnabled   bool    `json:"memoryUtilizationRedeploymentEnabled"`
+	MemoryUtilizationThreshold             float64 `json:"memoryUtilizationThreshold,omitempty"`
+	DeploymentCountThreshold               int     `json:"deploymentCountThreshold,omitempty"`
+	JesxmonProcessRedeploymentEnabled      bool    `json:"jesxmonProcessRedeploymentEnabled"`
+	EntityScope                            string  `json:"entityScope,omitempty"`
+	LogDiskUtilizationRedeploymentEnabled  bool    `json:"logDiskUtilizationRedeploymentEnabled"`
+	LogDiskUtilizationThreshold            float64 `json:"logDiskUtilizationThreshold,omitempty"`
+	RootDiskUtilizationRedeploymentEnabled bool    `json:"rootDiskUtilizationRedeploymentEnabled"`
+	RootDiskUtilizationThreshold           float64 `json:"rootDiskUtilizationThreshold,omitempty"`
+	ExternalID                             string  `json:"externalID,omitempty"`
 }
 
 // NewVRSRedeploymentpolicy returns a new *VRSRedeploymentpolicy

@@ -55,22 +55,23 @@ type VPortMirrorsParent interface {
 
 // VPortMirror represents the model of a vportmirror
 type VPortMirror struct {
-	ID                    string `json:"ID,omitempty"`
-	ParentID              string `json:"parentID,omitempty"`
-	ParentType            string `json:"parentType,omitempty"`
-	Owner                 string `json:"owner,omitempty"`
-	VPortName             string `json:"VPortName,omitempty"`
-	LastUpdatedBy         string `json:"lastUpdatedBy,omitempty"`
-	NetworkName           string `json:"networkName,omitempty"`
-	MirrorDestinationID   string `json:"mirrorDestinationID,omitempty"`
-	MirrorDestinationName string `json:"mirrorDestinationName,omitempty"`
-	MirrorDirection       string `json:"mirrorDirection,omitempty"`
-	EnterpiseName         string `json:"enterpiseName,omitempty"`
-	EntityScope           string `json:"entityScope,omitempty"`
-	DomainName            string `json:"domainName,omitempty"`
-	VportId               string `json:"vportId,omitempty"`
-	AttachedNetworkType   string `json:"attachedNetworkType,omitempty"`
-	ExternalID            string `json:"externalID,omitempty"`
+	ID                    string        `json:"ID,omitempty"`
+	ParentID              string        `json:"parentID,omitempty"`
+	ParentType            string        `json:"parentType,omitempty"`
+	Owner                 string        `json:"owner,omitempty"`
+	LastUpdatedBy         string        `json:"lastUpdatedBy,omitempty"`
+	NetworkName           string        `json:"networkName,omitempty"`
+	MirrorDestinationID   string        `json:"mirrorDestinationID,omitempty"`
+	MirrorDestinationName string        `json:"mirrorDestinationName,omitempty"`
+	MirrorDirection       string        `json:"mirrorDirection,omitempty"`
+	EmbeddedMetadata      []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpiseName         string        `json:"enterpiseName,omitempty"`
+	EntityScope           string        `json:"entityScope,omitempty"`
+	DomainName            string        `json:"domainName,omitempty"`
+	VportId               string        `json:"vportId,omitempty"`
+	VportName             string        `json:"vportName,omitempty"`
+	AttachedNetworkType   string        `json:"attachedNetworkType,omitempty"`
+	ExternalID            string        `json:"externalID,omitempty"`
 }
 
 // NewVPortMirror returns a new *VPortMirror

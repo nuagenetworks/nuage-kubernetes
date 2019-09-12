@@ -55,20 +55,22 @@ type GroupsParent interface {
 
 // Group represents the model of a group
 type Group struct {
-	ID                  string  `json:"ID,omitempty"`
-	ParentID            string  `json:"parentID,omitempty"`
-	ParentType          string  `json:"parentType,omitempty"`
-	Owner               string  `json:"owner,omitempty"`
-	Name                string  `json:"name,omitempty"`
-	ManagementMode      string  `json:"managementMode,omitempty"`
-	LastUpdatedBy       string  `json:"lastUpdatedBy,omitempty"`
-	AccountRestrictions bool    `json:"accountRestrictions"`
-	Description         string  `json:"description,omitempty"`
-	RestrictionDate     float64 `json:"restrictionDate,omitempty"`
-	EntityScope         string  `json:"entityScope,omitempty"`
-	Role                string  `json:"role,omitempty"`
-	Private             bool    `json:"private"`
-	ExternalID          string  `json:"externalID,omitempty"`
+	ID                  string        `json:"ID,omitempty"`
+	ParentID            string        `json:"parentID,omitempty"`
+	ParentType          string        `json:"parentType,omitempty"`
+	Owner               string        `json:"owner,omitempty"`
+	LDAPGroupDN         string        `json:"LDAPGroupDN,omitempty"`
+	Name                string        `json:"name,omitempty"`
+	ManagementMode      string        `json:"managementMode,omitempty"`
+	LastUpdatedBy       string        `json:"lastUpdatedBy,omitempty"`
+	AccountRestrictions bool          `json:"accountRestrictions"`
+	Description         string        `json:"description,omitempty"`
+	RestrictionDate     float64       `json:"restrictionDate,omitempty"`
+	EmbeddedMetadata    []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope         string        `json:"entityScope,omitempty"`
+	Role                string        `json:"role,omitempty"`
+	Private             bool          `json:"private"`
+	ExternalID          string        `json:"externalID,omitempty"`
 }
 
 // NewGroup returns a new *Group

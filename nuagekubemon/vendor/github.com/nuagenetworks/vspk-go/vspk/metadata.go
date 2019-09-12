@@ -60,12 +60,15 @@ type Metadata struct {
 	ParentType                  string        `json:"parentType,omitempty"`
 	Owner                       string        `json:"owner,omitempty"`
 	Name                        string        `json:"name,omitempty"`
+	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
 	Description                 string        `json:"description,omitempty"`
 	MetadataTagIDs              []interface{} `json:"metadataTagIDs,omitempty"`
 	NetworkNotificationDisabled bool          `json:"networkNotificationDisabled"`
 	Blob                        string        `json:"blob,omitempty"`
 	GlobalMetadata              bool          `json:"globalMetadata"`
 	EntityScope                 string        `json:"entityScope,omitempty"`
+	AssocEntityID               string        `json:"assocEntityID,omitempty"`
+	AssocEntityType             string        `json:"assocEntityType,omitempty"`
 	ExternalID                  string        `json:"externalID,omitempty"`
 }
 
@@ -109,25 +112,6 @@ func (o *Metadata) Save() *bambou.Error {
 func (o *Metadata) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
-}
-
-// MetadataTags retrieves the list of child MetadataTags of the Metadata
-func (o *Metadata) MetadataTags(info *bambou.FetchingInfo) (MetadataTagsList, *bambou.Error) {
-
-	var list MetadataTagsList
-	err := bambou.CurrentSession().FetchChildren(o, MetadataTagIdentity, &list, info)
-	return list, err
-}
-
-// AssignMetadataTags assigns the list of MetadataTags to the Metadata
-func (o *Metadata) AssignMetadataTags(children MetadataTagsList) *bambou.Error {
-
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
-
-	return bambou.CurrentSession().AssignChildren(o, list, MetadataTagIdentity)
 }
 
 // EventLogs retrieves the list of child EventLogs of the Metadata

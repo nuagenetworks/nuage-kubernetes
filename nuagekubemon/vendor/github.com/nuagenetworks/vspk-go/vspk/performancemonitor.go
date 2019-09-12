@@ -60,19 +60,30 @@ type PerformanceMonitor struct {
 	ParentType      string `json:"parentType,omitempty"`
 	Owner           string `json:"owner,omitempty"`
 	Name            string `json:"name,omitempty"`
+	LastUpdatedBy   string `json:"lastUpdatedBy,omitempty"`
 	PayloadSize     int    `json:"payloadSize,omitempty"`
 	ReadOnly        bool   `json:"readOnly"`
 	ServiceClass    string `json:"serviceClass,omitempty"`
 	Description     string `json:"description,omitempty"`
 	Interval        int    `json:"interval,omitempty"`
+	EntityScope     string `json:"entityScope,omitempty"`
+	HoldDownTimer   int    `json:"holdDownTimer,omitempty"`
+	ProbeType       string `json:"probeType,omitempty"`
 	NumberOfPackets int    `json:"numberOfPackets,omitempty"`
+	ExternalID      string `json:"externalID,omitempty"`
 }
 
 // NewPerformanceMonitor returns a new *PerformanceMonitor
 func NewPerformanceMonitor() *PerformanceMonitor {
 
 	return &PerformanceMonitor{
-		ReadOnly: false,
+		PayloadSize:     137,
+		ReadOnly:        false,
+		ServiceClass:    "H",
+		Interval:        180,
+		HoldDownTimer:   1000,
+		ProbeType:       "ONEWAY",
+		NumberOfPackets: 1,
 	}
 }
 
@@ -110,6 +121,14 @@ func (o *PerformanceMonitor) Save() *bambou.Error {
 func (o *PerformanceMonitor) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Tiers retrieves the list of child Tiers of the PerformanceMonitor
+func (o *PerformanceMonitor) Tiers(info *bambou.FetchingInfo) (TiersList, *bambou.Error) {
+
+	var list TiersList
+	err := bambou.CurrentSession().FetchChildren(o, TierIdentity, &list, info)
+	return list, err
 }
 
 // Applicationperformancemanagements retrieves the list of child Applicationperformancemanagements of the PerformanceMonitor

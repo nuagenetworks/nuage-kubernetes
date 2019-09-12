@@ -55,24 +55,28 @@ type LDAPConfigurationsParent interface {
 
 // LDAPConfiguration represents the model of a ldapconfiguration
 type LDAPConfiguration struct {
-	ID                    string `json:"ID,omitempty"`
-	ParentID              string `json:"parentID,omitempty"`
-	ParentType            string `json:"parentType,omitempty"`
-	Owner                 string `json:"owner,omitempty"`
-	SSLEnabled            bool   `json:"SSLEnabled"`
-	Password              string `json:"password,omitempty"`
-	LastUpdatedBy         string `json:"lastUpdatedBy,omitempty"`
-	AcceptAllCertificates bool   `json:"acceptAllCertificates"`
-	Certificate           string `json:"certificate,omitempty"`
-	Server                string `json:"server,omitempty"`
-	Enabled               bool   `json:"enabled"`
-	EntityScope           string `json:"entityScope,omitempty"`
-	Port                  string `json:"port,omitempty"`
-	GroupDN               string `json:"groupDN,omitempty"`
-	UserDNTemplate        string `json:"userDNTemplate,omitempty"`
-	AuthorizationEnabled  bool   `json:"authorizationEnabled"`
-	AuthorizingUserDN     string `json:"authorizingUserDN,omitempty"`
-	ExternalID            string `json:"externalID,omitempty"`
+	ID                    string        `json:"ID,omitempty"`
+	ParentID              string        `json:"parentID,omitempty"`
+	ParentType            string        `json:"parentType,omitempty"`
+	Owner                 string        `json:"owner,omitempty"`
+	SSLEnabled            bool          `json:"SSLEnabled"`
+	Password              string        `json:"password,omitempty"`
+	LastUpdatedBy         string        `json:"lastUpdatedBy,omitempty"`
+	AcceptAllCertificates bool          `json:"acceptAllCertificates"`
+	Certificate           string        `json:"certificate,omitempty"`
+	Server                string        `json:"server,omitempty"`
+	EmbeddedMetadata      []interface{} `json:"embeddedMetadata,omitempty"`
+	Enabled               bool          `json:"enabled"`
+	EntityScope           string        `json:"entityScope,omitempty"`
+	Port                  string        `json:"port,omitempty"`
+	GroupDN               string        `json:"groupDN,omitempty"`
+	GroupNamePrefix       string        `json:"groupNamePrefix,omitempty"`
+	GroupNameSuffix       string        `json:"groupNameSuffix,omitempty"`
+	UserDNTemplate        string        `json:"userDNTemplate,omitempty"`
+	UserNameAttribute     string        `json:"userNameAttribute,omitempty"`
+	AuthorizationEnabled  bool          `json:"authorizationEnabled"`
+	AuthorizingUserDN     string        `json:"authorizingUserDN,omitempty"`
+	ExternalID            string        `json:"externalID,omitempty"`
 }
 
 // NewLDAPConfiguration returns a new *LDAPConfiguration

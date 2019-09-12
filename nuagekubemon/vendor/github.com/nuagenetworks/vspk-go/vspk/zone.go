@@ -55,30 +55,30 @@ type ZonesParent interface {
 
 // Zone represents the model of a zone
 type Zone struct {
-	ID                              string `json:"ID,omitempty"`
-	ParentID                        string `json:"parentID,omitempty"`
-	ParentType                      string `json:"parentType,omitempty"`
-	Owner                           string `json:"owner,omitempty"`
-	DPI                             string `json:"DPI,omitempty"`
-	IPType                          string `json:"IPType,omitempty"`
-	MaintenanceMode                 string `json:"maintenanceMode,omitempty"`
-	Name                            string `json:"name,omitempty"`
-	LastUpdatedBy                   string `json:"lastUpdatedBy,omitempty"`
-	Address                         string `json:"address,omitempty"`
-	TemplateID                      string `json:"templateID,omitempty"`
-	Description                     string `json:"description,omitempty"`
-	Netmask                         string `json:"netmask,omitempty"`
-	Encryption                      string `json:"encryption,omitempty"`
-	EntityScope                     string `json:"entityScope,omitempty"`
-	PolicyGroupID                   int    `json:"policyGroupID,omitempty"`
-	AssociatedApplicationID         string `json:"associatedApplicationID,omitempty"`
-	AssociatedApplicationObjectID   string `json:"associatedApplicationObjectID,omitempty"`
-	AssociatedApplicationObjectType string `json:"associatedApplicationObjectType,omitempty"`
-	AssociatedMulticastChannelMapID string `json:"associatedMulticastChannelMapID,omitempty"`
-	PublicZone                      bool   `json:"publicZone"`
-	Multicast                       string `json:"multicast,omitempty"`
-	NumberOfHostsInSubnets          int    `json:"numberOfHostsInSubnets,omitempty"`
-	ExternalID                      string `json:"externalID,omitempty"`
+	ID                              string        `json:"ID,omitempty"`
+	ParentID                        string        `json:"parentID,omitempty"`
+	ParentType                      string        `json:"parentType,omitempty"`
+	Owner                           string        `json:"owner,omitempty"`
+	DPI                             string        `json:"DPI,omitempty"`
+	IPType                          string        `json:"IPType,omitempty"`
+	IPv6Address                     string        `json:"IPv6Address,omitempty"`
+	MaintenanceMode                 string        `json:"maintenanceMode,omitempty"`
+	Name                            string        `json:"name,omitempty"`
+	LastUpdatedBy                   string        `json:"lastUpdatedBy,omitempty"`
+	Address                         string        `json:"address,omitempty"`
+	TemplateID                      string        `json:"templateID,omitempty"`
+	Description                     string        `json:"description,omitempty"`
+	Netmask                         string        `json:"netmask,omitempty"`
+	EmbeddedMetadata                []interface{} `json:"embeddedMetadata,omitempty"`
+	Encryption                      string        `json:"encryption,omitempty"`
+	EntityScope                     string        `json:"entityScope,omitempty"`
+	PolicyGroupID                   int           `json:"policyGroupID,omitempty"`
+	AssociatedMulticastChannelMapID string        `json:"associatedMulticastChannelMapID,omitempty"`
+	PublicZone                      bool          `json:"publicZone"`
+	Multicast                       string        `json:"multicast,omitempty"`
+	NumberOfHostsInSubnets          int           `json:"numberOfHostsInSubnets,omitempty"`
+	ExternalID                      string        `json:"externalID,omitempty"`
+	DynamicIpv6Address              bool          `json:"dynamicIpv6Address"`
 }
 
 // NewZone returns a new *Zone
@@ -87,6 +87,7 @@ func NewZone() *Zone {
 	return &Zone{
 		DPI:             "INHERITED",
 		MaintenanceMode: "DISABLED",
+		Encryption:      "INHERITED",
 		Multicast:       "INHERITED",
 	}
 }
@@ -179,6 +180,20 @@ func (o *Zone) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptionsList, *bambou.
 
 // CreateDHCPOption creates a new child DHCPOption under the Zone
 func (o *Zone) CreateDHCPOption(child *DHCPOption) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// DHCPv6Options retrieves the list of child DHCPv6Options of the Zone
+func (o *Zone) DHCPv6Options(info *bambou.FetchingInfo) (DHCPv6OptionsList, *bambou.Error) {
+
+	var list DHCPv6OptionsList
+	err := bambou.CurrentSession().FetchChildren(o, DHCPv6OptionIdentity, &list, info)
+	return list, err
+}
+
+// CreateDHCPv6Option creates a new child DHCPv6Option under the Zone
+func (o *Zone) CreateDHCPv6Option(child *DHCPv6Option) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

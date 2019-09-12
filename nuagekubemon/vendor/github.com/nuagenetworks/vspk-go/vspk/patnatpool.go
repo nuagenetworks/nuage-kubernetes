@@ -55,27 +55,29 @@ type PATNATPoolsParent interface {
 
 // PATNATPool represents the model of a patnatpool
 type PATNATPool struct {
-	ID                    string `json:"ID,omitempty"`
-	ParentID              string `json:"parentID,omitempty"`
-	ParentType            string `json:"parentType,omitempty"`
-	Owner                 string `json:"owner,omitempty"`
-	Name                  string `json:"name,omitempty"`
-	LastUpdatedBy         string `json:"lastUpdatedBy,omitempty"`
-	AddressRange          string `json:"addressRange,omitempty"`
-	DefaultPATIP          string `json:"defaultPATIP,omitempty"`
-	PermittedAction       string `json:"permittedAction,omitempty"`
-	Description           string `json:"description,omitempty"`
-	EndAddressRange       string `json:"endAddressRange,omitempty"`
-	EndSourceAddress      string `json:"endSourceAddress,omitempty"`
-	EntityScope           string `json:"entityScope,omitempty"`
-	AssociatedGatewayId   string `json:"associatedGatewayId,omitempty"`
-	AssociatedGatewayType string `json:"associatedGatewayType,omitempty"`
-	AssociatedSubnetId    string `json:"associatedSubnetId,omitempty"`
-	AssociatedVlanId      string `json:"associatedVlanId,omitempty"`
-	StartAddressRange     string `json:"startAddressRange,omitempty"`
-	StartSourceAddress    string `json:"startSourceAddress,omitempty"`
-	ExternalID            string `json:"externalID,omitempty"`
-	DynamicSourceEnabled  bool   `json:"dynamicSourceEnabled"`
+	ID                    string        `json:"ID,omitempty"`
+	ParentID              string        `json:"parentID,omitempty"`
+	ParentType            string        `json:"parentType,omitempty"`
+	Owner                 string        `json:"owner,omitempty"`
+	IPType                string        `json:"IPType,omitempty"`
+	Name                  string        `json:"name,omitempty"`
+	LastUpdatedBy         string        `json:"lastUpdatedBy,omitempty"`
+	AddressRange          string        `json:"addressRange,omitempty"`
+	DefaultPATIP          string        `json:"defaultPATIP,omitempty"`
+	PermittedAction       string        `json:"permittedAction,omitempty"`
+	Description           string        `json:"description,omitempty"`
+	EmbeddedMetadata      []interface{} `json:"embeddedMetadata,omitempty"`
+	EndAddressRange       string        `json:"endAddressRange,omitempty"`
+	EndSourceAddress      string        `json:"endSourceAddress,omitempty"`
+	EntityScope           string        `json:"entityScope,omitempty"`
+	AssociatedGatewayId   string        `json:"associatedGatewayId,omitempty"`
+	AssociatedGatewayType string        `json:"associatedGatewayType,omitempty"`
+	AssociatedSubnetId    string        `json:"associatedSubnetId,omitempty"`
+	AssociatedVlanId      string        `json:"associatedVlanId,omitempty"`
+	StartAddressRange     string        `json:"startAddressRange,omitempty"`
+	StartSourceAddress    string        `json:"startSourceAddress,omitempty"`
+	ExternalID            string        `json:"externalID,omitempty"`
+	DynamicSourceEnabled  bool          `json:"dynamicSourceEnabled"`
 }
 
 // NewPATNATPool returns a new *PATNATPool

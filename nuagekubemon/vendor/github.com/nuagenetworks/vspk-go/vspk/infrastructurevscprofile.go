@@ -55,25 +55,32 @@ type InfrastructureVscProfilesParent interface {
 
 // InfrastructureVscProfile represents the model of a infrastructurevscprofile
 type InfrastructureVscProfile struct {
-	ID               string `json:"ID,omitempty"`
-	ParentID         string `json:"parentID,omitempty"`
-	ParentType       string `json:"parentType,omitempty"`
-	Owner            string `json:"owner,omitempty"`
-	Name             string `json:"name,omitempty"`
-	LastUpdatedBy    string `json:"lastUpdatedBy,omitempty"`
-	SecondController string `json:"secondController,omitempty"`
-	Description      string `json:"description,omitempty"`
-	FirstController  string `json:"firstController,omitempty"`
-	EnterpriseID     string `json:"enterpriseID,omitempty"`
-	EntityScope      string `json:"entityScope,omitempty"`
-	ProbeInterval    int    `json:"probeInterval,omitempty"`
-	ExternalID       string `json:"externalID,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	Name               string        `json:"name,omitempty"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	AddressFamily      string        `json:"addressFamily,omitempty"`
+	SecondController   string        `json:"secondController,omitempty"`
+	SecondControllerV6 string        `json:"secondControllerV6,omitempty"`
+	Description        string        `json:"description,omitempty"`
+	FirstController    string        `json:"firstController,omitempty"`
+	FirstControllerV6  string        `json:"firstControllerV6,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseID       string        `json:"enterpriseID,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	ProbeInterval      int           `json:"probeInterval,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewInfrastructureVscProfile returns a new *InfrastructureVscProfile
 func NewInfrastructureVscProfile() *InfrastructureVscProfile {
 
-	return &InfrastructureVscProfile{}
+	return &InfrastructureVscProfile{
+		AddressFamily: "IPV4",
+		ProbeInterval: 5000,
+	}
 }
 
 // Identity returns the Identity of the object.
