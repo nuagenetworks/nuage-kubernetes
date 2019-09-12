@@ -55,20 +55,21 @@ type VSDComponentsParent interface {
 
 // VSDComponent represents the model of a component
 type VSDComponent struct {
-	ID             string `json:"ID,omitempty"`
-	ParentID       string `json:"parentID,omitempty"`
-	ParentType     string `json:"parentType,omitempty"`
-	Owner          string `json:"owner,omitempty"`
-	Name           string `json:"name,omitempty"`
-	ManagementIP   string `json:"managementIP,omitempty"`
-	Address        string `json:"address,omitempty"`
-	Description    string `json:"description,omitempty"`
-	EntityScope    string `json:"entityScope,omitempty"`
-	Location       string `json:"location,omitempty"`
-	ProductVersion string `json:"productVersion,omitempty"`
-	Status         string `json:"status,omitempty"`
-	ExternalID     string `json:"externalID,omitempty"`
-	Type           string `json:"type,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	ManagementIP     string        `json:"managementIP,omitempty"`
+	Address          string        `json:"address,omitempty"`
+	Description      string        `json:"description,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	Location         string        `json:"location,omitempty"`
+	ProductVersion   string        `json:"productVersion,omitempty"`
+	Status           string        `json:"status,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
+	Type             string        `json:"type,omitempty"`
 }
 
 // NewVSDComponent returns a new *VSDComponent

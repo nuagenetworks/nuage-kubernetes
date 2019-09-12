@@ -55,21 +55,22 @@ type NSGatewayTemplatesParent interface {
 
 // NSGatewayTemplate represents the model of a nsgatewaytemplate
 type NSGatewayTemplate struct {
-	ID                            string `json:"ID,omitempty"`
-	ParentID                      string `json:"parentID,omitempty"`
-	ParentType                    string `json:"parentType,omitempty"`
-	Owner                         string `json:"owner,omitempty"`
-	SSHService                    string `json:"SSHService,omitempty"`
-	Name                          string `json:"name,omitempty"`
-	LastUpdatedBy                 string `json:"lastUpdatedBy,omitempty"`
-	Personality                   string `json:"personality,omitempty"`
-	Description                   string `json:"description,omitempty"`
-	InfrastructureAccessProfileID string `json:"infrastructureAccessProfileID,omitempty"`
-	InfrastructureProfileID       string `json:"infrastructureProfileID,omitempty"`
-	InstanceSSHOverride           string `json:"instanceSSHOverride,omitempty"`
-	EnterpriseID                  string `json:"enterpriseID,omitempty"`
-	EntityScope                   string `json:"entityScope,omitempty"`
-	ExternalID                    string `json:"externalID,omitempty"`
+	ID                            string        `json:"ID,omitempty"`
+	ParentID                      string        `json:"parentID,omitempty"`
+	ParentType                    string        `json:"parentType,omitempty"`
+	Owner                         string        `json:"owner,omitempty"`
+	SSHService                    string        `json:"SSHService,omitempty"`
+	Name                          string        `json:"name,omitempty"`
+	LastUpdatedBy                 string        `json:"lastUpdatedBy,omitempty"`
+	Personality                   string        `json:"personality,omitempty"`
+	Description                   string        `json:"description,omitempty"`
+	EmbeddedMetadata              []interface{} `json:"embeddedMetadata,omitempty"`
+	InfrastructureAccessProfileID string        `json:"infrastructureAccessProfileID,omitempty"`
+	InfrastructureProfileID       string        `json:"infrastructureProfileID,omitempty"`
+	InstanceSSHOverride           string        `json:"instanceSSHOverride,omitempty"`
+	EnterpriseID                  string        `json:"enterpriseID,omitempty"`
+	EntityScope                   string        `json:"entityScope,omitempty"`
+	ExternalID                    string        `json:"externalID,omitempty"`
 }
 
 // NewNSGatewayTemplate returns a new *NSGatewayTemplate

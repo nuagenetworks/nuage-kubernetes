@@ -55,22 +55,23 @@ type IKEPSKsParent interface {
 
 // IKEPSK represents the model of a ikepsk
 type IKEPSK struct {
-	ID                                string `json:"ID,omitempty"`
-	ParentID                          string `json:"parentID,omitempty"`
-	ParentType                        string `json:"parentType,omitempty"`
-	Owner                             string `json:"owner,omitempty"`
-	Name                              string `json:"name,omitempty"`
-	LastUpdatedBy                     string `json:"lastUpdatedBy,omitempty"`
-	Description                       string `json:"description,omitempty"`
-	Signature                         string `json:"signature,omitempty"`
-	SigningCertificateSerialNumber    int    `json:"signingCertificateSerialNumber,omitempty"`
-	EncryptedPSK                      string `json:"encryptedPSK,omitempty"`
-	EncryptingCertificateSerialNumber int    `json:"encryptingCertificateSerialNumber,omitempty"`
-	UnencryptedPSK                    string `json:"unencryptedPSK,omitempty"`
-	EntityScope                       string `json:"entityScope,omitempty"`
-	AssociatedEnterpriseID            string `json:"associatedEnterpriseID,omitempty"`
-	AutoCreated                       bool   `json:"autoCreated"`
-	ExternalID                        string `json:"externalID,omitempty"`
+	ID                                string        `json:"ID,omitempty"`
+	ParentID                          string        `json:"parentID,omitempty"`
+	ParentType                        string        `json:"parentType,omitempty"`
+	Owner                             string        `json:"owner,omitempty"`
+	Name                              string        `json:"name,omitempty"`
+	LastUpdatedBy                     string        `json:"lastUpdatedBy,omitempty"`
+	Description                       string        `json:"description,omitempty"`
+	Signature                         string        `json:"signature,omitempty"`
+	SigningCertificateSerialNumber    int           `json:"signingCertificateSerialNumber,omitempty"`
+	EmbeddedMetadata                  []interface{} `json:"embeddedMetadata,omitempty"`
+	EncryptedPSK                      string        `json:"encryptedPSK,omitempty"`
+	EncryptingCertificateSerialNumber int           `json:"encryptingCertificateSerialNumber,omitempty"`
+	UnencryptedPSK                    string        `json:"unencryptedPSK,omitempty"`
+	EntityScope                       string        `json:"entityScope,omitempty"`
+	AssociatedEnterpriseID            string        `json:"associatedEnterpriseID,omitempty"`
+	AutoCreated                       bool          `json:"autoCreated"`
+	ExternalID                        string        `json:"externalID,omitempty"`
 }
 
 // NewIKEPSK returns a new *IKEPSK

@@ -55,18 +55,19 @@ type PublicNetworkMacrosParent interface {
 
 // PublicNetworkMacro represents the model of a publicnetwork
 type PublicNetworkMacro struct {
-	ID            string `json:"ID,omitempty"`
-	ParentID      string `json:"parentID,omitempty"`
-	ParentType    string `json:"parentType,omitempty"`
-	Owner         string `json:"owner,omitempty"`
-	IPType        string `json:"IPType,omitempty"`
-	IPv6Address   string `json:"IPv6Address,omitempty"`
-	Name          string `json:"name,omitempty"`
-	LastUpdatedBy string `json:"lastUpdatedBy,omitempty"`
-	Address       string `json:"address,omitempty"`
-	Netmask       string `json:"netmask,omitempty"`
-	EntityScope   string `json:"entityScope,omitempty"`
-	ExternalID    string `json:"externalID,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	IPType           string        `json:"IPType,omitempty"`
+	IPv6Address      string        `json:"IPv6Address,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	Address          string        `json:"address,omitempty"`
+	Netmask          string        `json:"netmask,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewPublicNetworkMacro returns a new *PublicNetworkMacro

@@ -55,21 +55,24 @@ type LocationsParent interface {
 
 // Location represents the model of a location
 type Location struct {
-	ID            string  `json:"ID,omitempty"`
-	ParentID      string  `json:"parentID,omitempty"`
-	ParentType    string  `json:"parentType,omitempty"`
-	Owner         string  `json:"owner,omitempty"`
-	LastUpdatedBy string  `json:"lastUpdatedBy,omitempty"`
-	Latitude      float64 `json:"latitude,omitempty"`
-	Address       string  `json:"address,omitempty"`
-	IgnoreGeocode bool    `json:"ignoreGeocode"`
-	TimeZoneID    string  `json:"timeZoneID,omitempty"`
-	EntityScope   string  `json:"entityScope,omitempty"`
-	Locality      string  `json:"locality,omitempty"`
-	Longitude     float64 `json:"longitude,omitempty"`
-	Country       string  `json:"country,omitempty"`
-	State         string  `json:"state,omitempty"`
-	ExternalID    string  `json:"externalID,omitempty"`
+	ID                   string        `json:"ID,omitempty"`
+	ParentID             string        `json:"parentID,omitempty"`
+	ParentType           string        `json:"parentType,omitempty"`
+	Owner                string        `json:"owner,omitempty"`
+	LastUpdatedBy        string        `json:"lastUpdatedBy,omitempty"`
+	Latitude             float64       `json:"latitude,omitempty"`
+	Address              string        `json:"address,omitempty"`
+	IgnoreGeocode        bool          `json:"ignoreGeocode"`
+	TimeZoneID           string        `json:"timeZoneID,omitempty"`
+	EmbeddedMetadata     []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope          string        `json:"entityScope,omitempty"`
+	Locality             string        `json:"locality,omitempty"`
+	Longitude            float64       `json:"longitude,omitempty"`
+	Country              string        `json:"country,omitempty"`
+	AssociatedEntityName string        `json:"associatedEntityName,omitempty"`
+	AssociatedEntityType string        `json:"associatedEntityType,omitempty"`
+	State                string        `json:"state,omitempty"`
+	ExternalID           string        `json:"externalID,omitempty"`
 }
 
 // NewLocation returns a new *Location

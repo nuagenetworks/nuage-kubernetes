@@ -55,18 +55,20 @@ type RedirectionTargetTemplatesParent interface {
 
 // RedirectionTargetTemplate represents the model of a redirectiontargettemplate
 type RedirectionTargetTemplate struct {
-	ID                string `json:"ID,omitempty"`
-	ParentID          string `json:"parentID,omitempty"`
-	ParentType        string `json:"parentType,omitempty"`
-	Owner             string `json:"owner,omitempty"`
-	Name              string `json:"name,omitempty"`
-	LastUpdatedBy     string `json:"lastUpdatedBy,omitempty"`
-	RedundancyEnabled bool   `json:"redundancyEnabled"`
-	Description       string `json:"description,omitempty"`
-	EndPointType      string `json:"endPointType,omitempty"`
-	EntityScope       string `json:"entityScope,omitempty"`
-	TriggerType       string `json:"triggerType,omitempty"`
-	ExternalID        string `json:"externalID,omitempty"`
+	ID                string        `json:"ID,omitempty"`
+	ParentID          string        `json:"parentID,omitempty"`
+	ParentType        string        `json:"parentType,omitempty"`
+	Owner             string        `json:"owner,omitempty"`
+	Name              string        `json:"name,omitempty"`
+	LastUpdatedBy     string        `json:"lastUpdatedBy,omitempty"`
+	RedundancyEnabled bool          `json:"redundancyEnabled"`
+	Description       string        `json:"description,omitempty"`
+	DestinationType   string        `json:"destinationType,omitempty"`
+	EmbeddedMetadata  []interface{} `json:"embeddedMetadata,omitempty"`
+	EndPointType      string        `json:"endPointType,omitempty"`
+	EntityScope       string        `json:"entityScope,omitempty"`
+	TriggerType       string        `json:"triggerType,omitempty"`
+	ExternalID        string        `json:"externalID,omitempty"`
 }
 
 // NewRedirectionTargetTemplate returns a new *RedirectionTargetTemplate
@@ -137,12 +139,6 @@ func (o *RedirectionTargetTemplate) GlobalMetadatas(info *bambou.FetchingInfo) (
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the RedirectionTargetTemplate
 func (o *RedirectionTargetTemplate) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
-
-	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// CreateJob creates a new child Job under the RedirectionTargetTemplate
-func (o *RedirectionTargetTemplate) CreateJob(child *Job) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

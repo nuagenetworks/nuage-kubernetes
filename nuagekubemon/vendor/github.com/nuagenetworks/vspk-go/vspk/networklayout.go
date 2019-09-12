@@ -55,16 +55,17 @@ type NetworkLayoutsParent interface {
 
 // NetworkLayout represents the model of a networklayout
 type NetworkLayout struct {
-	ID                  string `json:"ID,omitempty"`
-	ParentID            string `json:"parentID,omitempty"`
-	ParentType          string `json:"parentType,omitempty"`
-	Owner               string `json:"owner,omitempty"`
-	LastUpdatedBy       string `json:"lastUpdatedBy,omitempty"`
-	ServiceType         string `json:"serviceType,omitempty"`
-	EntityScope         string `json:"entityScope,omitempty"`
-	RouteReflectorIP    string `json:"routeReflectorIP,omitempty"`
-	AutonomousSystemNum int    `json:"autonomousSystemNum,omitempty"`
-	ExternalID          string `json:"externalID,omitempty"`
+	ID                  string        `json:"ID,omitempty"`
+	ParentID            string        `json:"parentID,omitempty"`
+	ParentType          string        `json:"parentType,omitempty"`
+	Owner               string        `json:"owner,omitempty"`
+	LastUpdatedBy       string        `json:"lastUpdatedBy,omitempty"`
+	ServiceType         string        `json:"serviceType,omitempty"`
+	EmbeddedMetadata    []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope         string        `json:"entityScope,omitempty"`
+	RouteReflectorIP    string        `json:"routeReflectorIP,omitempty"`
+	AutonomousSystemNum int           `json:"autonomousSystemNum,omitempty"`
+	ExternalID          string        `json:"externalID,omitempty"`
 }
 
 // NewNetworkLayout returns a new *NetworkLayout

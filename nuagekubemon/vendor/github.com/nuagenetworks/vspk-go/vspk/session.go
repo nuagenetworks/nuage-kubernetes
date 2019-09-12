@@ -30,8 +30,9 @@ package vspk
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/nuagenetworks/go-bambou/bambou"
 	"strings"
+
+	"github.com/nuagenetworks/go-bambou/bambou"
 )
 
 var (
@@ -62,5 +63,5 @@ func NewX509Session(cert *tls.Certificate, url string) (*bambou.Session, *Me) {
 
 func init() {
 
-	urlpostfix = "/" + SDKAPIPrefix + "/v" + strings.Replace(fmt.Sprintf("%.1f", SDKAPIVersion), ".", "_", 100)
+	urlpostfix = "/" + SDKAPIPrefix + "/v" + strings.Replace(fmt.Sprintf("%.1v", SDKAPIVersion), ".", "_", 100)
 }

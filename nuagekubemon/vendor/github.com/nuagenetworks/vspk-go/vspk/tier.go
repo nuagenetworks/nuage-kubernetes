@@ -55,32 +55,30 @@ type TiersParent interface {
 
 // Tier represents the model of a tier
 type Tier struct {
-	ID                          string `json:"ID,omitempty"`
-	ParentID                    string `json:"parentID,omitempty"`
-	ParentType                  string `json:"parentType,omitempty"`
-	Owner                       string `json:"owner,omitempty"`
-	Name                        string `json:"name,omitempty"`
-	LastUpdatedBy               string `json:"lastUpdatedBy,omitempty"`
-	Gateway                     string `json:"gateway,omitempty"`
-	Address                     string `json:"address,omitempty"`
-	Description                 string `json:"description,omitempty"`
-	Metadata                    string `json:"metadata,omitempty"`
-	Netmask                     string `json:"netmask,omitempty"`
-	EntityScope                 string `json:"entityScope,omitempty"`
-	AssociatedApplicationID     string `json:"associatedApplicationID,omitempty"`
-	AssociatedFloatingIPPoolID  string `json:"associatedFloatingIPPoolID,omitempty"`
-	AssociatedNetworkMacroID    string `json:"associatedNetworkMacroID,omitempty"`
-	AssociatedNetworkObjectID   string `json:"associatedNetworkObjectID,omitempty"`
-	AssociatedNetworkObjectType string `json:"associatedNetworkObjectType,omitempty"`
-	ExternalID                  string `json:"externalID,omitempty"`
-	Type                        string `json:"type,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	PacketCount        int           `json:"packetCount,omitempty"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	Description        string        `json:"description,omitempty"`
+	TierType           string        `json:"tierType,omitempty"`
+	Timeout            int           `json:"timeout,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	DownThresholdCount int           `json:"downThresholdCount,omitempty"`
+	ProbeInterval      int           `json:"probeInterval,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewTier returns a new *Tier
 func NewTier() *Tier {
 
 	return &Tier{
-		Type: "STANDARD",
+		PacketCount:        1,
+		Timeout:            3000,
+		DownThresholdCount: 5,
+		ProbeInterval:      10,
 	}
 }
 
@@ -120,12 +118,18 @@ func (o *Tier) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
-// TCAs retrieves the list of child TCAs of the Tier
-func (o *Tier) TCAs(info *bambou.FetchingInfo) (TCAsList, *bambou.Error) {
+// Destinationurls retrieves the list of child Destinationurls of the Tier
+func (o *Tier) Destinationurls(info *bambou.FetchingInfo) (DestinationurlsList, *bambou.Error) {
 
-	var list TCAsList
-	err := bambou.CurrentSession().FetchChildren(o, TCAIdentity, &list, info)
+	var list DestinationurlsList
+	err := bambou.CurrentSession().FetchChildren(o, DestinationurlIdentity, &list, info)
 	return list, err
+}
+
+// CreateDestinationurl creates a new child Destinationurl under the Tier
+func (o *Tier) CreateDestinationurl(child *Destinationurl) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Metadatas retrieves the list of child Metadatas of the Tier
@@ -154,52 +158,4 @@ func (o *Tier) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, 
 func (o *Tier) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
-}
-
-// VMs retrieves the list of child VMs of the Tier
-func (o *Tier) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Error) {
-
-	var list VMsList
-	err := bambou.CurrentSession().FetchChildren(o, VMIdentity, &list, info)
-	return list, err
-}
-
-// Containers retrieves the list of child Containers of the Tier
-func (o *Tier) Containers(info *bambou.FetchingInfo) (ContainersList, *bambou.Error) {
-
-	var list ContainersList
-	err := bambou.CurrentSession().FetchChildren(o, ContainerIdentity, &list, info)
-	return list, err
-}
-
-// VPorts retrieves the list of child VPorts of the Tier
-func (o *Tier) VPorts(info *bambou.FetchingInfo) (VPortsList, *bambou.Error) {
-
-	var list VPortsList
-	err := bambou.CurrentSession().FetchChildren(o, VPortIdentity, &list, info)
-	return list, err
-}
-
-// Statistics retrieves the list of child Statistics of the Tier
-func (o *Tier) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.Error) {
-
-	var list StatisticsList
-	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
-	return list, err
-}
-
-// StatisticsPolicies retrieves the list of child StatisticsPolicies of the Tier
-func (o *Tier) StatisticsPolicies(info *bambou.FetchingInfo) (StatisticsPoliciesList, *bambou.Error) {
-
-	var list StatisticsPoliciesList
-	err := bambou.CurrentSession().FetchChildren(o, StatisticsPolicyIdentity, &list, info)
-	return list, err
-}
-
-// EventLogs retrieves the list of child EventLogs of the Tier
-func (o *Tier) EventLogs(info *bambou.FetchingInfo) (EventLogsList, *bambou.Error) {
-
-	var list EventLogsList
-	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
-	return list, err
 }

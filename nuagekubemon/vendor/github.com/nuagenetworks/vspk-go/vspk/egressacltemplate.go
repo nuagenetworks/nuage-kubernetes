@@ -55,24 +55,26 @@ type EgressACLTemplatesParent interface {
 
 // EgressACLTemplate represents the model of a egressacltemplate
 type EgressACLTemplate struct {
-	ID                             string `json:"ID,omitempty"`
-	ParentID                       string `json:"parentID,omitempty"`
-	ParentType                     string `json:"parentType,omitempty"`
-	Owner                          string `json:"owner,omitempty"`
-	Name                           string `json:"name,omitempty"`
-	LastUpdatedBy                  string `json:"lastUpdatedBy,omitempty"`
-	Active                         bool   `json:"active"`
-	DefaultAllowIP                 bool   `json:"defaultAllowIP"`
-	DefaultAllowNonIP              bool   `json:"defaultAllowNonIP"`
-	DefaultInstallACLImplicitRules bool   `json:"defaultInstallACLImplicitRules"`
-	Description                    string `json:"description,omitempty"`
-	EntityScope                    string `json:"entityScope,omitempty"`
-	PolicyState                    string `json:"policyState,omitempty"`
-	Priority                       int    `json:"priority,omitempty"`
-	PriorityType                   string `json:"priorityType,omitempty"`
-	AssociatedLiveEntityID         string `json:"associatedLiveEntityID,omitempty"`
-	AutoGeneratePriority           bool   `json:"autoGeneratePriority"`
-	ExternalID                     string `json:"externalID,omitempty"`
+	ID                                string        `json:"ID,omitempty"`
+	ParentID                          string        `json:"parentID,omitempty"`
+	ParentType                        string        `json:"parentType,omitempty"`
+	Owner                             string        `json:"owner,omitempty"`
+	Name                              string        `json:"name,omitempty"`
+	LastUpdatedBy                     string        `json:"lastUpdatedBy,omitempty"`
+	Active                            bool          `json:"active"`
+	DefaultAllowIP                    bool          `json:"defaultAllowIP"`
+	DefaultAllowNonIP                 bool          `json:"defaultAllowNonIP"`
+	DefaultInstallACLImplicitRules    bool          `json:"defaultInstallACLImplicitRules"`
+	Description                       string        `json:"description,omitempty"`
+	EmbeddedMetadata                  []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                       string        `json:"entityScope,omitempty"`
+	PolicyState                       string        `json:"policyState,omitempty"`
+	Priority                          int           `json:"priority,omitempty"`
+	PriorityType                      string        `json:"priorityType,omitempty"`
+	AssociatedLiveEntityID            string        `json:"associatedLiveEntityID,omitempty"`
+	AssociatedVirtualFirewallPolicyID string        `json:"associatedVirtualFirewallPolicyID,omitempty"`
+	AutoGeneratePriority              bool          `json:"autoGeneratePriority"`
+	ExternalID                        string        `json:"externalID,omitempty"`
 }
 
 // NewEgressACLTemplate returns a new *EgressACLTemplate
@@ -164,6 +166,14 @@ func (o *EgressACLTemplate) VMs(info *bambou.FetchingInfo) (VMsList, *bambou.Err
 
 	var list VMsList
 	err := bambou.CurrentSession().FetchChildren(o, VMIdentity, &list, info)
+	return list, err
+}
+
+// Jobs retrieves the list of child Jobs of the EgressACLTemplate
+func (o *EgressACLTemplate) Jobs(info *bambou.FetchingInfo) (JobsList, *bambou.Error) {
+
+	var list JobsList
+	err := bambou.CurrentSession().FetchChildren(o, JobIdentity, &list, info)
 	return list, err
 }
 

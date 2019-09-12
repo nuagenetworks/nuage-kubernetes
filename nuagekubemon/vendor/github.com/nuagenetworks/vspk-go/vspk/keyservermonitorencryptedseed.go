@@ -55,20 +55,22 @@ type KeyServerMonitorEncryptedSeedsParent interface {
 
 // KeyServerMonitorEncryptedSeed represents the model of a keyservermonitorencryptedseed
 type KeyServerMonitorEncryptedSeed struct {
-	ID                                         string `json:"ID,omitempty"`
-	ParentID                                   string `json:"parentID,omitempty"`
-	ParentType                                 string `json:"parentType,omitempty"`
-	Owner                                      string `json:"owner,omitempty"`
-	SEKCreationTime                            int    `json:"SEKCreationTime,omitempty"`
-	LastUpdatedBy                              string `json:"lastUpdatedBy,omitempty"`
-	KeyServerCertificateSerialNumber           int    `json:"keyServerCertificateSerialNumber,omitempty"`
-	EnterpriseSecuredDataID                    string `json:"enterpriseSecuredDataID,omitempty"`
-	EntityScope                                string `json:"entityScope,omitempty"`
-	AssociatedKeyServerMonitorSEKCreationTime  int    `json:"associatedKeyServerMonitorSEKCreationTime,omitempty"`
-	AssociatedKeyServerMonitorSEKID            string `json:"associatedKeyServerMonitorSEKID,omitempty"`
-	AssociatedKeyServerMonitorSeedCreationTime int    `json:"associatedKeyServerMonitorSeedCreationTime,omitempty"`
-	AssociatedKeyServerMonitorSeedID           string `json:"associatedKeyServerMonitorSeedID,omitempty"`
-	ExternalID                                 string `json:"externalID,omitempty"`
+	ID                                         string        `json:"ID,omitempty"`
+	ParentID                                   string        `json:"parentID,omitempty"`
+	ParentType                                 string        `json:"parentType,omitempty"`
+	Owner                                      string        `json:"owner,omitempty"`
+	SEKCreationTime                            int           `json:"SEKCreationTime,omitempty"`
+	LastUpdatedBy                              string        `json:"lastUpdatedBy,omitempty"`
+	SeedType                                   string        `json:"seedType,omitempty"`
+	KeyServerCertificateSerialNumber           int           `json:"keyServerCertificateSerialNumber,omitempty"`
+	EmbeddedMetadata                           []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseSecuredDataID                    string        `json:"enterpriseSecuredDataID,omitempty"`
+	EntityScope                                string        `json:"entityScope,omitempty"`
+	AssociatedKeyServerMonitorSEKCreationTime  int           `json:"associatedKeyServerMonitorSEKCreationTime,omitempty"`
+	AssociatedKeyServerMonitorSEKID            string        `json:"associatedKeyServerMonitorSEKID,omitempty"`
+	AssociatedKeyServerMonitorSeedCreationTime int           `json:"associatedKeyServerMonitorSeedCreationTime,omitempty"`
+	AssociatedKeyServerMonitorSeedID           string        `json:"associatedKeyServerMonitorSeedID,omitempty"`
+	ExternalID                                 string        `json:"externalID,omitempty"`
 }
 
 // NewKeyServerMonitorEncryptedSeed returns a new *KeyServerMonitorEncryptedSeed

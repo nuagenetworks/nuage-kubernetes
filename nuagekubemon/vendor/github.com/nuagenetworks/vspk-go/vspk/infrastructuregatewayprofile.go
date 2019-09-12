@@ -55,37 +55,40 @@ type InfrastructureGatewayProfilesParent interface {
 
 // InfrastructureGatewayProfile represents the model of a infrastructuregatewayprofile
 type InfrastructureGatewayProfile struct {
-	ID                           string `json:"ID,omitempty"`
-	ParentID                     string `json:"parentID,omitempty"`
-	ParentType                   string `json:"parentType,omitempty"`
-	Owner                        string `json:"owner,omitempty"`
-	NTPServerKey                 string `json:"NTPServerKey,omitempty"`
-	NTPServerKeyID               int    `json:"NTPServerKeyID,omitempty"`
-	Name                         string `json:"name,omitempty"`
-	LastUpdatedBy                string `json:"lastUpdatedBy,omitempty"`
-	DatapathSyncTimeout          int    `json:"datapathSyncTimeout,omitempty"`
-	DeadTimer                    string `json:"deadTimer,omitempty"`
-	DeadTimerEnabled             bool   `json:"deadTimerEnabled"`
-	RemoteLogMode                string `json:"remoteLogMode,omitempty"`
-	RemoteLogServerAddress       string `json:"remoteLogServerAddress,omitempty"`
-	RemoteLogServerPort          int    `json:"remoteLogServerPort,omitempty"`
-	Description                  string `json:"description,omitempty"`
-	MetadataUpgradePath          string `json:"metadataUpgradePath,omitempty"`
-	FlowEvictionThreshold        int    `json:"flowEvictionThreshold,omitempty"`
-	EnterpriseID                 string `json:"enterpriseID,omitempty"`
-	EntityScope                  string `json:"entityScope,omitempty"`
-	ControllerLessDuration       string `json:"controllerLessDuration,omitempty"`
-	ControllerLessEnabled        bool   `json:"controllerLessEnabled"`
-	ControllerLessForwardingMode string `json:"controllerLessForwardingMode,omitempty"`
-	ControllerLessRemoteDuration string `json:"controllerLessRemoteDuration,omitempty"`
-	ForceImmediateSystemSync     bool   `json:"forceImmediateSystemSync"`
-	OpenFlowAuditTimer           int    `json:"openFlowAuditTimer,omitempty"`
-	UpgradeAction                string `json:"upgradeAction,omitempty"`
-	ProxyDNSName                 string `json:"proxyDNSName,omitempty"`
-	UseTwoFactor                 bool   `json:"useTwoFactor"`
-	StatsCollectorPort           int    `json:"statsCollectorPort,omitempty"`
-	ExternalID                   string `json:"externalID,omitempty"`
-	SystemSyncScheduler          string `json:"systemSyncScheduler,omitempty"`
+	ID                           string        `json:"ID,omitempty"`
+	ParentID                     string        `json:"parentID,omitempty"`
+	ParentType                   string        `json:"parentType,omitempty"`
+	Owner                        string        `json:"owner,omitempty"`
+	NTPServerKey                 string        `json:"NTPServerKey,omitempty"`
+	NTPServerKeyID               int           `json:"NTPServerKeyID,omitempty"`
+	Name                         string        `json:"name,omitempty"`
+	LastUpdatedBy                string        `json:"lastUpdatedBy,omitempty"`
+	DatapathSyncTimeout          int           `json:"datapathSyncTimeout,omitempty"`
+	DeadTimer                    string        `json:"deadTimer,omitempty"`
+	DeadTimerEnabled             bool          `json:"deadTimerEnabled"`
+	WebFilterDownloadPort        int           `json:"webFilterDownloadPort,omitempty"`
+	WebFilterQueryPort           int           `json:"webFilterQueryPort,omitempty"`
+	RemoteLogMode                string        `json:"remoteLogMode,omitempty"`
+	RemoteLogServerAddress       string        `json:"remoteLogServerAddress,omitempty"`
+	RemoteLogServerPort          int           `json:"remoteLogServerPort,omitempty"`
+	Description                  string        `json:"description,omitempty"`
+	MetadataUpgradePath          string        `json:"metadataUpgradePath,omitempty"`
+	FlowEvictionThreshold        int           `json:"flowEvictionThreshold,omitempty"`
+	EmbeddedMetadata             []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseID                 string        `json:"enterpriseID,omitempty"`
+	EntityScope                  string        `json:"entityScope,omitempty"`
+	ControllerLessDuration       string        `json:"controllerLessDuration,omitempty"`
+	ControllerLessEnabled        bool          `json:"controllerLessEnabled"`
+	ControllerLessForwardingMode string        `json:"controllerLessForwardingMode,omitempty"`
+	ControllerLessRemoteDuration string        `json:"controllerLessRemoteDuration,omitempty"`
+	ForceImmediateSystemSync     bool          `json:"forceImmediateSystemSync"`
+	OpenFlowAuditTimer           int           `json:"openFlowAuditTimer,omitempty"`
+	UpgradeAction                string        `json:"upgradeAction,omitempty"`
+	ProxyDNSName                 string        `json:"proxyDNSName,omitempty"`
+	UseTwoFactor                 bool          `json:"useTwoFactor"`
+	StatsCollectorPort           int           `json:"statsCollectorPort,omitempty"`
+	ExternalID                   string        `json:"externalID,omitempty"`
+	SystemSyncScheduler          string        `json:"systemSyncScheduler,omitempty"`
 }
 
 // NewInfrastructureGatewayProfile returns a new *InfrastructureGatewayProfile
@@ -93,17 +96,21 @@ func NewInfrastructureGatewayProfile() *InfrastructureGatewayProfile {
 
 	return &InfrastructureGatewayProfile{
 		DatapathSyncTimeout:          1000,
-		DeadTimer:                    "ONE_HOUR",
+		DeadTimerEnabled:             false,
+		WebFilterDownloadPort:        8080,
+		WebFilterQueryPort:           9090,
 		RemoteLogMode:                "DISABLED",
+		RemoteLogServerPort:          514,
 		FlowEvictionThreshold:        2500,
-		ControllerLessDuration:       "PT7D",
+		ControllerLessDuration:       "P7DT0H0M",
 		ControllerLessForwardingMode: "DISABLED",
-		ControllerLessRemoteDuration: "PT7D",
+		ControllerLessRemoteDuration: "P3DT0H0M",
+		ForceImmediateSystemSync:     false,
 		OpenFlowAuditTimer:           180,
 		UpgradeAction:                "NONE",
-		UseTwoFactor:                 true,
+		UseTwoFactor:                 false,
 		StatsCollectorPort:           39090,
-		SystemSyncScheduler:          "0 0 * * 0",
+		SystemSyncScheduler:          "0 0 * * *",
 	}
 }
 

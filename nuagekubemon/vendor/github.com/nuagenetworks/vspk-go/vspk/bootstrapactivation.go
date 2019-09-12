@@ -55,26 +55,28 @@ type BootstrapActivationsParent interface {
 
 // BootstrapActivation represents the model of a bootstrapactivation
 type BootstrapActivation struct {
-	ID               string `json:"ID,omitempty"`
-	ParentID         string `json:"parentID,omitempty"`
-	ParentType       string `json:"parentType,omitempty"`
-	Owner            string `json:"owner,omitempty"`
-	Cacert           string `json:"cacert,omitempty"`
-	Hash             string `json:"hash,omitempty"`
-	LastUpdatedBy    string `json:"lastUpdatedBy,omitempty"`
-	Action           string `json:"action,omitempty"`
-	Seed             string `json:"seed,omitempty"`
-	Cert             string `json:"cert,omitempty"`
-	EntityScope      string `json:"entityScope,omitempty"`
-	ConfigURL        string `json:"configURL,omitempty"`
-	TpmOwnerPassword string `json:"tpmOwnerPassword,omitempty"`
-	TpmState         int    `json:"tpmState,omitempty"`
-	SrkPassword      string `json:"srkPassword,omitempty"`
-	VsdTime          int    `json:"vsdTime,omitempty"`
-	Csr              string `json:"csr,omitempty"`
-	Status           string `json:"status,omitempty"`
-	AutoBootstrap    bool   `json:"autoBootstrap"`
-	ExternalID       string `json:"externalID,omitempty"`
+	ID                   string        `json:"ID,omitempty"`
+	ParentID             string        `json:"parentID,omitempty"`
+	ParentType           string        `json:"parentType,omitempty"`
+	Owner                string        `json:"owner,omitempty"`
+	Cacert               string        `json:"cacert,omitempty"`
+	Hash                 string        `json:"hash,omitempty"`
+	LastUpdatedBy        string        `json:"lastUpdatedBy,omitempty"`
+	Action               string        `json:"action,omitempty"`
+	Seed                 string        `json:"seed,omitempty"`
+	Cert                 string        `json:"cert,omitempty"`
+	EmbeddedMetadata     []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope          string        `json:"entityScope,omitempty"`
+	ConfigURL            string        `json:"configURL,omitempty"`
+	TpmOwnerPassword     string        `json:"tpmOwnerPassword,omitempty"`
+	TpmState             int           `json:"tpmState,omitempty"`
+	SrkPassword          string        `json:"srkPassword,omitempty"`
+	VsdTime              int           `json:"vsdTime,omitempty"`
+	Csr                  string        `json:"csr,omitempty"`
+	AssociatedEntityType string        `json:"associatedEntityType,omitempty"`
+	Status               string        `json:"status,omitempty"`
+	AutoBootstrap        bool          `json:"autoBootstrap"`
+	ExternalID           string        `json:"externalID,omitempty"`
 }
 
 // NewBootstrapActivation returns a new *BootstrapActivation

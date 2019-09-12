@@ -55,29 +55,36 @@ type UsersParent interface {
 
 // User represents the model of a user
 type User struct {
-	ID             string `json:"ID,omitempty"`
-	ParentID       string `json:"parentID,omitempty"`
-	ParentType     string `json:"parentType,omitempty"`
-	Owner          string `json:"owner,omitempty"`
-	ManagementMode string `json:"managementMode,omitempty"`
-	Password       string `json:"password,omitempty"`
-	LastName       string `json:"lastName,omitempty"`
-	LastUpdatedBy  string `json:"lastUpdatedBy,omitempty"`
-	FirstName      string `json:"firstName,omitempty"`
-	Disabled       bool   `json:"disabled"`
-	Email          string `json:"email,omitempty"`
-	EntityScope    string `json:"entityScope,omitempty"`
-	MobileNumber   string `json:"mobileNumber,omitempty"`
-	UserName       string `json:"userName,omitempty"`
-	AvatarData     string `json:"avatarData,omitempty"`
-	AvatarType     string `json:"avatarType,omitempty"`
-	ExternalID     string `json:"externalID,omitempty"`
+	ID                     string        `json:"ID,omitempty"`
+	ParentID               string        `json:"parentID,omitempty"`
+	ParentType             string        `json:"parentType,omitempty"`
+	Owner                  string        `json:"owner,omitempty"`
+	LDAPUserDN             string        `json:"LDAPUserDN,omitempty"`
+	ManagementMode         string        `json:"managementMode,omitempty"`
+	Password               string        `json:"password,omitempty"`
+	LastName               string        `json:"lastName,omitempty"`
+	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
+	FirstName              string        `json:"firstName,omitempty"`
+	DisableCertificateAuth bool          `json:"disableCertificateAuth"`
+	DisablePasswordAuth    bool          `json:"disablePasswordAuth"`
+	Disabled               bool          `json:"disabled"`
+	Email                  string        `json:"email,omitempty"`
+	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope            string        `json:"entityScope,omitempty"`
+	MobileNumber           string        `json:"mobileNumber,omitempty"`
+	UserName               string        `json:"userName,omitempty"`
+	AvatarData             string        `json:"avatarData,omitempty"`
+	AvatarType             string        `json:"avatarType,omitempty"`
+	ExternalID             string        `json:"externalID,omitempty"`
 }
 
 // NewUser returns a new *User
 func NewUser() *User {
 
-	return &User{}
+	return &User{
+		DisableCertificateAuth: false,
+		DisablePasswordAuth:    false,
+	}
 }
 
 // Identity returns the Identity of the object.

@@ -62,9 +62,11 @@ type NSRedundantGatewayGroup struct {
 	Name                                string        `json:"name,omitempty"`
 	LastUpdatedBy                       string        `json:"lastUpdatedBy,omitempty"`
 	GatewayPeer1AutodiscoveredGatewayID string        `json:"gatewayPeer1AutodiscoveredGatewayID,omitempty"`
+	GatewayPeer1Connected               bool          `json:"gatewayPeer1Connected"`
 	GatewayPeer1ID                      string        `json:"gatewayPeer1ID,omitempty"`
 	GatewayPeer1Name                    string        `json:"gatewayPeer1Name,omitempty"`
 	GatewayPeer2AutodiscoveredGatewayID string        `json:"gatewayPeer2AutodiscoveredGatewayID,omitempty"`
+	GatewayPeer2Connected               bool          `json:"gatewayPeer2Connected"`
 	GatewayPeer2ID                      string        `json:"gatewayPeer2ID,omitempty"`
 	GatewayPeer2Name                    string        `json:"gatewayPeer2Name,omitempty"`
 	HeartbeatInterval                   int           `json:"heartbeatInterval,omitempty"`
@@ -74,6 +76,7 @@ type NSRedundantGatewayGroup struct {
 	PermittedAction                     string        `json:"permittedAction,omitempty"`
 	Personality                         string        `json:"personality,omitempty"`
 	Description                         string        `json:"description,omitempty"`
+	EmbeddedMetadata                    []interface{} `json:"embeddedMetadata,omitempty"`
 	EnterpriseID                        string        `json:"enterpriseID,omitempty"`
 	EntityScope                         string        `json:"entityScope,omitempty"`
 	ConsecutiveFailuresCount            int           `json:"consecutiveFailuresCount,omitempty"`
@@ -84,6 +87,8 @@ type NSRedundantGatewayGroup struct {
 func NewNSRedundantGatewayGroup() *NSRedundantGatewayGroup {
 
 	return &NSRedundantGatewayGroup{
+		GatewayPeer1Connected:    false,
+		GatewayPeer2Connected:    false,
 		HeartbeatInterval:        500,
 		HeartbeatVLANID:          4094,
 		ConsecutiveFailuresCount: 3,
@@ -126,6 +131,20 @@ func (o *NSRedundantGatewayGroup) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
+// Permissions retrieves the list of child Permissions of the NSRedundantGatewayGroup
+func (o *NSRedundantGatewayGroup) Permissions(info *bambou.FetchingInfo) (PermissionsList, *bambou.Error) {
+
+	var list PermissionsList
+	err := bambou.CurrentSession().FetchChildren(o, PermissionIdentity, &list, info)
+	return list, err
+}
+
+// CreatePermission creates a new child Permission under the NSRedundantGatewayGroup
+func (o *NSRedundantGatewayGroup) CreatePermission(child *Permission) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Metadatas retrieves the list of child Metadatas of the NSRedundantGatewayGroup
 func (o *NSRedundantGatewayGroup) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
 
@@ -136,6 +155,20 @@ func (o *NSRedundantGatewayGroup) Metadatas(info *bambou.FetchingInfo) (Metadata
 
 // CreateMetadata creates a new child Metadata under the NSRedundantGatewayGroup
 func (o *NSRedundantGatewayGroup) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// ShuntLinks retrieves the list of child ShuntLinks of the NSRedundantGatewayGroup
+func (o *NSRedundantGatewayGroup) ShuntLinks(info *bambou.FetchingInfo) (ShuntLinksList, *bambou.Error) {
+
+	var list ShuntLinksList
+	err := bambou.CurrentSession().FetchChildren(o, ShuntLinkIdentity, &list, info)
+	return list, err
+}
+
+// CreateShuntLink creates a new child ShuntLink under the NSRedundantGatewayGroup
+func (o *NSRedundantGatewayGroup) CreateShuntLink(child *ShuntLink) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -158,6 +191,20 @@ func (o *NSRedundantGatewayGroup) GlobalMetadatas(info *bambou.FetchingInfo) (Gl
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the NSRedundantGatewayGroup
 func (o *NSRedundantGatewayGroup) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// EnterprisePermissions retrieves the list of child EnterprisePermissions of the NSRedundantGatewayGroup
+func (o *NSRedundantGatewayGroup) EnterprisePermissions(info *bambou.FetchingInfo) (EnterprisePermissionsList, *bambou.Error) {
+
+	var list EnterprisePermissionsList
+	err := bambou.CurrentSession().FetchChildren(o, EnterprisePermissionIdentity, &list, info)
+	return list, err
+}
+
+// CreateEnterprisePermission creates a new child EnterprisePermission under the NSRedundantGatewayGroup
+func (o *NSRedundantGatewayGroup) CreateEnterprisePermission(child *EnterprisePermission) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

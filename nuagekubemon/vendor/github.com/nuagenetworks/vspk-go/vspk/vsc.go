@@ -64,12 +64,14 @@ type VSC struct {
 	LastStateChange             int           `json:"lastStateChange,omitempty"`
 	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
 	Address                     string        `json:"address,omitempty"`
+	Addresses                   []interface{} `json:"addresses,omitempty"`
 	PeakCPUUsage                float64       `json:"peakCPUUsage,omitempty"`
 	PeakMemoryUsage             float64       `json:"peakMemoryUsage,omitempty"`
 	Description                 string        `json:"description,omitempty"`
 	Messages                    []interface{} `json:"messages,omitempty"`
 	Disks                       []interface{} `json:"disks,omitempty"`
 	AlreadyMarkedForUnavailable bool          `json:"alreadyMarkedForUnavailable"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
 	UnavailableTimestamp        int           `json:"unavailableTimestamp,omitempty"`
 	EntityScope                 string        `json:"entityScope,omitempty"`
 	Location                    string        `json:"location,omitempty"`
@@ -183,11 +185,19 @@ func (o *VSC) MonitoringPorts(info *bambou.FetchingInfo) (MonitoringPortsList, *
 	return list, err
 }
 
-// VRSs retrieves the list of child VRSs of the VSC
-func (o *VSC) VRSs(info *bambou.FetchingInfo) (VRSsList, *bambou.Error) {
+// ControllerVRSLinks retrieves the list of child ControllerVRSLinks of the VSC
+func (o *VSC) ControllerVRSLinks(info *bambou.FetchingInfo) (ControllerVRSLinksList, *bambou.Error) {
 
-	var list VRSsList
-	err := bambou.CurrentSession().FetchChildren(o, VRSIdentity, &list, info)
+	var list ControllerVRSLinksList
+	err := bambou.CurrentSession().FetchChildren(o, ControllerVRSLinkIdentity, &list, info)
+	return list, err
+}
+
+// Statistics retrieves the list of child Statistics of the VSC
+func (o *VSC) Statistics(info *bambou.FetchingInfo) (StatisticsList, *bambou.Error) {
+
+	var list StatisticsList
+	err := bambou.CurrentSession().FetchChildren(o, StatisticsIdentity, &list, info)
 	return list, err
 }
 

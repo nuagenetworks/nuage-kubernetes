@@ -55,20 +55,21 @@ type InfrastructureAccessProfilesParent interface {
 
 // InfrastructureAccessProfile represents the model of a infrastructureaccessprofile
 type InfrastructureAccessProfile struct {
-	ID             string `json:"ID,omitempty"`
-	ParentID       string `json:"parentID,omitempty"`
-	ParentType     string `json:"parentType,omitempty"`
-	Owner          string `json:"owner,omitempty"`
-	SSHAuthMode    string `json:"SSHAuthMode,omitempty"`
-	Name           string `json:"name,omitempty"`
-	Password       string `json:"password,omitempty"`
-	LastUpdatedBy  string `json:"lastUpdatedBy,omitempty"`
-	Description    string `json:"description,omitempty"`
-	EnterpriseID   string `json:"enterpriseID,omitempty"`
-	EntityScope    string `json:"entityScope,omitempty"`
-	SourceIPFilter string `json:"sourceIPFilter,omitempty"`
-	UserName       string `json:"userName,omitempty"`
-	ExternalID     string `json:"externalID,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	SSHAuthMode      string        `json:"SSHAuthMode,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	Password         string        `json:"password,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	Description      string        `json:"description,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseID     string        `json:"enterpriseID,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	SourceIPFilter   string        `json:"sourceIPFilter,omitempty"`
+	UserName         string        `json:"userName,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewInfrastructureAccessProfile returns a new *InfrastructureAccessProfile
@@ -141,6 +142,42 @@ func (o *InfrastructureAccessProfile) GlobalMetadatas(info *bambou.FetchingInfo)
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the InfrastructureAccessProfile
 func (o *InfrastructureAccessProfile) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// Connectionendpoints retrieves the list of child Connectionendpoints of the InfrastructureAccessProfile
+func (o *InfrastructureAccessProfile) Connectionendpoints(info *bambou.FetchingInfo) (ConnectionendpointsList, *bambou.Error) {
+
+	var list ConnectionendpointsList
+	err := bambou.CurrentSession().FetchChildren(o, ConnectionendpointIdentity, &list, info)
+	return list, err
+}
+
+// CreateConnectionendpoint creates a new child Connectionendpoint under the InfrastructureAccessProfile
+func (o *InfrastructureAccessProfile) CreateConnectionendpoint(child *Connectionendpoint) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// NSGatewayTemplates retrieves the list of child NSGatewayTemplates of the InfrastructureAccessProfile
+func (o *InfrastructureAccessProfile) NSGatewayTemplates(info *bambou.FetchingInfo) (NSGatewayTemplatesList, *bambou.Error) {
+
+	var list NSGatewayTemplatesList
+	err := bambou.CurrentSession().FetchChildren(o, NSGatewayTemplateIdentity, &list, info)
+	return list, err
+}
+
+// SSHKeys retrieves the list of child SSHKeys of the InfrastructureAccessProfile
+func (o *InfrastructureAccessProfile) SSHKeys(info *bambou.FetchingInfo) (SSHKeysList, *bambou.Error) {
+
+	var list SSHKeysList
+	err := bambou.CurrentSession().FetchChildren(o, SSHKeyIdentity, &list, info)
+	return list, err
+}
+
+// CreateSSHKey creates a new child SSHKey under the InfrastructureAccessProfile
+func (o *InfrastructureAccessProfile) CreateSSHKey(child *SSHKey) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }

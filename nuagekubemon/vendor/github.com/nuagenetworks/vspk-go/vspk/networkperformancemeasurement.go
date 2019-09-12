@@ -55,20 +55,26 @@ type NetworkPerformanceMeasurementsParent interface {
 
 // NetworkPerformanceMeasurement represents the model of a networkperformancemeasurement
 type NetworkPerformanceMeasurement struct {
-	ID                             string `json:"ID,omitempty"`
-	ParentID                       string `json:"parentID,omitempty"`
-	ParentType                     string `json:"parentType,omitempty"`
-	Owner                          string `json:"owner,omitempty"`
-	Name                           string `json:"name,omitempty"`
-	ReadOnly                       bool   `json:"readOnly"`
-	Description                    string `json:"description,omitempty"`
-	AssociatedPerformanceMonitorID string `json:"associatedPerformanceMonitorID,omitempty"`
+	ID                             string        `json:"ID,omitempty"`
+	ParentID                       string        `json:"parentID,omitempty"`
+	ParentType                     string        `json:"parentType,omitempty"`
+	Owner                          string        `json:"owner,omitempty"`
+	NPMType                        string        `json:"NPMType,omitempty"`
+	Name                           string        `json:"name,omitempty"`
+	LastUpdatedBy                  string        `json:"lastUpdatedBy,omitempty"`
+	ReadOnly                       bool          `json:"readOnly"`
+	Description                    string        `json:"description,omitempty"`
+	EmbeddedMetadata               []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                    string        `json:"entityScope,omitempty"`
+	AssociatedPerformanceMonitorID string        `json:"associatedPerformanceMonitorID,omitempty"`
+	ExternalID                     string        `json:"externalID,omitempty"`
 }
 
 // NewNetworkPerformanceMeasurement returns a new *NetworkPerformanceMeasurement
 func NewNetworkPerformanceMeasurement() *NetworkPerformanceMeasurement {
 
 	return &NetworkPerformanceMeasurement{
+		NPMType:  "NONE",
 		ReadOnly: false,
 	}
 }
@@ -109,6 +115,20 @@ func (o *NetworkPerformanceMeasurement) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
+// Metadatas retrieves the list of child Metadatas of the NetworkPerformanceMeasurement
+func (o *NetworkPerformanceMeasurement) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the NetworkPerformanceMeasurement
+func (o *NetworkPerformanceMeasurement) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // NetworkPerformanceBindings retrieves the list of child NetworkPerformanceBindings of the NetworkPerformanceMeasurement
 func (o *NetworkPerformanceMeasurement) NetworkPerformanceBindings(info *bambou.FetchingInfo) (NetworkPerformanceBindingsList, *bambou.Error) {
 
@@ -117,15 +137,18 @@ func (o *NetworkPerformanceMeasurement) NetworkPerformanceBindings(info *bambou.
 	return list, err
 }
 
-// AssignNetworkPerformanceBindings assigns the list of NetworkPerformanceBindings to the NetworkPerformanceMeasurement
-func (o *NetworkPerformanceMeasurement) AssignNetworkPerformanceBindings(children NetworkPerformanceBindingsList) *bambou.Error {
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the NetworkPerformanceMeasurement
+func (o *NetworkPerformanceMeasurement) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
 
-	return bambou.CurrentSession().AssignChildren(o, list, NetworkPerformanceBindingIdentity)
+// CreateGlobalMetadata creates a new child GlobalMetadata under the NetworkPerformanceMeasurement
+func (o *NetworkPerformanceMeasurement) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Monitorscopes retrieves the list of child Monitorscopes of the NetworkPerformanceMeasurement

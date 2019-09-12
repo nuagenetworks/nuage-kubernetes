@@ -55,28 +55,30 @@ type BridgeInterfacesParent interface {
 
 // BridgeInterface represents the model of a bridgeinterface
 type BridgeInterface struct {
-	ID                          string `json:"ID,omitempty"`
-	ParentID                    string `json:"parentID,omitempty"`
-	ParentType                  string `json:"parentType,omitempty"`
-	Owner                       string `json:"owner,omitempty"`
-	VPortID                     string `json:"VPortID,omitempty"`
-	VPortName                   string `json:"VPortName,omitempty"`
-	Name                        string `json:"name,omitempty"`
-	LastUpdatedBy               string `json:"lastUpdatedBy,omitempty"`
-	Gateway                     string `json:"gateway,omitempty"`
-	Netmask                     string `json:"netmask,omitempty"`
-	NetworkName                 string `json:"networkName,omitempty"`
-	TierID                      string `json:"tierID,omitempty"`
-	EntityScope                 string `json:"entityScope,omitempty"`
-	PolicyDecisionID            string `json:"policyDecisionID,omitempty"`
-	DomainID                    string `json:"domainID,omitempty"`
-	DomainName                  string `json:"domainName,omitempty"`
-	ZoneID                      string `json:"zoneID,omitempty"`
-	ZoneName                    string `json:"zoneName,omitempty"`
-	AssociatedFloatingIPAddress string `json:"associatedFloatingIPAddress,omitempty"`
-	AttachedNetworkID           string `json:"attachedNetworkID,omitempty"`
-	AttachedNetworkType         string `json:"attachedNetworkType,omitempty"`
-	ExternalID                  string `json:"externalID,omitempty"`
+	ID                          string        `json:"ID,omitempty"`
+	ParentID                    string        `json:"parentID,omitempty"`
+	ParentType                  string        `json:"parentType,omitempty"`
+	Owner                       string        `json:"owner,omitempty"`
+	VPortID                     string        `json:"VPortID,omitempty"`
+	VPortName                   string        `json:"VPortName,omitempty"`
+	IPv6Gateway                 string        `json:"IPv6Gateway,omitempty"`
+	Name                        string        `json:"name,omitempty"`
+	LastUpdatedBy               string        `json:"lastUpdatedBy,omitempty"`
+	Gateway                     string        `json:"gateway,omitempty"`
+	Netmask                     string        `json:"netmask,omitempty"`
+	NetworkName                 string        `json:"networkName,omitempty"`
+	TierID                      string        `json:"tierID,omitempty"`
+	EmbeddedMetadata            []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                 string        `json:"entityScope,omitempty"`
+	PolicyDecisionID            string        `json:"policyDecisionID,omitempty"`
+	DomainID                    string        `json:"domainID,omitempty"`
+	DomainName                  string        `json:"domainName,omitempty"`
+	ZoneID                      string        `json:"zoneID,omitempty"`
+	ZoneName                    string        `json:"zoneName,omitempty"`
+	AssociatedFloatingIPAddress string        `json:"associatedFloatingIPAddress,omitempty"`
+	AttachedNetworkID           string        `json:"attachedNetworkID,omitempty"`
+	AttachedNetworkType         string        `json:"attachedNetworkType,omitempty"`
+	ExternalID                  string        `json:"externalID,omitempty"`
 }
 
 // NewBridgeInterface returns a new *BridgeInterface
@@ -137,6 +139,20 @@ func (o *BridgeInterface) RedirectionTargets(info *bambou.FetchingInfo) (Redirec
 	return list, err
 }
 
+// DeploymentFailures retrieves the list of child DeploymentFailures of the BridgeInterface
+func (o *BridgeInterface) DeploymentFailures(info *bambou.FetchingInfo) (DeploymentFailuresList, *bambou.Error) {
+
+	var list DeploymentFailuresList
+	err := bambou.CurrentSession().FetchChildren(o, DeploymentFailureIdentity, &list, info)
+	return list, err
+}
+
+// CreateDeploymentFailure creates a new child DeploymentFailure under the BridgeInterface
+func (o *BridgeInterface) CreateDeploymentFailure(child *DeploymentFailure) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Metadatas retrieves the list of child Metadatas of the BridgeInterface
 func (o *BridgeInterface) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
 
@@ -156,6 +172,14 @@ func (o *BridgeInterface) DHCPOptions(info *bambou.FetchingInfo) (DHCPOptionsLis
 
 	var list DHCPOptionsList
 	err := bambou.CurrentSession().FetchChildren(o, DHCPOptionIdentity, &list, info)
+	return list, err
+}
+
+// DHCPv6Options retrieves the list of child DHCPv6Options of the BridgeInterface
+func (o *BridgeInterface) DHCPv6Options(info *bambou.FetchingInfo) (DHCPv6OptionsList, *bambou.Error) {
+
+	var list DHCPv6OptionsList
+	err := bambou.CurrentSession().FetchChildren(o, DHCPv6OptionIdentity, &list, info)
 	return list, err
 }
 

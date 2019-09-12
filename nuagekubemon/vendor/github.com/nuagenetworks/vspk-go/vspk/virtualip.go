@@ -55,23 +55,27 @@ type VirtualIPsParent interface {
 
 // VirtualIP represents the model of a virtualip
 type VirtualIP struct {
-	ID                     string `json:"ID,omitempty"`
-	ParentID               string `json:"parentID,omitempty"`
-	ParentType             string `json:"parentType,omitempty"`
-	Owner                  string `json:"owner,omitempty"`
-	MAC                    string `json:"MAC,omitempty"`
-	LastUpdatedBy          string `json:"lastUpdatedBy,omitempty"`
-	VirtualIP              string `json:"virtualIP,omitempty"`
-	EntityScope            string `json:"entityScope,omitempty"`
-	AssociatedFloatingIPID string `json:"associatedFloatingIPID,omitempty"`
-	SubnetID               string `json:"subnetID,omitempty"`
-	ExternalID             string `json:"externalID,omitempty"`
+	ID                     string        `json:"ID,omitempty"`
+	ParentID               string        `json:"parentID,omitempty"`
+	ParentType             string        `json:"parentType,omitempty"`
+	Owner                  string        `json:"owner,omitempty"`
+	MAC                    string        `json:"MAC,omitempty"`
+	IPType                 string        `json:"IPType,omitempty"`
+	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
+	VirtualIP              string        `json:"virtualIP,omitempty"`
+	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope            string        `json:"entityScope,omitempty"`
+	AssociatedFloatingIPID string        `json:"associatedFloatingIPID,omitempty"`
+	SubnetID               string        `json:"subnetID,omitempty"`
+	ExternalID             string        `json:"externalID,omitempty"`
 }
 
 // NewVirtualIP returns a new *VirtualIP
 func NewVirtualIP() *VirtualIP {
 
-	return &VirtualIP{}
+	return &VirtualIP{
+		IPType: "IPV4",
+	}
 }
 
 // Identity returns the Identity of the object.

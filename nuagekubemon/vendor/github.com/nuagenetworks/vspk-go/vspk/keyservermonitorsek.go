@@ -55,18 +55,19 @@ type KeyServerMonitorSEKsParent interface {
 
 // KeyServerMonitorSEK represents the model of a keyservermonitorsek
 type KeyServerMonitorSEK struct {
-	ID                                 string `json:"ID,omitempty"`
-	ParentID                           string `json:"parentID,omitempty"`
-	ParentType                         string `json:"parentType,omitempty"`
-	Owner                              string `json:"owner,omitempty"`
-	LastUpdatedBy                      string `json:"lastUpdatedBy,omitempty"`
-	SeedPayloadAuthenticationAlgorithm string `json:"seedPayloadAuthenticationAlgorithm,omitempty"`
-	SeedPayloadEncryptionAlgorithm     string `json:"seedPayloadEncryptionAlgorithm,omitempty"`
-	Lifetime                           int    `json:"lifetime,omitempty"`
-	EntityScope                        string `json:"entityScope,omitempty"`
-	CreationTime                       int    `json:"creationTime,omitempty"`
-	StartTime                          int    `json:"startTime,omitempty"`
-	ExternalID                         string `json:"externalID,omitempty"`
+	ID                                 string        `json:"ID,omitempty"`
+	ParentID                           string        `json:"parentID,omitempty"`
+	ParentType                         string        `json:"parentType,omitempty"`
+	Owner                              string        `json:"owner,omitempty"`
+	LastUpdatedBy                      string        `json:"lastUpdatedBy,omitempty"`
+	SeedPayloadAuthenticationAlgorithm string        `json:"seedPayloadAuthenticationAlgorithm,omitempty"`
+	SeedPayloadEncryptionAlgorithm     string        `json:"seedPayloadEncryptionAlgorithm,omitempty"`
+	Lifetime                           int           `json:"lifetime,omitempty"`
+	EmbeddedMetadata                   []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                        string        `json:"entityScope,omitempty"`
+	CreationTime                       int           `json:"creationTime,omitempty"`
+	StartTime                          int           `json:"startTime,omitempty"`
+	ExternalID                         string        `json:"externalID,omitempty"`
 }
 
 // NewKeyServerMonitorSEK returns a new *KeyServerMonitorSEK

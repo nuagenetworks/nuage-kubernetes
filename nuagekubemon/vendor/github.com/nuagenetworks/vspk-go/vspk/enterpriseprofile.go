@@ -61,9 +61,10 @@ type EnterpriseProfile struct {
 	Owner                                  string        `json:"owner,omitempty"`
 	BGPEnabled                             bool          `json:"BGPEnabled"`
 	DHCPLeaseInterval                      int           `json:"DHCPLeaseInterval,omitempty"`
-	DPIEnabled                             bool          `json:"DPIEnabled"`
+	VNFManagementEnabled                   bool          `json:"VNFManagementEnabled"`
 	Name                                   string        `json:"name,omitempty"`
 	LastUpdatedBy                          string        `json:"lastUpdatedBy,omitempty"`
+	WebFilterEnabled                       bool          `json:"webFilterEnabled"`
 	ReceiveMultiCastListID                 string        `json:"receiveMultiCastListID,omitempty"`
 	SendMultiCastListID                    string        `json:"sendMultiCastListID,omitempty"`
 	Description                            string        `json:"description,omitempty"`
@@ -72,9 +73,11 @@ type EnterpriseProfile struct {
 	AllowTrustedForwardingClass            bool          `json:"allowTrustedForwardingClass"`
 	AllowedForwardingClasses               []interface{} `json:"allowedForwardingClasses,omitempty"`
 	FloatingIPsQuota                       int           `json:"floatingIPsQuota,omitempty"`
+	EmbeddedMetadata                       []interface{} `json:"embeddedMetadata,omitempty"`
 	EnableApplicationPerformanceManagement bool          `json:"enableApplicationPerformanceManagement"`
 	EncryptionManagementMode               string        `json:"encryptionManagementMode,omitempty"`
 	EntityScope                            string        `json:"entityScope,omitempty"`
+	ForwardingClass                        []interface{} `json:"forwardingClass,omitempty"`
 	ExternalID                             string        `json:"externalID,omitempty"`
 }
 
@@ -83,7 +86,8 @@ func NewEnterpriseProfile() *EnterpriseProfile {
 
 	return &EnterpriseProfile{
 		DHCPLeaseInterval:                      24,
-		DPIEnabled:                             false,
+		VNFManagementEnabled:                   false,
+		WebFilterEnabled:                       false,
 		FloatingIPsQuota:                       100,
 		EnableApplicationPerformanceManagement: false,
 	}
@@ -175,23 +179,4 @@ func (o *EnterpriseProfile) EventLogs(info *bambou.FetchingInfo) (EventLogsList,
 	var list EventLogsList
 	err := bambou.CurrentSession().FetchChildren(o, EventLogIdentity, &list, info)
 	return list, err
-}
-
-// ExternalServices retrieves the list of child ExternalServices of the EnterpriseProfile
-func (o *EnterpriseProfile) ExternalServices(info *bambou.FetchingInfo) (ExternalServicesList, *bambou.Error) {
-
-	var list ExternalServicesList
-	err := bambou.CurrentSession().FetchChildren(o, ExternalServiceIdentity, &list, info)
-	return list, err
-}
-
-// AssignExternalServices assigns the list of ExternalServices to the EnterpriseProfile
-func (o *EnterpriseProfile) AssignExternalServices(children ExternalServicesList) *bambou.Error {
-
-	list := []bambou.Identifiable{}
-	for _, c := range children {
-		list = append(list, c)
-	}
-
-	return bambou.CurrentSession().AssignChildren(o, list, ExternalServiceIdentity)
 }

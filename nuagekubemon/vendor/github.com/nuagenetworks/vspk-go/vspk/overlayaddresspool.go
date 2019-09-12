@@ -55,15 +55,20 @@ type OverlayAddressPoolsParent interface {
 
 // OverlayAddressPool represents the model of a overlayaddresspool
 type OverlayAddressPool struct {
-	ID                 string `json:"ID,omitempty"`
-	ParentID           string `json:"parentID,omitempty"`
-	ParentType         string `json:"parentType,omitempty"`
-	Owner              string `json:"owner,omitempty"`
-	Name               string `json:"name,omitempty"`
-	Description        string `json:"description,omitempty"`
-	EndAddressRange    string `json:"endAddressRange,omitempty"`
-	AssociatedDomainID string `json:"associatedDomainID,omitempty"`
-	StartAddressRange  string `json:"startAddressRange,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	IPType             string        `json:"IPType,omitempty"`
+	Name               string        `json:"name,omitempty"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	Description        string        `json:"description,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EndAddressRange    string        `json:"endAddressRange,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	AssociatedDomainID string        `json:"associatedDomainID,omitempty"`
+	StartAddressRange  string        `json:"startAddressRange,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewOverlayAddressPool returns a new *OverlayAddressPool
@@ -106,6 +111,34 @@ func (o *OverlayAddressPool) Save() *bambou.Error {
 func (o *OverlayAddressPool) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the OverlayAddressPool
+func (o *OverlayAddressPool) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the OverlayAddressPool
+func (o *OverlayAddressPool) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the OverlayAddressPool
+func (o *OverlayAddressPool) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the OverlayAddressPool
+func (o *OverlayAddressPool) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // OverlayPATNATEntries retrieves the list of child OverlayPATNATEntries of the OverlayAddressPool

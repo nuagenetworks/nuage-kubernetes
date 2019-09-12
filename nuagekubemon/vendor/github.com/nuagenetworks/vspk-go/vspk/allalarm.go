@@ -55,23 +55,25 @@ type AllAlarmsParent interface {
 
 // AllAlarm represents the model of a allalarm
 type AllAlarm struct {
-	ID                 string `json:"ID,omitempty"`
-	ParentID           string `json:"parentID,omitempty"`
-	ParentType         string `json:"parentType,omitempty"`
-	Owner              string `json:"owner,omitempty"`
-	Name               string `json:"name,omitempty"`
-	TargetObject       string `json:"targetObject,omitempty"`
-	LastUpdatedBy      string `json:"lastUpdatedBy,omitempty"`
-	Acknowledged       bool   `json:"acknowledged"`
-	Reason             string `json:"reason,omitempty"`
-	Description        string `json:"description,omitempty"`
-	Severity           string `json:"severity,omitempty"`
-	Timestamp          int    `json:"timestamp,omitempty"`
-	EnterpriseID       string `json:"enterpriseID,omitempty"`
-	EntityScope        string `json:"entityScope,omitempty"`
-	ErrorCondition     int    `json:"errorCondition,omitempty"`
-	NumberOfOccurances int    `json:"numberOfOccurances,omitempty"`
-	ExternalID         string `json:"externalID,omitempty"`
+	ID                 string        `json:"ID,omitempty"`
+	ParentID           string        `json:"parentID,omitempty"`
+	ParentType         string        `json:"parentType,omitempty"`
+	Owner              string        `json:"owner,omitempty"`
+	TargetObject       string        `json:"targetObject,omitempty"`
+	LastUpdatedBy      string        `json:"lastUpdatedBy,omitempty"`
+	Acknowledged       bool          `json:"acknowledged"`
+	Remedy             string        `json:"remedy,omitempty"`
+	Description        string        `json:"description,omitempty"`
+	Severity           string        `json:"severity,omitempty"`
+	Timestamp          int           `json:"timestamp,omitempty"`
+	Title              string        `json:"title,omitempty"`
+	AlarmedObjectID    string        `json:"alarmedObjectID,omitempty"`
+	EmbeddedMetadata   []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseID       string        `json:"enterpriseID,omitempty"`
+	EntityScope        string        `json:"entityScope,omitempty"`
+	ErrorCondition     int           `json:"errorCondition,omitempty"`
+	NumberOfOccurances int           `json:"numberOfOccurances,omitempty"`
+	ExternalID         string        `json:"externalID,omitempty"`
 }
 
 // NewAllAlarm returns a new *AllAlarm

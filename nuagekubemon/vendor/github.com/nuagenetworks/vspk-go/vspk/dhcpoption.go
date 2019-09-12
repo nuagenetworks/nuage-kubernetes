@@ -55,18 +55,19 @@ type DHCPOptionsParent interface {
 
 // DHCPOption represents the model of a dhcpoption
 type DHCPOption struct {
-	ID            string        `json:"ID,omitempty"`
-	ParentID      string        `json:"parentID,omitempty"`
-	ParentType    string        `json:"parentType,omitempty"`
-	Owner         string        `json:"owner,omitempty"`
-	Value         string        `json:"value,omitempty"`
-	LastUpdatedBy string        `json:"lastUpdatedBy,omitempty"`
-	ActualType    int           `json:"actualType,omitempty"`
-	ActualValues  []interface{} `json:"actualValues,omitempty"`
-	Length        string        `json:"length,omitempty"`
-	EntityScope   string        `json:"entityScope,omitempty"`
-	ExternalID    string        `json:"externalID,omitempty"`
-	Type          string        `json:"type,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	Value            string        `json:"value,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	ActualType       int           `json:"actualType,omitempty"`
+	ActualValues     []interface{} `json:"actualValues,omitempty"`
+	Length           string        `json:"length,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
+	Type             string        `json:"type,omitempty"`
 }
 
 // NewDHCPOption returns a new *DHCPOption

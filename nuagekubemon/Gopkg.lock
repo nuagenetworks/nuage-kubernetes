@@ -186,8 +186,14 @@
 [[projects]]
   name = "github.com/nuagenetworks/vspk-go"
   packages = ["vspk"]
-  revision = "ba6810c44de9e597d2c576c8a8544be775c86cb0"
-  version = "r4.0.7"
+  revision = "897b68d596b47c3ed47b2deedb993957fc623f7b"
+  version = "v6.0.1"
+
+[[projects]]
+  name = "github.com/onsi/gomega"
+  packages = [".","format","internal/assertion","internal/asyncassertion","internal/oraclematcher","internal/testingtsupport","matchers","matchers/support/goraph/bipartitegraph","matchers/support/goraph/edge","matchers/support/goraph/node","matchers/support/goraph/util","types"]
+  revision = "bdebf9e0ece900259084cfa4121b97ce1a540939"
+  version = "v1.7.0"
 
 [[projects]]
   name = "github.com/pborman/uuid"
@@ -227,7 +233,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
+  packages = ["context","html","html/atom","html/charset","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
   revision = "d866cfc389cec985d6fda2859936a575a55a3ab6"
 
 [[projects]]
@@ -237,7 +243,7 @@
 
 [[projects]]
   name = "golang.org/x/text"
-  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
+  packages = ["collate","collate/build","encoding","encoding/charmap","encoding/htmlindex","encoding/internal","encoding/internal/identifier","encoding/japanese","encoding/korean","encoding/simplifiedchinese","encoding/traditionalchinese","encoding/unicode","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","internal/utf8internal","language","runes","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
   revision = "3b24cac7bc3a458991ab409aa2a339ac9e0d60d6"
 
 [[projects]]
@@ -291,6 +297,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "77c5ad06832c1520945fa567448cfd9cbb8abf23331b37d620c9af795c831025"
+  inputs-digest = "a0f230743cfe3194b05519f093a302d40af807eb25380b99de36c63cdaa4c6bf"
   solver-name = "gps-cdcl"
   solver-version = 1

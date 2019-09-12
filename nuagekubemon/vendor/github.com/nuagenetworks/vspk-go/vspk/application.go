@@ -55,30 +55,38 @@ type ApplicationsParent interface {
 
 // Application represents the model of a application
 type Application struct {
-	ID                                 string  `json:"ID,omitempty"`
-	ParentID                           string  `json:"parentID,omitempty"`
-	ParentType                         string  `json:"parentType,omitempty"`
-	Owner                              string  `json:"owner,omitempty"`
-	DSCP                               string  `json:"DSCP,omitempty"`
-	Name                               string  `json:"name,omitempty"`
-	ReadOnly                           bool    `json:"readOnly"`
-	PerformanceMonitorType             string  `json:"performanceMonitorType,omitempty"`
-	Description                        string  `json:"description,omitempty"`
-	DestinationIP                      string  `json:"destinationIP,omitempty"`
-	DestinationPort                    string  `json:"destinationPort,omitempty"`
-	EnablePPS                          bool    `json:"enablePPS"`
-	OneWayDelay                        int     `json:"oneWayDelay,omitempty"`
-	OneWayJitter                       int     `json:"oneWayJitter,omitempty"`
-	OneWayLoss                         float64 `json:"oneWayLoss,omitempty"`
-	PostClassificationPath             string  `json:"postClassificationPath,omitempty"`
-	SourceIP                           string  `json:"sourceIP,omitempty"`
-	SourcePort                         string  `json:"sourcePort,omitempty"`
-	OptimizePathSelection              string  `json:"optimizePathSelection,omitempty"`
-	PreClassificationPath              string  `json:"preClassificationPath,omitempty"`
-	Protocol                           string  `json:"protocol,omitempty"`
-	AssociatedL7ApplicationSignatureID string  `json:"associatedL7ApplicationSignatureID,omitempty"`
-	EtherType                          string  `json:"etherType,omitempty"`
-	Symmetry                           bool    `json:"symmetry"`
+	ID                                 string        `json:"ID,omitempty"`
+	ParentID                           string        `json:"parentID,omitempty"`
+	ParentType                         string        `json:"parentType,omitempty"`
+	Owner                              string        `json:"owner,omitempty"`
+	DSCP                               string        `json:"DSCP,omitempty"`
+	Name                               string        `json:"name,omitempty"`
+	Bandwidth                          int           `json:"bandwidth,omitempty"`
+	LastUpdatedBy                      string        `json:"lastUpdatedBy,omitempty"`
+	ReadOnly                           bool          `json:"readOnly"`
+	PerformanceMonitorType             string        `json:"performanceMonitorType,omitempty"`
+	CertificateCommonName              string        `json:"certificateCommonName,omitempty"`
+	Description                        string        `json:"description,omitempty"`
+	DestinationIP                      string        `json:"destinationIP,omitempty"`
+	DestinationPort                    string        `json:"destinationPort,omitempty"`
+	NetworkSymmetry                    bool          `json:"networkSymmetry"`
+	EmbeddedMetadata                   []interface{} `json:"embeddedMetadata,omitempty"`
+	EnablePPS                          bool          `json:"enablePPS"`
+	OneWayDelay                        int           `json:"oneWayDelay,omitempty"`
+	OneWayJitter                       int           `json:"oneWayJitter,omitempty"`
+	OneWayLoss                         float64       `json:"oneWayLoss,omitempty"`
+	EntityScope                        string        `json:"entityScope,omitempty"`
+	PostClassificationPath             string        `json:"postClassificationPath,omitempty"`
+	SourceIP                           string        `json:"sourceIP,omitempty"`
+	SourcePort                         string        `json:"sourcePort,omitempty"`
+	AppId                              int           `json:"appId,omitempty"`
+	OptimizePathSelection              string        `json:"optimizePathSelection,omitempty"`
+	PreClassificationPath              string        `json:"preClassificationPath,omitempty"`
+	Protocol                           string        `json:"protocol,omitempty"`
+	AssociatedL7ApplicationSignatureID string        `json:"associatedL7ApplicationSignatureID,omitempty"`
+	EtherType                          string        `json:"etherType,omitempty"`
+	ExternalID                         string        `json:"externalID,omitempty"`
+	Symmetry                           bool          `json:"symmetry"`
 }
 
 // NewApplication returns a new *Application
@@ -87,10 +95,13 @@ func NewApplication() *Application {
 	return &Application{
 		ReadOnly:               false,
 		PerformanceMonitorType: "FIRST_PACKET",
+		CertificateCommonName:  "*",
+		NetworkSymmetry:        false,
 		EnablePPS:              false,
 		PostClassificationPath: "ANY",
 		PreClassificationPath:  "DEFAULT",
 		Protocol:               "NONE",
+		Symmetry:               false,
 	}
 }
 
@@ -128,6 +139,34 @@ func (o *Application) Save() *bambou.Error {
 func (o *Application) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the Application
+func (o *Application) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the Application
+func (o *Application) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the Application
+func (o *Application) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the Application
+func (o *Application) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }
 
 // Monitorscopes retrieves the list of child Monitorscopes of the Application

@@ -55,15 +55,16 @@ type BGPPeersParent interface {
 
 // BGPPeer represents the model of a bgppeer
 type BGPPeer struct {
-	ID              string `json:"ID,omitempty"`
-	ParentID        string `json:"parentID,omitempty"`
-	ParentType      string `json:"parentType,omitempty"`
-	Owner           string `json:"owner,omitempty"`
-	LastStateChange int    `json:"lastStateChange,omitempty"`
-	Address         string `json:"address,omitempty"`
-	EntityScope     string `json:"entityScope,omitempty"`
-	Status          string `json:"status,omitempty"`
-	ExternalID      string `json:"externalID,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	LastStateChange  int           `json:"lastStateChange,omitempty"`
+	Address          string        `json:"address,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	Status           string        `json:"status,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewBGPPeer returns a new *BGPPeer

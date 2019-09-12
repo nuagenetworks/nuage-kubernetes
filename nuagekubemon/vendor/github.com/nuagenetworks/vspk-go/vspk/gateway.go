@@ -55,33 +55,63 @@ type GatewaysParent interface {
 
 // Gateway represents the model of a gateway
 type Gateway struct {
-	ID                 string `json:"ID,omitempty"`
-	ParentID           string `json:"parentID,omitempty"`
-	ParentType         string `json:"parentType,omitempty"`
-	Owner              string `json:"owner,omitempty"`
-	Name               string `json:"name,omitempty"`
-	LastUpdatedBy      string `json:"lastUpdatedBy,omitempty"`
-	RedundancyGroupID  string `json:"redundancyGroupID,omitempty"`
-	Peer               string `json:"peer,omitempty"`
-	TemplateID         string `json:"templateID,omitempty"`
-	Pending            bool   `json:"pending"`
-	PermittedAction    string `json:"permittedAction,omitempty"`
-	Personality        string `json:"personality,omitempty"`
-	Description        string `json:"description,omitempty"`
-	EnterpriseID       string `json:"enterpriseID,omitempty"`
-	EntityScope        string `json:"entityScope,omitempty"`
-	UseGatewayVLANVNID bool   `json:"useGatewayVLANVNID"`
-	Vtep               string `json:"vtep,omitempty"`
-	AutoDiscGatewayID  string `json:"autoDiscGatewayID,omitempty"`
-	ExternalID         string `json:"externalID,omitempty"`
-	SystemID           string `json:"systemID,omitempty"`
+	ID                                 string        `json:"ID,omitempty"`
+	ParentID                           string        `json:"parentID,omitempty"`
+	ParentType                         string        `json:"parentType,omitempty"`
+	Owner                              string        `json:"owner,omitempty"`
+	MACAddress                         string        `json:"MACAddress,omitempty"`
+	ZFBMatchAttribute                  string        `json:"ZFBMatchAttribute,omitempty"`
+	ZFBMatchValue                      string        `json:"ZFBMatchValue,omitempty"`
+	BIOSReleaseDate                    string        `json:"BIOSReleaseDate,omitempty"`
+	BIOSVersion                        string        `json:"BIOSVersion,omitempty"`
+	CPUType                            string        `json:"CPUType,omitempty"`
+	UUID                               string        `json:"UUID,omitempty"`
+	Name                               string        `json:"name,omitempty"`
+	Family                             string        `json:"family,omitempty"`
+	ManagementID                       string        `json:"managementID,omitempty"`
+	LastUpdatedBy                      string        `json:"lastUpdatedBy,omitempty"`
+	DatapathID                         string        `json:"datapathID,omitempty"`
+	Patches                            string        `json:"patches,omitempty"`
+	GatewayConfigRawVersion            string        `json:"gatewayConfigRawVersion,omitempty"`
+	GatewayConfigVersion               string        `json:"gatewayConfigVersion,omitempty"`
+	GatewayConnected                   bool          `json:"gatewayConnected"`
+	GatewayModel                       string        `json:"gatewayModel,omitempty"`
+	GatewayVersion                     string        `json:"gatewayVersion,omitempty"`
+	RedundancyGroupID                  string        `json:"redundancyGroupID,omitempty"`
+	Peer                               string        `json:"peer,omitempty"`
+	TemplateID                         string        `json:"templateID,omitempty"`
+	Pending                            bool          `json:"pending"`
+	Vendor                             string        `json:"vendor,omitempty"`
+	SerialNumber                       string        `json:"serialNumber,omitempty"`
+	PermittedAction                    string        `json:"permittedAction,omitempty"`
+	Personality                        string        `json:"personality,omitempty"`
+	Description                        string        `json:"description,omitempty"`
+	Libraries                          string        `json:"libraries,omitempty"`
+	EmbeddedMetadata                   []interface{} `json:"embeddedMetadata,omitempty"`
+	EnterpriseID                       string        `json:"enterpriseID,omitempty"`
+	EntityScope                        string        `json:"entityScope,omitempty"`
+	LocationID                         string        `json:"locationID,omitempty"`
+	BootstrapID                        string        `json:"bootstrapID,omitempty"`
+	BootstrapStatus                    string        `json:"bootstrapStatus,omitempty"`
+	ProductName                        string        `json:"productName,omitempty"`
+	UseGatewayVLANVNID                 bool          `json:"useGatewayVLANVNID"`
+	AssociatedGatewaySecurityID        string        `json:"associatedGatewaySecurityID,omitempty"`
+	AssociatedGatewaySecurityProfileID string        `json:"associatedGatewaySecurityProfileID,omitempty"`
+	AssociatedNSGInfoID                string        `json:"associatedNSGInfoID,omitempty"`
+	AssociatedNetconfProfileID         string        `json:"associatedNetconfProfileID,omitempty"`
+	Vtep                               string        `json:"vtep,omitempty"`
+	AutoDiscGatewayID                  string        `json:"autoDiscGatewayID,omitempty"`
+	ExternalID                         string        `json:"externalID,omitempty"`
+	SystemID                           string        `json:"systemID,omitempty"`
 }
 
 // NewGateway returns a new *Gateway
 func NewGateway() *Gateway {
 
 	return &Gateway{
-		Personality: "VRSG",
+		ZFBMatchAttribute: "NONE",
+		GatewayConnected:  false,
+		Personality:       "VRSG",
 	}
 }
 
@@ -121,11 +151,70 @@ func (o *Gateway) Delete() *bambou.Error {
 	return bambou.CurrentSession().DeleteEntity(o)
 }
 
+// L2Domains retrieves the list of child L2Domains of the Gateway
+func (o *Gateway) L2Domains(info *bambou.FetchingInfo) (L2DomainsList, *bambou.Error) {
+
+	var list L2DomainsList
+	err := bambou.CurrentSession().FetchChildren(o, L2DomainIdentity, &list, info)
+	return list, err
+}
+
+// MACFilterProfiles retrieves the list of child MACFilterProfiles of the Gateway
+func (o *Gateway) MACFilterProfiles(info *bambou.FetchingInfo) (MACFilterProfilesList, *bambou.Error) {
+
+	var list MACFilterProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, MACFilterProfileIdentity, &list, info)
+	return list, err
+}
+
+// SAPEgressQoSProfiles retrieves the list of child SAPEgressQoSProfiles of the Gateway
+func (o *Gateway) SAPEgressQoSProfiles(info *bambou.FetchingInfo) (SAPEgressQoSProfilesList, *bambou.Error) {
+
+	var list SAPEgressQoSProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, SAPEgressQoSProfileIdentity, &list, info)
+	return list, err
+}
+
+// SAPIngressQoSProfiles retrieves the list of child SAPIngressQoSProfiles of the Gateway
+func (o *Gateway) SAPIngressQoSProfiles(info *bambou.FetchingInfo) (SAPIngressQoSProfilesList, *bambou.Error) {
+
+	var list SAPIngressQoSProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, SAPIngressQoSProfileIdentity, &list, info)
+	return list, err
+}
+
+// GatewaySecurities retrieves the list of child GatewaySecurities of the Gateway
+func (o *Gateway) GatewaySecurities(info *bambou.FetchingInfo) (GatewaySecuritiesList, *bambou.Error) {
+
+	var list GatewaySecuritiesList
+	err := bambou.CurrentSession().FetchChildren(o, GatewaySecurityIdentity, &list, info)
+	return list, err
+}
+
 // PATNATPools retrieves the list of child PATNATPools of the Gateway
 func (o *Gateway) PATNATPools(info *bambou.FetchingInfo) (PATNATPoolsList, *bambou.Error) {
 
 	var list PATNATPoolsList
 	err := bambou.CurrentSession().FetchChildren(o, PATNATPoolIdentity, &list, info)
+	return list, err
+}
+
+// AssignPATNATPools assigns the list of PATNATPools to the Gateway
+func (o *Gateway) AssignPATNATPools(children PATNATPoolsList) *bambou.Error {
+
+	list := []bambou.Identifiable{}
+	for _, c := range children {
+		list = append(list, c)
+	}
+
+	return bambou.CurrentSession().AssignChildren(o, list, PATNATPoolIdentity)
+}
+
+// DeploymentFailures retrieves the list of child DeploymentFailures of the Gateway
+func (o *Gateway) DeploymentFailures(info *bambou.FetchingInfo) (DeploymentFailuresList, *bambou.Error) {
+
+	var list DeploymentFailuresList
+	err := bambou.CurrentSession().FetchChildren(o, DeploymentFailureIdentity, &list, info)
 	return list, err
 }
 
@@ -171,6 +260,20 @@ func (o *Gateway) CreateMetadata(child *Metadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// EgressProfiles retrieves the list of child EgressProfiles of the Gateway
+func (o *Gateway) EgressProfiles(info *bambou.FetchingInfo) (EgressProfilesList, *bambou.Error) {
+
+	var list EgressProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, EgressProfileIdentity, &list, info)
+	return list, err
+}
+
+// CreateEgressProfile creates a new child EgressProfile under the Gateway
+func (o *Gateway) CreateEgressProfile(child *EgressProfile) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Alarms retrieves the list of child Alarms of the Gateway
 func (o *Gateway) Alarms(info *bambou.FetchingInfo) (AlarmsList, *bambou.Error) {
 
@@ -189,6 +292,28 @@ func (o *Gateway) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasLis
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the Gateway
 func (o *Gateway) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// InfrastructureConfigs retrieves the list of child InfrastructureConfigs of the Gateway
+func (o *Gateway) InfrastructureConfigs(info *bambou.FetchingInfo) (InfrastructureConfigsList, *bambou.Error) {
+
+	var list InfrastructureConfigsList
+	err := bambou.CurrentSession().FetchChildren(o, InfrastructureConfigIdentity, &list, info)
+	return list, err
+}
+
+// IngressProfiles retrieves the list of child IngressProfiles of the Gateway
+func (o *Gateway) IngressProfiles(info *bambou.FetchingInfo) (IngressProfilesList, *bambou.Error) {
+
+	var list IngressProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, IngressProfileIdentity, &list, info)
+	return list, err
+}
+
+// CreateIngressProfile creates a new child IngressProfile under the Gateway
+func (o *Gateway) CreateIngressProfile(child *IngressProfile) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -221,6 +346,36 @@ func (o *Gateway) CreateJob(child *Job) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// Locations retrieves the list of child Locations of the Gateway
+func (o *Gateway) Locations(info *bambou.FetchingInfo) (LocationsList, *bambou.Error) {
+
+	var list LocationsList
+	err := bambou.CurrentSession().FetchChildren(o, LocationIdentity, &list, info)
+	return list, err
+}
+
+// Domains retrieves the list of child Domains of the Gateway
+func (o *Gateway) Domains(info *bambou.FetchingInfo) (DomainsList, *bambou.Error) {
+
+	var list DomainsList
+	err := bambou.CurrentSession().FetchChildren(o, DomainIdentity, &list, info)
+	return list, err
+}
+
+// Bootstraps retrieves the list of child Bootstraps of the Gateway
+func (o *Gateway) Bootstraps(info *bambou.FetchingInfo) (BootstrapsList, *bambou.Error) {
+
+	var list BootstrapsList
+	err := bambou.CurrentSession().FetchChildren(o, BootstrapIdentity, &list, info)
+	return list, err
+}
+
+// CreateBootstrapActivation creates a new child BootstrapActivation under the Gateway
+func (o *Gateway) CreateBootstrapActivation(child *BootstrapActivation) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // Ports retrieves the list of child Ports of the Gateway
 func (o *Gateway) Ports(info *bambou.FetchingInfo) (PortsList, *bambou.Error) {
 
@@ -233,6 +388,30 @@ func (o *Gateway) Ports(info *bambou.FetchingInfo) (PortsList, *bambou.Error) {
 func (o *Gateway) CreatePort(child *Port) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// IPFilterProfiles retrieves the list of child IPFilterProfiles of the Gateway
+func (o *Gateway) IPFilterProfiles(info *bambou.FetchingInfo) (IPFilterProfilesList, *bambou.Error) {
+
+	var list IPFilterProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, IPFilterProfileIdentity, &list, info)
+	return list, err
+}
+
+// IPv6FilterProfiles retrieves the list of child IPv6FilterProfiles of the Gateway
+func (o *Gateway) IPv6FilterProfiles(info *bambou.FetchingInfo) (IPv6FilterProfilesList, *bambou.Error) {
+
+	var list IPv6FilterProfilesList
+	err := bambou.CurrentSession().FetchChildren(o, IPv6FilterProfileIdentity, &list, info)
+	return list, err
+}
+
+// Subnets retrieves the list of child Subnets of the Gateway
+func (o *Gateway) Subnets(info *bambou.FetchingInfo) (SubnetsList, *bambou.Error) {
+
+	var list SubnetsList
+	err := bambou.CurrentSession().FetchChildren(o, SubnetIdentity, &list, info)
+	return list, err
 }
 
 // EventLogs retrieves the list of child EventLogs of the Gateway

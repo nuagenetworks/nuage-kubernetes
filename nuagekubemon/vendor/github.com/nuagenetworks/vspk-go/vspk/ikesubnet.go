@@ -55,15 +55,16 @@ type IKESubnetsParent interface {
 
 // IKESubnet represents the model of a ikesubnet
 type IKESubnet struct {
-	ID                     string `json:"ID,omitempty"`
-	ParentID               string `json:"parentID,omitempty"`
-	ParentType             string `json:"parentType,omitempty"`
-	Owner                  string `json:"owner,omitempty"`
-	LastUpdatedBy          string `json:"lastUpdatedBy,omitempty"`
-	EntityScope            string `json:"entityScope,omitempty"`
-	Prefix                 string `json:"prefix,omitempty"`
-	AssociatedIKEGatewayID string `json:"associatedIKEGatewayID,omitempty"`
-	ExternalID             string `json:"externalID,omitempty"`
+	ID                     string        `json:"ID,omitempty"`
+	ParentID               string        `json:"parentID,omitempty"`
+	ParentType             string        `json:"parentType,omitempty"`
+	Owner                  string        `json:"owner,omitempty"`
+	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
+	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope            string        `json:"entityScope,omitempty"`
+	Prefix                 string        `json:"prefix,omitempty"`
+	AssociatedIKEGatewayID string        `json:"associatedIKEGatewayID,omitempty"`
+	ExternalID             string        `json:"externalID,omitempty"`
 }
 
 // NewIKESubnet returns a new *IKESubnet

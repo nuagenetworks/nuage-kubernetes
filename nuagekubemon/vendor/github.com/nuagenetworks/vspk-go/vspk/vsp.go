@@ -55,17 +55,18 @@ type VSPsParent interface {
 
 // VSP represents the model of a vsp
 type VSP struct {
-	ID             string `json:"ID,omitempty"`
-	ParentID       string `json:"parentID,omitempty"`
-	ParentType     string `json:"parentType,omitempty"`
-	Owner          string `json:"owner,omitempty"`
-	Name           string `json:"name,omitempty"`
-	LastUpdatedBy  string `json:"lastUpdatedBy,omitempty"`
-	Description    string `json:"description,omitempty"`
-	EntityScope    string `json:"entityScope,omitempty"`
-	Location       string `json:"location,omitempty"`
-	ProductVersion string `json:"productVersion,omitempty"`
-	ExternalID     string `json:"externalID,omitempty"`
+	ID               string        `json:"ID,omitempty"`
+	ParentID         string        `json:"parentID,omitempty"`
+	ParentType       string        `json:"parentType,omitempty"`
+	Owner            string        `json:"owner,omitempty"`
+	Name             string        `json:"name,omitempty"`
+	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
+	Description      string        `json:"description,omitempty"`
+	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope      string        `json:"entityScope,omitempty"`
+	Location         string        `json:"location,omitempty"`
+	ProductVersion   string        `json:"productVersion,omitempty"`
+	ExternalID       string        `json:"externalID,omitempty"`
 }
 
 // NewVSP returns a new *VSP
@@ -124,6 +125,20 @@ func (o *VSP) CreateMetadata(child *Metadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// NetconfManagers retrieves the list of child NetconfManagers of the VSP
+func (o *VSP) NetconfManagers(info *bambou.FetchingInfo) (NetconfManagersList, *bambou.Error) {
+
+	var list NetconfManagersList
+	err := bambou.CurrentSession().FetchChildren(o, NetconfManagerIdentity, &list, info)
+	return list, err
+}
+
+// CreateNetconfManager creates a new child NetconfManager under the VSP
+func (o *VSP) CreateNetconfManager(child *NetconfManager) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // GlobalMetadatas retrieves the list of child GlobalMetadatas of the VSP
 func (o *VSP) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
 
@@ -151,14 +166,6 @@ func (o *VSP) VSCs(info *bambou.FetchingInfo) (VSCsList, *bambou.Error) {
 
 	var list VSCsList
 	err := bambou.CurrentSession().FetchChildren(o, VSCIdentity, &list, info)
-	return list, err
-}
-
-// VSDs retrieves the list of child VSDs of the VSP
-func (o *VSP) VSDs(info *bambou.FetchingInfo) (VSDsList, *bambou.Error) {
-
-	var list VSDsList
-	err := bambou.CurrentSession().FetchChildren(o, VSDIdentity, &list, info)
 	return list, err
 }
 

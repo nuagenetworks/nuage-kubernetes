@@ -55,30 +55,41 @@ type LicenseStatusParent interface {
 
 // LicenseStatus represents the model of a licensestatus
 type LicenseStatus struct {
-	ID                          string `json:"ID,omitempty"`
-	ParentID                    string `json:"parentID,omitempty"`
-	ParentType                  string `json:"parentType,omitempty"`
-	Owner                       string `json:"owner,omitempty"`
-	AccumulateLicensesEnabled   string `json:"accumulateLicensesEnabled,omitempty"`
-	TotalLicensedGatewaysCount  int    `json:"totalLicensedGatewaysCount,omitempty"`
-	TotalLicensedNICsCount      int    `json:"totalLicensedNICsCount,omitempty"`
-	TotalLicensedNSGsCount      int    `json:"totalLicensedNSGsCount,omitempty"`
-	TotalLicensedUsedNICsCount  int    `json:"totalLicensedUsedNICsCount,omitempty"`
-	TotalLicensedUsedNSGsCount  int    `json:"totalLicensedUsedNSGsCount,omitempty"`
-	TotalLicensedUsedVMsCount   int    `json:"totalLicensedUsedVMsCount,omitempty"`
-	TotalLicensedUsedVRSGsCount int    `json:"totalLicensedUsedVRSGsCount,omitempty"`
-	TotalLicensedUsedVRSsCount  int    `json:"totalLicensedUsedVRSsCount,omitempty"`
-	TotalLicensedVMsCount       int    `json:"totalLicensedVMsCount,omitempty"`
-	TotalLicensedVRSGsCount     int    `json:"totalLicensedVRSGsCount,omitempty"`
-	TotalLicensedVRSsCount      int    `json:"totalLicensedVRSsCount,omitempty"`
-	TotalUsedGatewaysCount      int    `json:"totalUsedGatewaysCount,omitempty"`
+	ID                           string        `json:"ID,omitempty"`
+	ParentID                     string        `json:"parentID,omitempty"`
+	ParentType                   string        `json:"parentType,omitempty"`
+	Owner                        string        `json:"owner,omitempty"`
+	AccumulateLicensesEnabled    bool          `json:"accumulateLicensesEnabled"`
+	EmbeddedMetadata             []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope                  string        `json:"entityScope,omitempty"`
+	TotalLicensedAVRSGsCount     int           `json:"totalLicensedAVRSGsCount,omitempty"`
+	TotalLicensedAVRSsCount      int           `json:"totalLicensedAVRSsCount,omitempty"`
+	TotalLicensedGatewaysCount   int           `json:"totalLicensedGatewaysCount,omitempty"`
+	TotalLicensedNICsCount       int           `json:"totalLicensedNICsCount,omitempty"`
+	TotalLicensedNSGsCount       int           `json:"totalLicensedNSGsCount,omitempty"`
+	TotalLicensedUsedAVRSGsCount int           `json:"totalLicensedUsedAVRSGsCount,omitempty"`
+	TotalLicensedUsedAVRSsCount  int           `json:"totalLicensedUsedAVRSsCount,omitempty"`
+	TotalLicensedUsedNICsCount   int           `json:"totalLicensedUsedNICsCount,omitempty"`
+	TotalLicensedUsedNSGsCount   int           `json:"totalLicensedUsedNSGsCount,omitempty"`
+	TotalLicensedUsedVDFGsCount  int           `json:"totalLicensedUsedVDFGsCount,omitempty"`
+	TotalLicensedUsedVDFsCount   int           `json:"totalLicensedUsedVDFsCount,omitempty"`
+	TotalLicensedUsedVMsCount    int           `json:"totalLicensedUsedVMsCount,omitempty"`
+	TotalLicensedUsedVRSGsCount  int           `json:"totalLicensedUsedVRSGsCount,omitempty"`
+	TotalLicensedUsedVRSsCount   int           `json:"totalLicensedUsedVRSsCount,omitempty"`
+	TotalLicensedVDFGsCount      int           `json:"totalLicensedVDFGsCount,omitempty"`
+	TotalLicensedVDFsCount       int           `json:"totalLicensedVDFsCount,omitempty"`
+	TotalLicensedVMsCount        int           `json:"totalLicensedVMsCount,omitempty"`
+	TotalLicensedVRSGsCount      int           `json:"totalLicensedVRSGsCount,omitempty"`
+	TotalLicensedVRSsCount       int           `json:"totalLicensedVRSsCount,omitempty"`
+	TotalUsedGatewaysCount       int           `json:"totalUsedGatewaysCount,omitempty"`
+	ExternalID                   string        `json:"externalID,omitempty"`
 }
 
 // NewLicenseStatus returns a new *LicenseStatus
 func NewLicenseStatus() *LicenseStatus {
 
 	return &LicenseStatus{
-		AccumulateLicensesEnabled: "false",
+		AccumulateLicensesEnabled: false,
 	}
 }
 
@@ -116,4 +127,32 @@ func (o *LicenseStatus) Save() *bambou.Error {
 func (o *LicenseStatus) Delete() *bambou.Error {
 
 	return bambou.CurrentSession().DeleteEntity(o)
+}
+
+// Metadatas retrieves the list of child Metadatas of the LicenseStatus
+func (o *LicenseStatus) Metadatas(info *bambou.FetchingInfo) (MetadatasList, *bambou.Error) {
+
+	var list MetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, MetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateMetadata creates a new child Metadata under the LicenseStatus
+func (o *LicenseStatus) CreateMetadata(child *Metadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// GlobalMetadatas retrieves the list of child GlobalMetadatas of the LicenseStatus
+func (o *LicenseStatus) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, *bambou.Error) {
+
+	var list GlobalMetadatasList
+	err := bambou.CurrentSession().FetchChildren(o, GlobalMetadataIdentity, &list, info)
+	return list, err
+}
+
+// CreateGlobalMetadata creates a new child GlobalMetadata under the LicenseStatus
+func (o *LicenseStatus) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
 }

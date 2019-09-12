@@ -55,22 +55,23 @@ type LinksParent interface {
 
 // Link represents the model of a link
 type Link struct {
-	ID                        string `json:"ID,omitempty"`
-	ParentID                  string `json:"parentID,omitempty"`
-	ParentType                string `json:"parentType,omitempty"`
-	Owner                     string `json:"owner,omitempty"`
-	LastUpdatedBy             string `json:"lastUpdatedBy,omitempty"`
-	AcceptanceCriteria        string `json:"acceptanceCriteria,omitempty"`
-	ReadOnly                  bool   `json:"readOnly"`
-	EntityScope               string `json:"entityScope,omitempty"`
-	AssociatedDestinationID   string `json:"associatedDestinationID,omitempty"`
-	AssociatedDestinationName string `json:"associatedDestinationName,omitempty"`
-	AssociatedDestinationType string `json:"associatedDestinationType,omitempty"`
-	AssociatedSourceID        string `json:"associatedSourceID,omitempty"`
-	AssociatedSourceName      string `json:"associatedSourceName,omitempty"`
-	AssociatedSourceType      string `json:"associatedSourceType,omitempty"`
-	ExternalID                string `json:"externalID,omitempty"`
-	Type                      string `json:"type,omitempty"`
+	ID                        string        `json:"ID,omitempty"`
+	ParentID                  string        `json:"parentID,omitempty"`
+	ParentType                string        `json:"parentType,omitempty"`
+	Owner                     string        `json:"owner,omitempty"`
+	LastUpdatedBy             string        `json:"lastUpdatedBy,omitempty"`
+	AcceptanceCriteria        string        `json:"acceptanceCriteria,omitempty"`
+	ReadOnly                  bool          `json:"readOnly"`
+	EmbeddedMetadata          []interface{} `json:"embeddedMetadata,omitempty"`
+	EntityScope               string        `json:"entityScope,omitempty"`
+	AssociatedDestinationID   string        `json:"associatedDestinationID,omitempty"`
+	AssociatedDestinationName string        `json:"associatedDestinationName,omitempty"`
+	AssociatedDestinationType string        `json:"associatedDestinationType,omitempty"`
+	AssociatedSourceID        string        `json:"associatedSourceID,omitempty"`
+	AssociatedSourceName      string        `json:"associatedSourceName,omitempty"`
+	AssociatedSourceType      string        `json:"associatedSourceType,omitempty"`
+	ExternalID                string        `json:"externalID,omitempty"`
+	Type                      string        `json:"type,omitempty"`
 }
 
 // NewLink returns a new *Link
@@ -145,16 +146,16 @@ func (o *Link) CreateMetadata(child *Metadata) *bambou.Error {
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
-// NextHopAddress retrieves the list of child NextHopAddress of the Link
-func (o *Link) NextHopAddress(info *bambou.FetchingInfo) (NextHopAddressList, *bambou.Error) {
+// NextHops retrieves the list of child NextHops of the Link
+func (o *Link) NextHops(info *bambou.FetchingInfo) (NextHopsList, *bambou.Error) {
 
-	var list NextHopAddressList
-	err := bambou.CurrentSession().FetchChildren(o, NextHopAddressIdentity, &list, info)
+	var list NextHopsList
+	err := bambou.CurrentSession().FetchChildren(o, NextHopIdentity, &list, info)
 	return list, err
 }
 
-// CreateNextHopAddress creates a new child NextHopAddress under the Link
-func (o *Link) CreateNextHopAddress(child *NextHopAddress) *bambou.Error {
+// CreateNextHop creates a new child NextHop under the Link
+func (o *Link) CreateNextHop(child *NextHop) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
@@ -169,6 +170,48 @@ func (o *Link) GlobalMetadatas(info *bambou.FetchingInfo) (GlobalMetadatasList, 
 
 // CreateGlobalMetadata creates a new child GlobalMetadata under the Link
 func (o *Link) CreateGlobalMetadata(child *GlobalMetadata) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// PolicyStatements retrieves the list of child PolicyStatements of the Link
+func (o *Link) PolicyStatements(info *bambou.FetchingInfo) (PolicyStatementsList, *bambou.Error) {
+
+	var list PolicyStatementsList
+	err := bambou.CurrentSession().FetchChildren(o, PolicyStatementIdentity, &list, info)
+	return list, err
+}
+
+// CreatePolicyStatement creates a new child PolicyStatement under the Link
+func (o *Link) CreatePolicyStatement(child *PolicyStatement) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// CSNATPools retrieves the list of child CSNATPools of the Link
+func (o *Link) CSNATPools(info *bambou.FetchingInfo) (CSNATPoolsList, *bambou.Error) {
+
+	var list CSNATPoolsList
+	err := bambou.CurrentSession().FetchChildren(o, CSNATPoolIdentity, &list, info)
+	return list, err
+}
+
+// CreateCSNATPool creates a new child CSNATPool under the Link
+func (o *Link) CreateCSNATPool(child *CSNATPool) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
+// PSNATPools retrieves the list of child PSNATPools of the Link
+func (o *Link) PSNATPools(info *bambou.FetchingInfo) (PSNATPoolsList, *bambou.Error) {
+
+	var list PSNATPoolsList
+	err := bambou.CurrentSession().FetchChildren(o, PSNATPoolIdentity, &list, info)
+	return list, err
+}
+
+// CreatePSNATPool creates a new child PSNATPool under the Link
+func (o *Link) CreatePSNATPool(child *PSNATPool) *bambou.Error {
 
 	return bambou.CurrentSession().CreateChild(o, child)
 }
