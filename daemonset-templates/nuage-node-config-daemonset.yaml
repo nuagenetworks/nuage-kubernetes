@@ -21,9 +21,9 @@ data:
       # Bridge name for the docker bridge
       dockerBridgeName: docker0
       # Certificate for connecting to the kubemon REST API
-      nuageMonClientCert: /var/lib/kubelet/pki/kubelet-client.crt
+      nuageMonClientCert: /var/lib/kubelet/pki/kubelet-client-current.pem
       # Key to the certificate in restClientCert
-      nuageMonClientKey: /var/lib/kubelet/pki/kubelet-client.key
+      nuageMonClientKey: /var/lib/kubelet/pki/kubelet-client-current.pem
       # CA certificate for verifying the master's rest server
       nuageMonServerCA: /etc/kubernetes/pki/ca.crt
       # Nuage vport mtu size
