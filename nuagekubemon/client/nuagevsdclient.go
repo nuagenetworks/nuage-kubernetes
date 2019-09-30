@@ -139,7 +139,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 
 func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile string) {
 
-	cert, err := tls.LoadX509KeyPair(userCertFile, userKeyFile)
+	cert, err := tls.X509KeyPair([]byte(userCertFile), []byte(userKeyFile))
 	if err != nil {
 		glog.Errorf("Error loading VSD generated certificates to authenticate with VSD %s", err)
 	}

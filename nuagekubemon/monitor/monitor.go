@@ -24,14 +24,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/client"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
+
+	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/client"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 )
 
 type NuageKubeMonitor struct {
@@ -111,12 +112,6 @@ func (nkm *NuageKubeMonitor) Run() {
 	if err := nkm.LoadConfig(); err != nil {
 		glog.Fatalf("Error reading config file %s! Error: %v\n",
 			nkm.mConfig.ConfigFile, err)
-	}
-	if nkm.mConfig.KubeConfigFile == "" {
-		glog.Error(fmt.Sprintf("No valid kubeconfig file specified...%s cannot continue.", programName))
-		glog.Error(fmt.Sprintf("Please restart %s after specifying a valid kubeconfig path either in the config file or as a command line parameter",
-			programName))
-		return
 	}
 
 	if len(nkm.mConfig.MasterConfig.NetworkConfig.ClusterNetworks) == 0 {
