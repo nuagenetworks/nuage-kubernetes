@@ -14,7 +14,7 @@ data:
       # URL of the VSD Architect
       vsdApiUrl: https://xmpp.example.com:7443
       # API version to query against
-      vspVersion: v5_0
+      vspVersion: v6
       # Name of the enterprise in which pods will reside
       enterpriseName: kubernetes
       # Name of the domain in which pods will reside
@@ -39,16 +39,16 @@ data:
       nuageMonServer:
           URL: 0.0.0.0:9443
           certificateDirectory: /etc/kubernetes/pki
-          clientCA: ""
-          serverCertificate: ""
-          serverKey: ""
+          clientCA: /etc/kubernetes/pki/ca.crt
+          serverCertificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+          serverKey: /etc/kubernetes/pki/apiserver-kubelet-client.key
       # etcd config required for HA
       etcdClientConfig:
-          ca: ""
-          certFile: ""
-          keyFile: ""
+          ca: /etc/kubernetes/pki/etcd/ca.crt
+          certFile: /etc/kubernetes/pki/etcd/peer.crt
+          keyFile: /etc/kubernetes/pki/etcd/peer.key
           urls:
-             - http://127.0.0.1:2379
+             - https://127.0.0.1:2379
       # auto scale subnets feature
       # 0 => disabled(default) 
       # 1 => enabled
@@ -86,14 +86,23 @@ spec:
     metadata:
       labels:
         k8s-app: nuage-master-monitor-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
-      hostNetwork: true
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+        install-monitor: "true"
       tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
           operator: Exists
-      nodeSelector:
-        install-monitor: "true"
+      hostNetwork: true
       containers:
         # This container configures Nuage Master node
         - name: install-nuage-master-config
