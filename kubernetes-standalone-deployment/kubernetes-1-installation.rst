@@ -178,7 +178,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
           # URL of the VSD Architect
           vsdApiUrl: https://xmpp.example.com:7443                    <--- Set this to the VSD IP or hostname for the cluster
           # API version to query against
-          vspVersion: v5_0
+          vspVersion: v6_0
           # Name of the enterprise in which pods will reside
           enterpriseName: kubernetes
           #Enable Underlay Support for this domain on VSD. 1 => enabled, 0 => disabled(default)
@@ -211,11 +211,11 @@ Make sure to set the etcd config correctly if there is an external etcd cluster.
 
           # etcd config required for HA
           etcdClientConfig:
-              ca: ""
-              certFile: ""
-              keyFile: ""
+              ca: /etc/kubernetes/pki/etcd/ca.crt
+              certFile: /etc/kubernetes/pki/etcd/peer.crt
+              keyFile: /etc/kubernetes/pki/etcd/peer.key
               urls:
-                 - http://127.0.0.1:2379
+                 - https://127.0.0.1:2379
 
 Set the parameter to 1 in order to allow nuagekubemon to automagically create a new subnet when the existing subnet gets depleted. Threshold for new subnet creation is set to 70% namespace/zone allocation. It will also delete additional subnets if the namespace usage falls below 25%
 
@@ -230,9 +230,12 @@ Set the parameter to 1 in order to allow nuagekubemon to automagically create a 
           # on master nodes
           net_yaml_config: |
               networkConfig:
-                clusterNetworkCIDR: 70.70.0.0/16
+                clusterNetworks:
+                  # hostSubnetLength is the size of the subnets
+                  # created on VSD
+                  - cidr: 70.70.0.0/16
+                    hostSubnetLength: 8
                 serviceNetworkCIDR: 192.168.0.0/16
-                hostSubnetLength: 8
 
 Make sure the **image** parameter is correctly set to the Nuage monitor docker images version pre-loaded on master nodes:
 
