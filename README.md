@@ -26,15 +26,15 @@ Follow this release pattern and you can't go wrong:
  |      5.3.2/3           |  HA 1.9.0/Standalone 1.9.3 |        tags/v5.3.2-1       |
  |      5.4.1             |         1.10.11            |        tags/v5.4.1-1       |
  |      6.0.1             |         1.10.11            |        tags/v6.0.1-1       |
+ |      6.0.2             |         1.10.11            |        tags/v6.0.2-1       |
+ |      6.0.3             |         1.14.*             |        tags/v6.0.3-1       |
  
  ..Note: Because of a known issue with the Nuage 5.2.1 integration with Kubernetes 1.9, node port functionality on master nodes is currently not supported, node ports on slave nodes are supported.
  
  Kubernetes-version implies version of kubeadm, kubelet and kubectl componenets. In case, you want to install a particular kubernetes release, you can do
- `yum install -y kubeadm-1.6.6 kubelet-1.6.6 kubectl-1.6.6 docker kubernetes-cni`
+ `yum install -y kubeadm-1.14.4 kubelet-1.14.4 kubectl-1.14.4 docker kubernetes-cni`
  
  This should install the required version of kubernetes components along with the required version of docker.
- 
- ..Note: Ansible version supported is 2.3.0.0 for Nuage ansible playbook with Kubernetes
 
 # nuage-openshift
  
@@ -52,6 +52,8 @@ Follow the below table for Nuage-Openshift on RHEL server:
  |      5.3.3             |         3.7.9              |
  |      5.4.1             |         3.11.*             |
  |      6.0.1             |         3.11.*             |
+ |      6.0.2             |         3.11.*             |
+ |      6.0.3             |         3.11.*             |
  
 Follow the below table for Nuage-Openshift on RHEL Atomic host:
  
