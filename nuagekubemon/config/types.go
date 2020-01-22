@@ -19,10 +19,11 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
 	"os"
 	"path"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 type NuageKubeMonConfig struct {
@@ -48,11 +49,14 @@ type NuageKubeMonConfig struct {
 }
 
 type RestServerConfig struct {
-	Url                  string `yaml:"URL"`
-	CertificateDirectory string `yaml:"certificateDirectory"`
-	ClientCA             string `yaml:"clientCA"`
-	ServerCertificate    string `yaml:"serverCertificate"`
-	ServerKey            string `yaml:"serverKey"`
+	Url                   string `yaml:"URL"`
+	CertificateDirectory  string `yaml:"certificateDirectory"`
+	ClientCA              string `yaml:"clientCA"`
+	ServerCertificate     string `yaml:"serverCertificate"`
+	ServerKey             string `yaml:"serverKey"`
+	ClientCAData          string `yaml:"clientCAData"`
+	ServerCertificateData string `yaml:"serverCertificateData"`
+	ServerKeyData         string `yaml:"serverKeyData"`
 }
 
 type networkConfig struct {
