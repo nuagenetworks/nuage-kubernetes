@@ -16,7 +16,7 @@
 
 */
 
-package client
+package subnet
 
 import (
 	"errors"
@@ -150,7 +150,7 @@ func (a *IPv4Subnet) Compare(b *IPv4Subnet) int {
 		return n
 	}
 	aNetmask := a.Netmask().ToUint()
-	bNetmask :=b.Netmask().ToUint()
+	bNetmask := b.Netmask().ToUint()
 	aAddr := a.Address.ToUint()
 	bAddr := b.Address.ToUint()
 	// Compare only significant bits by &-ing the addresses with the netmask

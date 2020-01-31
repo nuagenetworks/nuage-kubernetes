@@ -11,6 +11,7 @@ const (
 	Subnet       EndPointType = "SUBNET"
 	PolicyGroup  EndPointType = "POLICYGROUP"
 	EndPointZone EndPointType = "ENDPOINT_ZONE"
+	NetworkMacro EndPointType = "NETWORKMACRO"
 	Invalid      EndPointType = "INVALID"
 )
 
@@ -51,8 +52,9 @@ type Protocol int
 
 // Types of network protocols
 const (
-	TCP Protocol = 6
-	UDP Protocol = 17
+	TCP             Protocol = 6
+	UDP             Protocol = 17
+	UnknownProtocol Protocol = -1
 )
 
 func (protocol Protocol) String() string {

@@ -35,8 +35,10 @@ import (
 	"github.com/jmcvetta/napping"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
+	xlateApi "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/apis/translate"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/sleepy"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/policy"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
+	xlate "github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/translator"
 	"github.com/nuagenetworks/vspk-go/vspk"
 )
 
@@ -49,9 +51,9 @@ type NuageVsdClient struct {
 	namespaces                         map[string]NamespaceData //namespace name -> namespace data
 	services                           map[string]ServiceData   //namespance name -> service data
 	pods                               *PodList                 //<namespace>/<pod-name> -> subnet
-	pool                               IPv4SubnetPool
-	clusterNetwork                     *IPv4Subnet //clusterNetworkCIDR used to generate pool
-	serviceNetwork                     *IPv4Subnet
+	pool                               subnet.IPv4SubnetPool
+	clusterNetwork                     *subnet.IPv4Subnet //clusterNetworkCIDR used to generate pool
+	serviceNetwork                     *subnet.IPv4Subnet
 	ingressAclTemplateID               string
 	egressAclTemplateID                string
 	ingressAclTemplateZoneAnnotationID string
@@ -62,7 +64,7 @@ type NuageVsdClient struct {
 	restServer                         *http.Server
 	podChannel                         chan *api.PodEvent //list of namespaces that need new subnets
 	privilegedProjectNames             []string
-	resourceManager                    *policy.ResourceManager
+	resourceManager                    *xlate.ResourceManager
 	etcdChannel                        chan *api.EtcdEvent
 	externalID                         string //unique id to be attached with each object created by monitor
 	encryptionEnabled                  bool
@@ -85,7 +87,7 @@ type ServiceData struct {
 
 type SubnetNode struct {
 	SubnetID   string
-	Subnet     *IPv4Subnet
+	Subnet     *subnet.IPv4Subnet
 	SubnetName string
 	ActiveIPs  int //Number of IP addresses that are accounted for in this subnet.
 	Next       *SubnetNode
@@ -167,11 +169,14 @@ func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile stri
 }
 
 func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterCallBacks *api.ClusterClientCallBacks, etcdChannel chan *api.EtcdEvent) {
-	cb := &policy.CallBacks{
-		AddPg:             nvsdc.CreatePolicyGroup,
-		DeletePg:          nvsdc.DeletePolicyGroup,
-		AddPortsToPg:      nvsdc.AddPodsToPolicyGroup,
-		DeletePortsFromPg: nvsdc.RemovePortsFromPolicyGroup,
+	cb := &xlateApi.CallBacks{
+		GetEnterprise:      nvsdc.GetEnterpriseID,
+		AddPg:              nvsdc.CreatePolicyGroup,
+		DeletePg:           nvsdc.DeletePolicyGroup,
+		AddPortsToPg:       nvsdc.AddPodsToPolicyGroup,
+		DeletePortsFromPg:  nvsdc.RemovePortsFromPolicyGroup,
+		AddNetworkMacro:    nvsdc.CreateNetworkMacro,
+		DeleteNetworkMacro: nvsdc.DeleteNetworkMacro,
 	}
 	var err error
 	nvsdc.version = nkmConfig.NuageVspVersion
@@ -179,11 +184,11 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.etcdChannel = etcdChannel
 	nvsdc.url = nkmConfig.NuageVsdApiUrl + "/nuage/api/" + nvsdc.version + "/"
 	nvsdc.privilegedProjectNames = nkmConfig.PrivilegedProject
-	nvsdc.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
+	nvsdc.clusterNetwork, err = subnet.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting cluster CIDR: %s\n", err)
 	}
-	nvsdc.serviceNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ServiceCIDR)
+	nvsdc.serviceNetwork, err = subnet.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ServiceCIDR)
 	if err != nil {
 		glog.Fatalf("Failure in getting service CIDR: %s\n", err)
 	}
@@ -225,13 +230,14 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	nvsdc.podChannel = make(chan *api.PodEvent)
 
 	//initialize the resource manager
-	vsdMeta := make(policy.VsdMetaData)
+	vsdMeta := make(xlateApi.VSDMetaData)
 	vsdMeta["domainName"] = nkmConfig.DomainName
 	vsdMeta["enterpriseName"] = nkmConfig.EnterpriseName
 	vsdMeta["vsdUrl"] = nkmConfig.NuageVsdApiUrl
 	vsdMeta["usercertfile"] = nkmConfig.UserCertificateFile
 	vsdMeta["userkeyfile"] = nkmConfig.UserKeyFile
-	rm, err := policy.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
+	vsdMeta["externalID"] = nvsdc.externalID
+	rm, err := xlate.NewResourceManager(cb, clusterCallBacks, &vsdMeta)
 	if err != nil {
 		glog.Error("Failed to initialize the resource manager properly")
 	} else {
@@ -588,7 +594,7 @@ func (nvsdc *NuageVsdClient) CreateIngressAclEntries(statsLogging string) error 
 		Netmask:    nvsdc.serviceNetwork.Netmask().String(),
 		ExternalID: nvsdc.externalID,
 	}
-	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
+	networkMacroID, err := nvsdc.CreateNetworkMacro(networkMacro)
 	if err != nil {
 		glog.Error("Error when creating the network macro for service CIDR")
 	} else {
@@ -652,7 +658,7 @@ func (nvsdc *NuageVsdClient) CreateEgressAclEntries(statsLogging string) error {
 		Netmask:    nvsdc.serviceNetwork.Netmask().String(),
 		ExternalID: nvsdc.externalID,
 	}
-	networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
+	networkMacroID, err := nvsdc.CreateNetworkMacro(networkMacro)
 	if err != nil {
 		glog.Error("Error when creating the network macro for service CIDR")
 	} else {
@@ -1040,6 +1046,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 
 func (nvsdc *NuageVsdClient) CreateDomain(enterpriseID, domainTemplateID, name string) (string, error) {
 	result := make([]api.VsdDomain, 1)
+
 	payload := api.VsdDomain{
 		Name:            name,
 		Description:     "Auto-generated domain",
@@ -1151,7 +1158,7 @@ func (nvsdc *NuageVsdClient) DeleteZone(id string) error {
 	}
 }
 
-func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *IPv4Subnet) (string, error) {
+func (nvsdc *NuageVsdClient) CreateSubnet(name, zoneID string, subnet *subnet.IPv4Subnet) (string, error) {
 	result := make([]api.VsdSubnet, 1)
 	payload := api.VsdSubnet{
 		IPType:          "IPV4",
@@ -1790,7 +1797,7 @@ func (nvsdc *NuageVsdClient) audit() {
 }
 
 func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, namespace *NamespaceData) error {
-	var subnet *IPv4Subnet
+	var subnet *subnet.IPv4Subnet
 	var err error
 
 	for {
@@ -1909,7 +1916,7 @@ func (nvsdc *NuageVsdClient) HandlePodDelEvent(podEvent *api.PodEvent) error {
 					continue
 				}
 				//release cidr from local pool
-				subnet, err := IPv4SubnetFromString(subnetInfo.CIDR)
+				subnet, err := subnet.IPv4SubnetFromString(subnetInfo.CIDR)
 				if err != nil {
 					glog.Errorf("subnet cidr from string(%s) failed: %v", subnetInfo.CIDR, err)
 					continue
@@ -2012,7 +2019,7 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 			Netmask:    "255.255.255.255",
 			ExternalID: nvsdc.externalID,
 		}
-		networkMacroID, err := nvsdc.CreateNetworkMacro(nvsdc.enterpriseID, networkMacro)
+		networkMacroID, err := nvsdc.CreateNetworkMacro(networkMacro)
 		if err != nil {
 			glog.Error("Error when creating the network macro for service", serviceEvent)
 		} else {
@@ -2083,7 +2090,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			}
 			namespace.ZoneID = zoneID
 			nvsdc.namespaces[nsEvent.Name] = namespace
-			var subnet *IPv4Subnet
+			var subnet *subnet.IPv4Subnet
 			// now create a default sunbet for this zone
 			subnetName := nsEvent.Name + "-0"
 			for {
@@ -2192,7 +2199,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				glog.Errorf("deleting zone(%s) in etcd failed: %v", zoneInfo.Name)
 			}
 
-			if ipv4subnet, err := IPv4SubnetFromString(etcdSubnet.CIDR); err != nil {
+			if ipv4subnet, err := subnet.IPv4SubnetFromString(etcdSubnet.CIDR); err != nil {
 				glog.Errorf("converting cidr %s to ipv4 subnet failed: %v", etcdSubnet.CIDR, err)
 			} else {
 				err = nvsdc.pool.Free(ipv4subnet)
@@ -2556,10 +2563,10 @@ func (nvsdc *NuageVsdClient) DeletePrivilegedZoneAcls(zoneName, zoneID string) e
 	return nil
 }
 
-func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacro *api.VsdNetworkMacro) (string, error) {
+func (nvsdc *NuageVsdClient) CreateNetworkMacro(networkMacro *api.VsdNetworkMacro) (string, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/enterprisenetworks" + "?responseChoice=1"
+	reqUrl := nvsdc.url + "enterprises/" + nvsdc.enterpriseID + "/enterprisenetworks" + "?responseChoice=1"
 	resp, err := nvsdc.session.Post(reqUrl, networkMacro, &result, &e)
 	logPOSTRequest(reqUrl, networkMacro)
 	logPOSTResponse(resp, &e)
@@ -2573,7 +2580,7 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacr
 		return result[0].ID, nil
 	case http.StatusConflict:
 		//Network Macro already exists, call Get to retrieve the ID
-		fetchedNetworkMacro, err := nvsdc.GetNetworkMacro(enterpriseID, networkMacro.Name)
+		fetchedNetworkMacro, err := nvsdc.GetNetworkMacro(networkMacro.Name)
 		if err != nil {
 			glog.Errorf("Error when getting network macro ID: %v - %v", networkMacro, err)
 			return "", err
@@ -2595,12 +2602,12 @@ func (nvsdc *NuageVsdClient) CreateNetworkMacro(enterpriseID string, networkMacr
 	}
 }
 
-func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroName string) (*api.VsdNetworkMacro, error) {
+func (nvsdc *NuageVsdClient) GetNetworkMacro(networkMacroName string) (*api.VsdNetworkMacro, error) {
 	result := make([]api.VsdNetworkMacro, 1)
 	h := nvsdc.session.Header
 	h.Add("X-Nuage-Filter", `name == "`+networkMacroName+`"`)
 	e := api.RESTError{}
-	reqUrl := nvsdc.url + "enterprises/" + enterpriseID + "/enterprisenetworks"
+	reqUrl := nvsdc.url + "enterprises/" + nvsdc.enterpriseID + "/enterprisenetworks"
 	var params *url.Values
 	resp, err := nvsdc.session.Get(reqUrl, params, &result, &e)
 	logGETRequest(reqUrl, params)
@@ -2630,8 +2637,8 @@ func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroNa
 	}
 }
 
-func (nvsdc *NuageVsdClient) GetNetworkMacroID(enterpriseID string, networkMacroName string) (string, error) {
-	if networkMacro, err := nvsdc.GetNetworkMacro(enterpriseID, networkMacroName); networkMacro != nil {
+func (nvsdc *NuageVsdClient) GetNetworkMacroID(networkMacroName string) (string, error) {
+	if networkMacro, err := nvsdc.GetNetworkMacro(networkMacroName); networkMacro != nil {
 		return networkMacro.ID, err
 	} else {
 		return "", err

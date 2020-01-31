@@ -2,8 +2,9 @@ package policies
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 // PolicyType identifies the type of policy
@@ -105,6 +106,8 @@ func ConvertPolicyEndPointStringToEndPointType(endPointTypeString string) (EndPo
 		return EndPointZone, nil
 	case "ENDPOINTZONE":
 		return EndPointZone, nil
+	case "NETWORKMACRO":
+		return NetworkMacro, nil
 	}
 
 	return Invalid, fmt.Errorf(fmt.Sprintf("Invalid endpoint type %s %s", endPointTypeString, endptTypeStr))

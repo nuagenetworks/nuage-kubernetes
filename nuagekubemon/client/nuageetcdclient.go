@@ -27,6 +27,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/subnet"
 	"io/ioutil"
 	"path"
 	"strconv"
@@ -59,7 +60,7 @@ type NuageEtcdClient struct {
 	subnetSize        int
 	subnetIDCache     map[string]string
 	client            *clientv3.Client
-	clusterNetwork    *IPv4Subnet
+	clusterNetwork    *subnet.IPv4Subnet
 }
 
 //NewNuageEtcdClient creates a new etcd client
@@ -80,7 +81,7 @@ func (nuageetcd *NuageEtcdClient) Init(nkmConfig *config.NuageKubeMonConfig) err
 	if len(nuageetcd.etcdBaseURL) == 0 {
 		nuageetcd.etcdBaseURL = []string{"http://127.0.0.1:2379"}
 	}
-	nuageetcd.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
+	nuageetcd.clusterNetwork, err = subnet.IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
 		return fmt.Errorf("Failure in getting cluster CIDR: %s\n", err)
 	}
