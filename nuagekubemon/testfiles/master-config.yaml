@@ -74,9 +74,10 @@ masterClients:
   openshiftLoopbackKubeConfig: openshift-master.kubeconfig
 masterPublicURL: https://192.168.122.10:8443
 networkConfig:
-  clusterNetworkCIDR: 172.30.0.0/16
-  hostSubnetLength: 8
-  networkPluginName: redhat/openshift-ovs-subnet
+  clusterNetworks:
+    - cidr: 70.70.0.0/16
+      hostSubnetLength: 8
+  serviceNetworkCIDR: 10.96.0.0/12
 oauthConfig:
   assetPublicURL: https://192.168.122.10:8443/console/
   grantConfig:

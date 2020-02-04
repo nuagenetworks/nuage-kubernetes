@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -85,21 +84,24 @@ var runtimeFields = map[string]bool{
 // errString value.
 const errString = "???"
 
-// getShortFuncName generates short function name.
-func getShortFuncName(fname string) string {
-	fns := strings.Split(fname, ".")
-	return fns[len(fns)-1]
-}
-
 // genRuntime generates the runtime information, including pathname, function
 // name, filename, line number.
-func (r *record) genRuntime() {
-	calldepth := 4
+func genRuntime(r *record) {
+	calldepth := 5
 	pc, file, line, ok := runtime.Caller(calldepth)
 	if ok {
+		// Generate short function name
 		fname := runtime.FuncForPC(pc).Name()
+		fshort := fname
+		for i := len(fname) - 1; i > 0; i-- {
+			if fname[i] == '.' {
+				fshort = fname[i+1:]
+				break
+			}
+		}
+
 		r.pathname = file
-		r.funcname = getShortFuncName(fname)
+		r.funcname = fshort
 		r.filename = path.Base(file)
 		r.lineno = line
 	} else {
@@ -113,13 +115,6 @@ func (r *record) genRuntime() {
 	}
 }
 
-// genNonRuntime generates the non-runtime information, including sequential
-// id and time.
-func (r *record) genNonRuntime(logger *Logger) {
-	r.seqid = atomic.AddUint64(&(logger.seqid), 1)
-	r.time = time.Now()
-}
-
 // Logger name
 func (logger *Logger) lname(r *record) interface{} {
 	return logger.name
@@ -127,6 +122,9 @@ func (logger *Logger) lname(r *record) interface{} {
 
 // Next sequence number
 func (logger *Logger) nextSeqid(r *record) interface{} {
+	if r.seqid == 0 {
+		r.seqid = atomic.AddUint64(&(logger.seqid), 1)
+	}
 	return r.seqid
 }
 
@@ -142,11 +140,17 @@ func (logger *Logger) levelname(r *record) interface{} {
 
 // File name of calling logger, with whole path
 func (logger *Logger) pathname(r *record) interface{} {
+	if r.pathname == "" {
+		genRuntime(r)
+	}
 	return r.pathname
 }
 
 // File name of calling logger
 func (logger *Logger) filename(r *record) interface{} {
+	if r.filename == "" {
+		genRuntime(r)
+	}
 	return r.filename
 }
 
@@ -158,11 +162,17 @@ func (logger *Logger) module(r *record) interface{} {
 
 // Line number
 func (logger *Logger) lineno(r *record) interface{} {
+	if r.lineno == 0 {
+		genRuntime(r)
+	}
 	return r.lineno
 }
 
 // Function name
 func (logger *Logger) funcname(r *record) interface{} {
+	if r.funcname == "" {
+		genRuntime(r)
+	}
 	return r.funcname
 }
 
@@ -173,6 +183,9 @@ func (logger *Logger) created(r *record) interface{} {
 
 // RFC3339Nano time
 func (logger *Logger) time(r *record) interface{} {
+	if r.time.IsZero() {
+		r.time = time.Now()
+	}
 	return r.time.Format(logger.timeFormat)
 }
 
@@ -183,17 +196,25 @@ func (logger *Logger) nsecs(r *record) interface{} {
 
 // Nanosecond timestamp
 func (logger *Logger) timestamp(r *record) interface{} {
+	if r.time.IsZero() {
+		r.time = time.Now()
+	}
 	return r.time.UnixNano()
 }
 
 // Nanoseconds since logger created
 func (logger *Logger) rtime(r *record) interface{} {
+	if r.time.IsZero() {
+		r.time = time.Now()
+	}
 	return r.time.Sub(logger.startTime).Nanoseconds()
 }
 
 // Process ID
 func (logger *Logger) process(r *record) interface{} {
-	r.process = os.Getpid()
+	if r.process == 0 {
+		r.process = os.Getpid()
+	}
 	return r.process
 }
 

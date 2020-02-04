@@ -30,9 +30,8 @@ package vspk
 import (
 	"crypto/tls"
 	"fmt"
-	"strings"
-
 	"github.com/nuagenetworks/go-bambou/bambou"
+	"strings"
 )
 
 var (

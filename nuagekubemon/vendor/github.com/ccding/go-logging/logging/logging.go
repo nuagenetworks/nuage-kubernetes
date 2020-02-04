@@ -40,12 +40,12 @@ import (
 
 // Pre-defined formats
 const (
-	DefaultFileName     = "logging.log"                   // default logging filename
-	DefaultTimeFormat   = "2006-01-02 15:04:05.999999999" // defaulttime format
-	DefaultBufferSize   = 1000                            // default buffer size for writer
-	DefaultQueueSize    = 10000                           // default chan queue size in async logging
-	DefaultRequestSize  = 10000                           // default chan queue size in async logging
-	DefaultTimeInterval = 100                             // default time interval in milliseconds in async logging
+	DefaultFileName   = "logging.log"                   // default logging filename
+	DefaultConfigFile = "logging.conf"                  // default logging configuration file
+	DefaultTimeFormat = "2006-01-02 15:04:05.999999999" // defaulttime format
+	bufSize           = 1000                            // buffer size for writer
+	queueSize         = 10000                           // chan queue size in async logging
+	reqSize           = 10000                           // chan queue size in async logging
 )
 
 // Logger is the logging struct.
@@ -79,10 +79,6 @@ type Logger struct {
 	quit    chan bool    // quit signal for the watcher to quit
 	fd      *os.File     // file handler, used to close the file on destroy
 	runtime bool         // with runtime operation or not
-
-	// The customized configurations.
-	bufferSize   int
-	timeInterval time.Duration
 }
 
 // SimpleLogger creates a new logger with simple configuration.
@@ -120,13 +116,7 @@ func WriterLogger(name string, level Level, format string, timeFormat string, ou
 	return createLogger(name, level, format, timeFormat, out, sync)
 }
 
-// CustomizedLogger creates a new logger with all configurations customized
-// (in addition to WriterLogger).
-func CustomizedLogger(name string, level Level, format string, timeFormat string, out io.Writer, sync bool, queueSize int, requestSize int, bufferSize int, timeInterval time.Duration) (*Logger, error) {
-	return createCustomizedLogger(name, level, format, timeFormat, out, sync, DefaultQueueSize, DefaultRequestSize, DefaultBufferSize, DefaultTimeInterval)
-}
-
-// ConfigLogger creates a new logger from a configuration file
+// WriterLogger creates a new logger from a configuration file
 func ConfigLogger(filename string) (*Logger, error) {
 	conf := config.NewConfig(filename)
 	err := conf.Read()
@@ -172,11 +162,6 @@ func ConfigLogger(filename string) (*Logger, error) {
 
 // createLogger create a new logger
 func createLogger(name string, level Level, format string, timeFormat string, out io.Writer, sync bool) (*Logger, error) {
-	return createCustomizedLogger(name, level, format, timeFormat, out, sync, DefaultQueueSize, DefaultRequestSize, DefaultBufferSize, DefaultTimeInterval)
-}
-
-// createCustomizedLogger create a new logger with customizing queue size and request size
-func createCustomizedLogger(name string, level Level, format string, timeFormat string, out io.Writer, sync bool, queueSize int, requestSize int, bufferSize int, timeInterval time.Duration) (*Logger, error) {
 	logger := new(Logger)
 
 	err := logger.parseFormat(format)
@@ -184,22 +169,20 @@ func createCustomizedLogger(name string, level Level, format string, timeFormat 
 		return nil, err
 	}
 
-	// assign values to logger
+	// asign values to logger
 	logger.name = name
 	logger.level = level
 	logger.out = out
 	logger.seqid = 0
 	logger.sync = sync
 	logger.queue = make(chan string, queueSize)
-	logger.request = make(chan request, requestSize)
+	logger.request = make(chan request, reqSize)
 	logger.flush = make(chan bool)
 	logger.finish = make(chan bool)
 	logger.quit = make(chan bool)
 	logger.startTime = time.Now()
 	logger.fd = nil
 	logger.timeFormat = timeFormat
-	logger.bufferSize = bufferSize
-	logger.timeInterval = timeInterval
 
 	// start watcher to write logs if it is async or no runtime field
 	if !logger.sync {

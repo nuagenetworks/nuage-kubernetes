@@ -115,16 +115,17 @@ type IngressAdvFwdEntryTemplate struct {
 func NewIngressAdvFwdEntryTemplate() *IngressAdvFwdEntryTemplate {
 
 	return &IngressAdvFwdEntryTemplate{
-		DSCP:                   "*",
-		FailsafeDatapath:       "FAIL_TO_BLOCK",
-		Action:                 "FORWARD",
-		RemoteUplinkPreference: "DEFAULT",
-		NetworkType:            "ANY",
-		LocationType:           "ANY",
-		AppType:                "NONE",
-		Protocol:               "6",
-		IsSLAAware:             false,
-		EtherType:              "0x0800",
+		DSCP:                         "*",
+		FailsafeDatapath:             "FAIL_TO_BLOCK",
+		Action:                       "FORWARD",
+		WebFilterStatsLoggingEnabled: false,
+		RemoteUplinkPreference:       "DEFAULT",
+		NetworkType:                  "ANY",
+		LocationType:                 "ANY",
+		AppType:                      "NONE",
+		Protocol:                     "6",
+		IsSLAAware:                   false,
+		EtherType:                    "0x0800",
 	}
 }
 

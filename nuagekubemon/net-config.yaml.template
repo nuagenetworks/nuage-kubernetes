@@ -1,4 +1,5 @@
 networkConfig:
-  clusterNetworkCIDR: 70.70.0.0/16 
-  serviceNetworkCIDR: 172.16.0.0/16 
-  hostSubnetLength: 8
+  clusterNetworks:
+    - cidr: 70.70.0.0/16
+      hostSubnetLength: 8
+  serviceNetworkCIDR: 10.96.0.0/12

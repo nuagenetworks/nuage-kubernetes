@@ -105,7 +105,8 @@ type EgressAdvFwdEntryTemplate struct {
 func NewEgressAdvFwdEntryTemplate() *EgressAdvFwdEntryTemplate {
 
 	return &EgressAdvFwdEntryTemplate{
-		FailsafeDatapath: "FAIL_TO_BLOCK",
+		FailsafeDatapath:             "FAIL_TO_BLOCK",
+		WebFilterStatsLoggingEnabled: false,
 	}
 }
 

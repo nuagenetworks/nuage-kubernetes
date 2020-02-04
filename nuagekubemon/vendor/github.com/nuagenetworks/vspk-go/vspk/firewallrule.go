@@ -100,7 +100,8 @@ type FirewallRule struct {
 func NewFirewallRule() *FirewallRule {
 
 	return &FirewallRule{
-		Stateful: false,
+		WebFilterStatsLoggingEnabled: false,
+		Stateful:                     false,
 	}
 }
 

@@ -104,12 +104,13 @@ type EgressACLEntryTemplate struct {
 func NewEgressACLEntryTemplate() *EgressACLEntryTemplate {
 
 	return &EgressACLEntryTemplate{
-		DSCP:         "*",
-		Action:       "FORWARD",
-		NetworkType:  "ANY",
-		LocationType: "ANY",
-		Protocol:     "6",
-		EtherType:    "0x0800",
+		DSCP:                         "*",
+		Action:                       "FORWARD",
+		WebFilterStatsLoggingEnabled: false,
+		NetworkType:                  "ANY",
+		LocationType:                 "ANY",
+		Protocol:                     "6",
+		EtherType:                    "0x0800",
 	}
 }
 

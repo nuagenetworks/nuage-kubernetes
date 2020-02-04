@@ -63,12 +63,12 @@ type ForwardingPathListEntry struct {
 	DSCPRemarking          string        `json:"DSCPRemarking,omitempty"`
 	LastUpdatedBy          string        `json:"lastUpdatedBy,omitempty"`
 	RemoteUplinkPreference string        `json:"remoteUplinkPreference,omitempty"`
+	SlaAware               bool          `json:"slaAware"`
 	EmbeddedMetadata       []interface{} `json:"embeddedMetadata,omitempty"`
 	EntityScope            string        `json:"entityScope,omitempty"`
 	ForwardingAction       string        `json:"forwardingAction,omitempty"`
 	UplinkPreference       string        `json:"uplinkPreference,omitempty"`
 	Priority               int           `json:"priority,omitempty"`
-	IsSLAAware             bool          `json:"isSLAAware"`
 	ExternalID             string        `json:"externalID,omitempty"`
 }
 
@@ -76,9 +76,10 @@ type ForwardingPathListEntry struct {
 func NewForwardingPathListEntry() *ForwardingPathListEntry {
 
 	return &ForwardingPathListEntry{
+		FCOverride:             "NONE",
 		DSCPRemarking:          "None",
 		RemoteUplinkPreference: "DEFAULT",
-		IsSLAAware:             false,
+		SlaAware:               false,
 	}
 }
 

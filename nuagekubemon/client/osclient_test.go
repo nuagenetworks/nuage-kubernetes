@@ -21,16 +21,15 @@ package client
 
 import (
 	"fmt"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
-	kapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/labels"
 	"math/rand"
 	"os/exec"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetNamespaces(t *testing.T) {
@@ -47,7 +46,7 @@ func TestGetNamespaces(t *testing.T) {
 	output = []byte(strings.Trim(string(output), "\n \t"))
 	cliProjectNames := strings.Split(string(output), "\n")
 	// Get the names from GetNamespaces()
-	listOpts := kapi.ListOptions{LabelSelector: labels.Everything(), FieldSelector: fields.Everything()}
+	listOpts := metav1.ListOptions{}
 	goProjectEvents, err := osClient.GetNamespaces(&listOpts)
 	if err != nil {
 		t.Fatalf("output: %v\nerror: %v\n", string(output), err)
@@ -121,16 +120,15 @@ type projectEvent struct {
 	add  bool
 }
 
-func (self projectEvent) equals(other *projectEvent) bool {
-	return self.name == other.name && self.add == other.add
+func (event projectEvent) equals(otherEvent *projectEvent) bool {
+	return event.name == otherEvent.name && event.add == otherEvent.add
 }
 
-func (self projectEvent) String() string {
-	if self.add {
-		return fmt.Sprintf("<Add: %s>", self.name)
-	} else {
-		return fmt.Sprintf("<Del: %s>", self.name)
+func (event projectEvent) String() string {
+	if event.add {
+		return fmt.Sprintf("<Add: %s>", event.name)
 	}
+	return fmt.Sprintf("<Del: %s>", event.name)
 }
 
 func TestAddDelManyStatic(t *testing.T) {

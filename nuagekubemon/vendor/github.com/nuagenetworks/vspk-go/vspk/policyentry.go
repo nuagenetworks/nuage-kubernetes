@@ -61,7 +61,7 @@ type PolicyEntry struct {
 	Owner            string        `json:"owner,omitempty"`
 	Name             string        `json:"name,omitempty"`
 	LastUpdatedBy    string        `json:"lastUpdatedBy,omitempty"`
-	MatchCriteria    interface{}   `json:"matchCriteria,omitempty"`
+	MatchCriteria    string        `json:"matchCriteria,omitempty"`
 	Actions          interface{}   `json:"actions,omitempty"`
 	Description      string        `json:"description,omitempty"`
 	EmbeddedMetadata []interface{} `json:"embeddedMetadata,omitempty"`

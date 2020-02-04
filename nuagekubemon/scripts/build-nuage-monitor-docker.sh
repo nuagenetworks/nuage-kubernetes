@@ -16,7 +16,7 @@ cd $GOPATH
 
 for binary_name in nuagekubemon nuage-openshift-monitor
 do
-    docker run --rm -v `pwd`:/go -w /go golang:1.8 go build -v -o $binary_name github.com/nuagenetworks/nuage-kubernetes/nuagekubemon
+    docker run --rm -v `pwd`:/go -w /go golang:1.13 go build -v -o $binary_name github.com/nuagenetworks/nuage-kubernetes/nuagekubemon
     mv $binary_name $GOPATH/src/github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/
 done
 

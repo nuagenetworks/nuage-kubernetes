@@ -1409,7 +1409,6 @@ func (nvsdc *NuageVsdClient) GetVsdObjects(objectUrl string, objType int) (*[]in
 			return nil, VsdErrorResponse(resp, &e)
 		}
 	}
-	return nil, errors.New("Unknown error when trying to fetch objects")
 }
 
 func (nvsdc *NuageVsdClient) GetZonesSubnets() (map[string]map[string]bool, error) {
@@ -1506,8 +1505,6 @@ func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.Containe
 			return nil, VsdErrorResponse(resp, &e)
 		}
 	}
-	return nil, errors.New("Unknown error when trying to fetch container interfaces")
-
 }
 
 //podsList is a list of pod names that need to be added to policy group with Id pgId
@@ -1830,7 +1827,6 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, namespace
 			return nil
 		}
 	}
-	return nil
 }
 
 func (nvsdc *NuageVsdClient) HandlePodAddEvent(podEvent *api.PodEvent) (string, error) {
@@ -2189,7 +2185,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 			zoneInfo := &api.EtcdZoneMetadata{Name: nsEvent.Name}
 			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdDeleteZone, zoneInfo)
 			if resp.Error != nil {
-				glog.Errorf("deleting zone(%s) in etcd failed: %v", zoneInfo.Name)
+				glog.Errorf("deleting zone(%s) in etcd failed: %v", zoneInfo.Name, resp.Error)
 			}
 
 			if ipv4subnet, err := IPv4SubnetFromString(etcdSubnet.CIDR); err != nil {
@@ -2776,9 +2772,9 @@ func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) 
 
 func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
 	glog.Errorln("Bad response from VSD Server")
-	glog.Errorln("Raw Text:\n ", resp.RawText(), "\n")
-	glog.Errorln("Status: ", resp.Status(), "\n")
-	glog.Errorln("VSD Error: ", e, "\n")
+	glog.Errorln("Raw Text:\n ", resp.RawText())
+	glog.Errorln("Status: ", resp.Status())
+	glog.Errorln("VSD Error: ", e)
 	return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
 }
 

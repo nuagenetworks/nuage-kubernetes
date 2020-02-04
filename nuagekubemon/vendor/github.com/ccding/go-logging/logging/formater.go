@@ -34,10 +34,6 @@ func (logger *Logger) genLog(level Level, message string) string {
 	r := new(record)
 	r.message = message
 	r.level = level
-	r.genNonRuntime(logger)
-	if logger.runtime {
-		r.genRuntime()
-	}
 	for k, v := range logger.recordArgs {
 		fs[k] = fields[v](logger, r)
 	}

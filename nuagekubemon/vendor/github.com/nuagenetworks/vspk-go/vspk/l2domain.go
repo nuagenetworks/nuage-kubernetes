@@ -112,9 +112,9 @@ func NewL2Domain() *L2Domain {
 		MaintenanceMode:           "DISABLED",
 		FlowCollectionEnabled:     "INHERITED",
 		IngressReplicationEnabled: false,
-		Color:             0,
-		RoutedVPLSEnabled: false,
-		UseGlobalMAC:      "DISABLED",
+		Color:                     0,
+		RoutedVPLSEnabled:         false,
+		UseGlobalMAC:              "DISABLED",
 	}
 }
 

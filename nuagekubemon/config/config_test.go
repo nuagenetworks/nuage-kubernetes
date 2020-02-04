@@ -8,7 +8,7 @@ import (
 
 func TestReadMasterConfig(t *testing.T) {
 	const masterConfigFile = "../testfiles/master-config.yaml"
-	const expectedClusterCIDR = "172.30.0.0/16"
+	const expectedClusterCIDR = "70.70.0.0/16"
 	masterConfigData, err := ioutil.ReadFile(masterConfigFile)
 	if err != nil {
 		t.Fatalf("Failed to read %s! Could not complete this test.",
@@ -19,9 +19,9 @@ func TestReadMasterConfig(t *testing.T) {
 	if err := myConfig.Parse(masterConfigData); err != nil {
 		t.Fatalf("Failed to parse %s! Error: %s\n", masterConfigFile, err)
 	}
-	if myConfig.NetworkConfig.ClusterCIDR != expectedClusterCIDR {
+	if myConfig.NetworkConfig.ClusterNetworks[0].CIDR != expectedClusterCIDR {
 		t.Fatalf("clusterNetworkCIDR mismatch! Expected: %q, Got: %q\n",
-			expectedClusterCIDR, myConfig.NetworkConfig.ClusterCIDR)
+			expectedClusterCIDR, myConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	}
 }
 
