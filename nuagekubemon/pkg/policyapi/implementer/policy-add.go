@@ -2,6 +2,7 @@ package implementer
 
 import (
 	"fmt"
+
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
 	"github.com/nuagenetworks/vspk-go/vspk"
 )
@@ -24,7 +25,7 @@ func (implementer *PolicyImplementer) processDefaultPolicy(policy *policies.Nuag
 	var egressACLEnteries []*vspk.EgressACLEntryTemplate
 	var aclerr error
 	if ingressACLEnteries, egressACLEnteries, aclerr = implementer.getACLEntriesFromPolicy(policy); aclerr != nil {
-		return err
+		return aclerr
 	}
 
 	var policyTransac policyTransaction

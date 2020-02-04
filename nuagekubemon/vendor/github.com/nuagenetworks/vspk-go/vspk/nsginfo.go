@@ -80,7 +80,7 @@ type NSGInfo struct {
 	CmdDetailedStatusCode     int         `json:"cmdDetailedStatusCode,omitempty"`
 	CmdDownloadProgress       interface{} `json:"cmdDownloadProgress,omitempty"`
 	CmdID                     string      `json:"cmdID,omitempty"`
-	CmdLastUpdatedDate        string      `json:"cmdLastUpdatedDate,omitempty"`
+	CmdLastUpdatedDate        float64     `json:"cmdLastUpdatedDate,omitempty"`
 	CmdStatus                 string      `json:"cmdStatus,omitempty"`
 	CmdType                   string      `json:"cmdType,omitempty"`
 	EnterpriseID              string      `json:"enterpriseID,omitempty"`

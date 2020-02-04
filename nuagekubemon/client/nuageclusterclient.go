@@ -20,10 +20,15 @@ package client
 
 import (
 	"context"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	networkingV1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -32,10 +37,6 @@ import (
 	krestclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
-	"net/http"
-	"strings"
-	"time"
 )
 
 type NuageClusterClient struct {
@@ -57,13 +58,50 @@ func (nosc *NuageClusterClient) GetClusterClientCallBacks() *api.ClusterClientCa
 	}
 }
 
+// Init initializes the cluster client
 func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
+	if nkmConfig.KubeConfigFile == "" {
+		err := nosc.InitializeClientSetFromSA()
+		if err != nil {
+			glog.Errorf("cluster client init failed %v", err)
+			return
+		}
+	} else {
+		err := nosc.InitializeClientSetFromKubeConfig(nkmConfig)
+		if err != nil {
+			glog.Errorf("cluster client init failed %v", err)
+			return
+		}
+	}
+}
+
+//InitializeClientSetFromSA initailizes client set using service accounts(in cluster init)
+func (nosc *NuageClusterClient) InitializeClientSetFromSA() error {
+	// creates the in-cluster config
+	config, err := krestclient.InClusterConfig()
+	if err != nil {
+		glog.Errorf("Read in cluster config failed: %v", err)
+		return err
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		glog.Errorf("Creating clientset from SA failed %v", err)
+		return err
+	}
+	nosc.clientset = clientset
+	return nil
+}
+
+// InitializeClientSetFromKubeConfig initializes client set from kubeconfig(out of cluster initialization)
+func (nosc *NuageClusterClient) InitializeClientSetFromKubeConfig(nkmConfig *config.NuageKubeMonConfig) error {
 	loadingRules := &clientcmd.ClientConfigLoadingRules{}
 	loadingRules.ExplicitPath = nkmConfig.KubeConfigFile
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	kubeConfig, err := loader.ClientConfig()
 	if err != nil {
 		glog.Errorf("Got an error: %s while loading the kube config", err)
+		return err
 	}
 	// This is an internal client which is shared by most controllers, so boost default QPS
 	// TODO: this should be configured by the caller, not in this method.
@@ -77,10 +115,11 @@ func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	clientset, err := kubernetes.NewForConfig(nosc.kubeConfig)
 	if err != nil {
 		glog.Errorf("Creating new clientset from kubeconfig failed with error: %v", err)
-		return
+		return err
 	}
 
 	nosc.clientset = clientset
+	return nil
 }
 
 func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, policyEventChannel chan *api.NetworkPolicyEvent) {
@@ -114,19 +153,31 @@ func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceE
 }
 
 func (nosc *NuageClusterClient) RunPodWatcher(podChannel chan *api.PodEvent, stop chan bool) {
-	nosc.WatchPods(podChannel, stop)
+	err := nosc.WatchPods(podChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching pods %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) RunNetworkPolicyWatcher(policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
-	nosc.WatchNetworkPolicies(policyChannel, stop)
+	err := nosc.WatchNetworkPolicies(policyChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching NetworkPolicies %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
-	nosc.WatchNamespaces(nsChannel, stop)
+	err := nosc.WatchNamespaces(nsChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching Namespaces %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
-	nosc.WatchServices(serviceChannel, stop)
+	err := nosc.WatchServices(serviceChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching Services %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) GetNamespaces(listOpts *metav1.ListOptions) (*[]*api.NamespaceEvent, error) {
@@ -323,7 +374,7 @@ func DefaultClientTransport(rt http.RoundTripper) http.RoundTripper {
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	transport.Dial = dialer.Dial
+	transport.DialContext = dialer.DialContext
 	// Hold open more internal idle connections
 	// TODO: this should be configured by the caller, not in this method.
 	transport.MaxIdleConnsPerHost = 100

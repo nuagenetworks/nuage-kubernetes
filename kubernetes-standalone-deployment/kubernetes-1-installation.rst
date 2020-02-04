@@ -143,7 +143,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
    
         git clone https://github.com/nuagenetworks/nuage-kubernetes.git
         git checkout tags/<Nuage-release>
-        cd nuage-kubernetes/daemonset-templates
+        cd nuage-kubernetes/K8s-<k8s-version>-daemonset-templates
 	
   .. Note:: Post Nuage 5.1.1, rpm based install is not supported using ansible. Daemonsets is the recommended mode of installing Nuage components 
 
@@ -165,7 +165,7 @@ You need to have Git installed on your Ansible host machine. Perform the followi
     docker load -i nuage-vrs-docker.tar
     docker load -i nuage-infra-docker.tar
 
-6. Update the following parameters in ConfigMap section of **nuage-kubernetes/daemonset-templates/nuage-master-config-daemonset.yaml** file as per your environment configuration:
+6. Update the following parameters in ConfigMap section of **nuage-kubernetes/K8s-1-14-daemonset-templates/nuage-master-config-daemonset.yaml** (OR) **nuage-kubernetes/K8s-1-18-daemonset-templates/nuage-master-config-daemonset.yaml** file as per your environment configuration and the kubernetes version:
 
 ::
 
@@ -269,7 +269,7 @@ The kubernetes-cert-dir mount path needs to be set if the user has specified the
           hostPath:
             path: /etc/kubernetes/pki/
 
-7. Update the following parameters in **nuage-kubernetes/daemonset-templates/nuage-node-config-daemonset.yaml** file as per your environment configuration:
+7. Update the following parameters in **nuage-kubernetes/K8s-1-14-daemonset-templates/nuage-node-config-daemonset.yaml** (or) **nuage-kubernetes/K8s-1-18-daemonset-templates/nuage-node-config-daemonset.yaml** file as per your environment configuration and the kubernetes version:
 
 ::
 
@@ -433,7 +433,7 @@ Update the following environment variables in DaemonSet section for **nuage-vrs-
         - name: NUAGE_K8S_SERVICE_IPV4_SUBNET
           value: '192.168.0.0\/16'
 
-Update the **image** parameter in **nuage-kubernetes/daemonset-templates/nuage-infra-pod-config-daemonset.yaml** file and make sure that it is correctly set to the Nuage infra pod image version pre-loaded on the slave nodes:
+Update the **image** parameter in **nuage-kubernetes/K8s-1-14-daemonset-templates/nuage-infra-pod-config-daemonset.yaml** or **nuage-kubernetes/K8s-1-18-daemonset-templates/nuage-infra-pod-config-daemonset.yaml** file depending on the kubernetes version and make sure that it is correctly set to the Nuage infra pod image version pre-loaded on the slave nodes:
 
 ::
 
@@ -456,9 +456,9 @@ Installing the VSP components
 
 ::
 
-    kubectl apply -f nuage-kubernetes/daemonset-templates/nuage-node-config-daemonset.yaml
-    kubectl apply -f nuage-kubernetes/daemonset-templates/nuage-master-config-daemonset.yaml
-    kubectl apply -f nuage-kubernetes/daemonset-templates/nuage-infra-pod-config-daemonset.yaml
+    kubectl apply -f nuage-kubernetes/K8s-<k8s-Version>-daemonset-templates/nuage-node-config-daemonset.yaml
+    kubectl apply -f nuage-kubernetes/K8s-<K8s-Version>-daemonset-templates/nuage-master-config-daemonset.yaml
+    kubectl apply -f nuage-kubernetes/K8s-<K8s-Version>-daemonset-templates/nuage-infra-pod-config-daemonset.yaml
     
 2. Verify that all the Nuage monitor, CNI and VRS pods are up and running:
 

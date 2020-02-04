@@ -112,7 +112,7 @@ type VPort struct {
 func NewVPort() *VPort {
 
 	return &VPort{
-		DPI: "INHERITED",
+		DPI:                      "INHERITED",
 		AccessRestrictionEnabled: false,
 		AddressSpoofing:          "INHERITED",
 		Color:                    0,

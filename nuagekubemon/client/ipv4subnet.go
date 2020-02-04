@@ -24,12 +24,14 @@ import (
 	"net"
 )
 
+// IPv4Address holds IPv4 address in byte
 type IPv4Address [4]byte
 
 func (addr IPv4Address) String() string {
 	return fmt.Sprintf("%v.%v.%v.%v", addr[0], addr[1], addr[2], addr[3])
 }
 
+// ToUint converts IPv4Address to uint
 func (addr IPv4Address) ToUint() uint {
 	return uint(addr[0])<<24 +
 		uint(addr[1])<<16 +
@@ -37,11 +39,13 @@ func (addr IPv4Address) ToUint() uint {
 		uint(addr[3])
 }
 
+// IPv4Subnet struct to hold IPv4Subnet address and CIDR mask
 type IPv4Subnet struct {
 	Address  IPv4Address
 	CIDRMask int //e.g. 24, not 255.255.255.0
 }
 
+// IPv4SubnetFromString extracts a valid IPv4Subnet from a string
 func IPv4SubnetFromString(input string) (*IPv4Subnet, error) {
 	output := &IPv4Subnet{}
 	n, err := fmt.Sscanf(input, "%d.%d.%d.%d/%d", &output.Address[0],
@@ -51,14 +55,13 @@ func IPv4SubnetFromString(input string) (*IPv4Subnet, error) {
 		return nil, err
 	}
 	if n != 5 {
-		return nil, errors.New(fmt.Sprintf(
-			"Invalid syntax in input string %q", input))
+		return nil, fmt.Errorf("Invalid syntax in input string %q", input)
 	}
 	return output, nil
 }
 
-/* Parse address and netmask separately, and generate an IPv4Subnet
- * datastructure.
+/* IPv4SubnetFromAddrNetmask parses address and netmask separately,
+ * and generate an IPv4Subnet datastructure.
  * @Param address - IPv4 Address as a string
  * @Param netmask - Netmask in IPv4 address format (e.g. 255.255.0.0) as a
  *                  string
@@ -72,8 +75,7 @@ func IPv4SubnetFromAddrNetmask(address, netmaskStr string) (*IPv4Subnet, error) 
 		return nil, err
 	}
 	if n != 4 {
-		return nil, errors.New(fmt.Sprintf(
-			"Invalid syntax in address string %q", address))
+		return nil, fmt.Errorf("Invalid syntax in address string %q", address)
 	}
 	// Parse netmask
 	var nmA, nmB, nmC, nmD byte
@@ -82,14 +84,12 @@ func IPv4SubnetFromAddrNetmask(address, netmaskStr string) (*IPv4Subnet, error) 
 		return nil, err
 	}
 	if n != 4 {
-		return nil, errors.New(fmt.Sprintf(
-			"Invalid syntax in netmask string %q", netmaskStr))
+		return nil, fmt.Errorf("Invalid syntax in netmask string %q", netmaskStr)
 	}
 	var length int
 	output.CIDRMask, length = net.IPv4Mask(nmA, nmB, nmC, nmD).Size()
 	if length != 32 {
-		return nil, errors.New(fmt.Sprintf("Failed to parse netmask %q",
-			netmaskStr))
+		return nil, fmt.Errorf("Failed to parse netmask %q", netmaskStr)
 	}
 	return output, nil
 }
@@ -98,9 +98,9 @@ func (subnet IPv4Subnet) String() string {
 	return fmt.Sprintf("%v/%v", subnet.Address, subnet.CIDRMask)
 }
 
+// Netmask returns the traditional IPv4 netmask instead of the CIDR
+// e.g. .../24 would return 255.255.255.0
 func (subnet IPv4Subnet) Netmask() IPv4Address {
-	// returns the traditional IPv4 netmask instead of the CIDR
-	// e.g. .../24 would return 255.255.255.0
 	if subnet.CIDRMask >= 32 {
 		return IPv4Address{255, 255, 255, 255}
 	}
@@ -150,7 +150,7 @@ func (a *IPv4Subnet) Compare(b *IPv4Subnet) int {
 		return n
 	}
 	aNetmask := a.Netmask().ToUint()
-	bNetmask :=b.Netmask().ToUint()
+	bNetmask := b.Netmask().ToUint()
 	aAddr := a.Address.ToUint()
 	bAddr := b.Address.ToUint()
 	// Compare only significant bits by &-ing the addresses with the netmask
@@ -185,7 +185,7 @@ func CanMerge(a, b *IPv4Subnet) bool {
 
 func Merge(a, b *IPv4Subnet) (*IPv4Subnet, error) {
 	if !CanMerge(a, b) {
-		return nil, errors.New(fmt.Sprintf("Can't merge subnets %s and %s!", a, b))
+		return nil, fmt.Errorf("Can't merge subnets %s and %s", a, b)
 	}
 	newSubnet := &IPv4Subnet{a.Address, a.CIDRMask - 1}
 	index := newSubnet.CIDRMask / 8
@@ -227,14 +227,18 @@ func (pool *IPv4SubnetPool) Alloc(size int) (*IPv4Subnet, error) {
 	}
 	loSubnet, hiSubnet, err := bigSubnet.Split()
 	if err != nil {
-		pool.Free(bigSubnet)
-		return nil, err
+		err := pool.Free(bigSubnet)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Of the two subnets from the split, only one is needed, so release the other.
 	err = pool.Free(hiSubnet)
 	if err != nil {
-		pool.Free(bigSubnet)
-		return nil, err
+		err := pool.Free(bigSubnet)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return loSubnet, nil
 }
@@ -298,23 +302,32 @@ func (pool *IPv4SubnetPool) AllocSpecific(subnet *IPv4Subnet) error {
 			if err != nil {
 				// If we hit an error, return the entire subnet to the pool,
 				// then abort
-				pool.Free(bigSubnet)
+				err := pool.Free(bigSubnet)
+				if err != nil {
+					return err
+				}
 				return errors.New("Subnet " + subnet.String() +
 					" not found in pool")
 			}
 			if loSubnet.Contains(subnet) {
 				bigSubnet = loSubnet
-				pool.Free(hiSubnet)
+				err := pool.Free(hiSubnet)
+				if err != nil {
+					return err
+				}
 			} else {
 				bigSubnet = hiSubnet
-				pool.Free(loSubnet)
+				err := pool.Free(loSubnet)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		if bigSubnet.Compare(subnet) == 0 {
 			return nil
 		}
 	}
-	return errors.New("Subnet " + subnet.String() + " not found in pool")
+	return fmt.Errorf("Subnet %s not found in pool", subnet.String())
 }
 
 /* When freeing a subnet, first the pool should be checked for another subnet
@@ -332,7 +345,7 @@ func (pool *IPv4SubnetPool) AllocSpecific(subnet *IPv4Subnet) error {
  */
 func (pool *IPv4SubnetPool) Free(subnet *IPv4Subnet) error {
 	if subnet.CIDRMask < 0 || subnet.CIDRMask > 32 {
-		return errors.New(fmt.Sprintf("Cannot free bad subnet %s", subnet))
+		return fmt.Errorf("Cannot free bad subnet %s", subnet)
 	}
 	var prev, curr *IPv4SubnetNode
 	curr = pool[subnet.CIDRMask]
@@ -347,7 +360,7 @@ func (pool *IPv4SubnetPool) Free(subnet *IPv4Subnet) error {
 	for curr != nil {
 		switch {
 		case subnet.Compare(curr.subnet) == 0:
-			return errors.New(fmt.Sprintf("Double free of %s", subnet))
+			return fmt.Errorf("Double free of %s", subnet)
 		case subnet.Compare(curr.subnet) < 0:
 			prev.next = &IPv4SubnetNode{subnet, curr}
 			return nil

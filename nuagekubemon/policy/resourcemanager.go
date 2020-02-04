@@ -20,6 +20,10 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
@@ -28,9 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 type CreatePgFunc func(string, string) (string, string, error)
@@ -153,7 +154,7 @@ func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
 	}
 
 	defaultPolicyElementTCP := policies.DefaultPolicyElement{
-		Name:   fmt.Sprint("Namespace annotation for %s - TCP", namespace),
+		Name:   fmt.Sprintf("Namespace annotation for %s - TCP", namespace),
 		From:   policies.EndPoint{Name: namespace, Type: policies.Zone},
 		To:     policies.EndPoint{Name: namespace, Type: policies.Zone},
 		Action: policies.Deny,
@@ -164,7 +165,7 @@ func (rm *ResourceManager) updateZoneAnnotationTemplate(namespace string,
 	}
 
 	defaultPolicyElementUDP := policies.DefaultPolicyElement{
-		Name:   fmt.Sprint("Namespace annotation for %s - UDP", namespace),
+		Name:   fmt.Sprintf("Namespace annotation for %s - UDP", namespace),
 		From:   policies.EndPoint{Name: namespace, Type: policies.Zone},
 		To:     policies.EndPoint{Name: namespace, Type: policies.Zone},
 		Action: policies.Deny,

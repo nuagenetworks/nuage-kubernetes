@@ -84,7 +84,7 @@ func NewTCA() *TCA {
 
 	return &TCA{
 		Metric:       "BYTES_IN",
-		ThrottleTime: 0,
+		ThrottleTime: 10,
 		Disable:      false,
 		Count:        0,
 		Status:       false,

@@ -82,7 +82,7 @@ func (implementer *PolicyImplementer) getACLEntriesFromPolicy(policy *policies.N
 		case policies.PolicyGroup:
 			toPG, err := implementer.getPolicyGroup(domain, defaultPolicyElement.To.Name)
 			if err != nil || toPG == nil {
-				return ingressACLEnteries, egressACLEnteries, fmt.Errorf("Unable to get the destination PG %+v", err)
+				return ingressACLEnteries, egressACLEnteries, fmt.Errorf("Unable to get the destination PG: %s %+v", defaultPolicyElement.To.Name, err)
 			}
 			toID = toPG.ID
 		default:

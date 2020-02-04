@@ -30,11 +30,12 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 var currentSession Storer
@@ -210,6 +211,9 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 
 	s.prepareHeaders(request, info)
 
+	log.Debugf("Request Method URL: %s %s", request.Method, request.URL)
+	log.Debugf("Request Headers: %s", request.Header)
+
 	response, err := s.client.Do(request)
 
 	if err != nil {
@@ -228,7 +232,7 @@ func (s *Session) send(request *http.Request, info *FetchingInfo) (*http.Respons
 	case http.StatusMultipleChoices:
 		defer response.Body.Close()
 		newURL := request.URL.String() + "?responseChoice=1"
-		request, _ = http.NewRequest(request.Method, newURL, request.Body)
+		request.URL, _ = url.Parse(newURL)
 		return s.send(request, info)
 
 	case http.StatusConflict, http.StatusNotFound:
@@ -374,8 +378,10 @@ func (s *Session) SaveEntity(object Identifiable) *Error {
 	log.Debugf("Response Body: %s", string(body))
 
 	dest := IdentifiablesList{object}
-	if err := json.Unmarshal(body, &dest); err != nil {
-		return NewBambouError("JSON Unmarshaling error", err.Error())
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &dest); err != nil {
+			return NewBambouError("JSON Unmarshaling error", err.Error())
+		}
 	}
 
 	return nil

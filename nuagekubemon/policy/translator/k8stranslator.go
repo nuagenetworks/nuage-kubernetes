@@ -2,16 +2,19 @@ package translator
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/golang/glog"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
 	kapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strconv"
 )
 
 const priorityLabel = "nuage.io/priority"
 
+// CreateNuagePGPolicy used for creating nuage policy
+// group based on the policy spec
 func CreateNuagePGPolicy(
 	pe *api.NetworkPolicyEvent,
 	policyGroupMap map[string]api.PgInfo,
@@ -21,7 +24,7 @@ func CreateNuagePGPolicy(
 	policyName := pe.Name
 	policyLabels := pe.Labels
 
-	if k8sNetworkPolicySpec == nil || policyGroupMap == nil || nuageMetadata == nil {
+	if policyGroupMap == nil || nuageMetadata == nil {
 		return nil, fmt.Errorf("Invalid arguments")
 	}
 

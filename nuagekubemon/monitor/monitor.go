@@ -24,14 +24,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/client"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
+
+	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/client"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 )
 
 type NuageKubeMonitor struct {
@@ -69,13 +70,22 @@ func (nkm *NuageKubeMonitor) ParseArgs(flagSet *flag.FlagSet) {
 	// flag.Parse(), cli arguments will override these.  Also set the DefValue
 	// parameter so -help shows the new defaults.
 	log_dir := flagSet.Lookup("log_dir")
-	log_dir.Value.Set(fmt.Sprintf("/var/log/%s", programName))
+	err := log_dir.Value.Set(fmt.Sprintf("/var/log/%s", programName))
+	if err != nil {
+		glog.Errorf("Setting the value to log directory failed %s", err)
+	}
 	log_dir.DefValue = fmt.Sprintf("/var/log/%s", programName)
 	logtostderr := flagSet.Lookup("logtostderr")
-	logtostderr.Value.Set("false")
+	err = logtostderr.Value.Set("false")
+	if err != nil {
+		glog.Errorf("Setting logs to standard error failed %s", err)
+	}
 	logtostderr.DefValue = "false"
 	stderrlogthreshold := flagSet.Lookup("stderrthreshold")
-	stderrlogthreshold.Value.Set("4")
+	err = stderrlogthreshold.Value.Set("4")
+	if err != nil {
+		glog.Errorf("Setting logs threshold value failed %s", err)
+	}
 	stderrlogthreshold.DefValue = "4"
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
@@ -111,12 +121,6 @@ func (nkm *NuageKubeMonitor) Run() {
 	if err := nkm.LoadConfig(); err != nil {
 		glog.Fatalf("Error reading config file %s! Error: %v\n",
 			nkm.mConfig.ConfigFile, err)
-	}
-	if nkm.mConfig.KubeConfigFile == "" {
-		glog.Error(fmt.Sprintf("No valid kubeconfig file specified...%s cannot continue.", programName))
-		glog.Error(fmt.Sprintf("Please restart %s after specifying a valid kubeconfig path either in the config file or as a command line parameter",
-			programName))
-		return
 	}
 
 	if len(nkm.mConfig.MasterConfig.NetworkConfig.ClusterNetworks) == 0 {

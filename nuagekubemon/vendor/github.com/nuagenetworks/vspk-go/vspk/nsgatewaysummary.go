@@ -67,6 +67,7 @@ type NSGatewaySummary struct {
 	GatewayType         string        `json:"gatewayType,omitempty"`
 	Latitude            float64       `json:"latitude,omitempty"`
 	Address             string        `json:"address,omitempty"`
+	RedundantGroupID    string        `json:"redundantGroupID,omitempty"`
 	TimezoneID          string        `json:"timezoneID,omitempty"`
 	MinorAlarmsCount    int           `json:"minorAlarmsCount,omitempty"`
 	EmbeddedMetadata    []interface{} `json:"embeddedMetadata,omitempty"`

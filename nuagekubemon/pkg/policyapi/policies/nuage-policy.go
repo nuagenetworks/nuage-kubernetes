@@ -2,8 +2,9 @@ package policies
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 // PolicyType identifies the type of policy

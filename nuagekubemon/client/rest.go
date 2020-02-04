@@ -1,12 +1,13 @@
 package client
 
 import (
-	"github.com/golang/glog"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+
+	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 )
 
 type PodList struct {
@@ -105,7 +106,7 @@ func (pods *PodList) Post(urlVars map[string]string, values url.Values,
 			glog.Error(errText)
 			return http.StatusBadRequest, restErrorJson{Error: errText}, nil
 		}
-		glog.Info("Specified zone: %s", desiredZoneStr)
+		glog.Infof("Specified zone: %s", desiredZoneStr)
 
 		desiredSubnet, subnetSpecified := bodyJson["desiredSubnet"]
 		if !subnetSpecified {

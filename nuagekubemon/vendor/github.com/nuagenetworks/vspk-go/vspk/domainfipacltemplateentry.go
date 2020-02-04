@@ -100,7 +100,9 @@ type DomainFIPAclTemplateEntry struct {
 // NewDomainFIPAclTemplateEntry returns a new *DomainFIPAclTemplateEntry
 func NewDomainFIPAclTemplateEntry() *DomainFIPAclTemplateEntry {
 
-	return &DomainFIPAclTemplateEntry{}
+	return &DomainFIPAclTemplateEntry{
+		WebFilterStatsLoggingEnabled: false,
+	}
 }
 
 // Identity returns the Identity of the object.

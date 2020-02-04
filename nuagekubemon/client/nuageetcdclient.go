@@ -23,25 +23,27 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/coreos/etcd/clientv3"
-	"github.com/golang/glog"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
-	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
 	"io/ioutil"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
+	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
+	"go.etcd.io/etcd/clientv3"
 )
 
+//ETCD constants
 const (
-	ETCD_BASE_PATH       = "/nuage.io/v1.0/"
-	POD_METADATA_TREE    = ETCD_BASE_PATH + "pod_metadata/"
-	POOL_CIDR_TREE       = ETCD_BASE_PATH + "pool_cidr/"
-	SUBNET_METADATA_TREE = ETCD_BASE_PATH + "subnet_metadata/"
-	ZONE_METADATA_TREE   = ETCD_BASE_PATH + "zone_metadata/"
-	SCALE_UP_THRESHOLD   = 75
-	SCALE_DOWN_THRESHOLD = 25
+	ETCDBasePath       = "/nuage.io/v1.0/"
+	PodMetadataTree    = ETCDBasePath + "pod_metadata/"
+	PoolCIDRTree       = ETCDBasePath + "pool_cidr/"
+	SubnetMetadataTree = ETCDBasePath + "subnet_metadata/"
+	ZoneMetadataTree   = ETCDBasePath + "zone_metadata/"
+	ScaleUpThreshold   = 75
+	ScaleDownThreshold = 25
 )
 
 type etcdSubnetValue struct {
@@ -50,6 +52,7 @@ type etcdSubnetValue struct {
 	CIDR     string `json:"cidr"`
 }
 
+//NuageEtcdClient for ETCD client
 type NuageEtcdClient struct {
 	etcdBaseURL       []string
 	serverCA          string
@@ -82,7 +85,7 @@ func (nuageetcd *NuageEtcdClient) Init(nkmConfig *config.NuageKubeMonConfig) err
 	}
 	nuageetcd.clusterNetwork, err = IPv4SubnetFromString(nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].CIDR)
 	if err != nil {
-		return fmt.Errorf("Failure in getting cluster CIDR: %s\n", err)
+		return fmt.Errorf("Failure in getting cluster cidr:  %s\n", err)
 	}
 	nuageetcd.subnetSize = nkmConfig.MasterConfig.NetworkConfig.ClusterNetworks[0].SubnetLength
 	if nuageetcd.subnetSize < 2 || nuageetcd.subnetSize > 32 {
@@ -103,7 +106,7 @@ func (nuageetcd *NuageEtcdClient) Init(nkmConfig *config.NuageKubeMonConfig) err
 	}
 	//TODO TLS setup
 	if nuageetcd.serverCA != "" {
-		etcdConfig.TLS, err = nuageetcd.tls_setup()
+		etcdConfig.TLS, err = nuageetcd.TLSSetup()
 		if err != nil {
 			glog.Errorf("Error doing tls setup: %v", err)
 			return err
@@ -138,8 +141,8 @@ func (nuageetcd *NuageEtcdClient) AllocateSubnetForPod(data *api.EtcdPodMetadata
 		nuageEtcdRetry(
 			func() error {
 				txnResp, err = nuageetcd.client.KV.Txn(context.Background()).Then(
-					clientv3.OpGet(POD_METADATA_TREE+ns+"/"+pod),
-					clientv3.OpGet(SUBNET_METADATA_TREE+ns+"/"+ns, clientv3.WithPrefix())).Commit()
+					clientv3.OpGet(PodMetadataTree+ns+"/"+pod),
+					clientv3.OpGet(SubnetMetadataTree+ns+"/"+ns, clientv3.WithPrefix())).Commit()
 				return err
 			})
 		if err != nil {
@@ -176,25 +179,25 @@ func (nuageetcd *NuageEtcdClient) AllocateSubnetForPod(data *api.EtcdPodMetadata
 		puts := []clientv3.Op{}
 		compares := []clientv3.Cmp{}
 		noOfSubnets := len(subnetResp.Kvs)
-		if (ACTIVEIPCount+1)*100 > noOfSubnets*nuageetcd.maxIPCount*SCALE_UP_THRESHOLD {
+		if (ACTIVEIPCount+1)*100 > noOfSubnets*nuageetcd.maxIPCount*ScaleUpThreshold {
 			newSubnet := fmt.Sprintf("%s-%d", ns, suffix+1)
 			snet := &etcdSubnetValue{ACTIVEIP: 0, VSDID: "", CIDR: "0"}
 			b, err := json.Marshal(snet)
 			if err != nil {
 				glog.Errorf("marshal struct %v to json string failed: %v", snet, err)
 			}
-			puts = append(puts, clientv3.OpPut(SUBNET_METADATA_TREE+ns+"/"+newSubnet, string(b)))
+			puts = append(puts, clientv3.OpPut(SubnetMetadataTree+ns+"/"+newSubnet, string(b)))
 			podSubnet.ToCreate = newSubnet
 		}
 		podSubnet.ToUse = path.Base(subnetStr)
-		allocatedSubnet.ACTIVEIP += 1
+		allocatedSubnet.ACTIVEIP++
 		b, err := json.Marshal(allocatedSubnet)
 		if err != nil {
 			glog.Errorf("marshal struct %v to json string failed: %v", allocatedSubnet, err)
 		}
 
 		puts = append(puts, clientv3.OpPut(subnetStr, string(b)))
-		puts = append(puts, clientv3.OpPut(POD_METADATA_TREE+ns+"/"+pod, path.Base(subnetStr)))
+		puts = append(puts, clientv3.OpPut(PodMetadataTree+ns+"/"+pod, path.Base(subnetStr)))
 		for _, kv := range subnetResp.Kvs {
 			compares = append(compares, clientv3.Compare(clientv3.ModRevision(string(kv.Key)), "=", kv.ModRevision))
 		}
@@ -206,7 +209,7 @@ func (nuageetcd *NuageEtcdClient) AllocateSubnetForPod(data *api.EtcdPodMetadata
 				return err
 			})
 		if err != nil {
-			glog.Errorf("writing transaction to etcd failed:", err)
+			glog.Errorf("writing transaction to etcd failed: %s", err)
 			return false, err
 		}
 		return txnResp.Succeeded, nil
@@ -231,8 +234,8 @@ func (nuageetcd *NuageEtcdClient) DeAllocateSubnetFromPod(data *api.EtcdPodMetad
 		nuageEtcdRetry(
 			func() error {
 				txnResp, err = nuageetcd.client.KV.Txn(context.Background()).Then(
-					clientv3.OpGet(POD_METADATA_TREE+ns+"/"+pod),
-					clientv3.OpGet(SUBNET_METADATA_TREE+ns+"/"+ns, clientv3.WithPrefix())).Commit()
+					clientv3.OpGet(PodMetadataTree+ns+"/"+pod),
+					clientv3.OpGet(SubnetMetadataTree+ns+"/"+ns, clientv3.WithPrefix())).Commit()
 				return err
 			})
 		if err != nil {
@@ -255,23 +258,23 @@ func (nuageetcd *NuageEtcdClient) DeAllocateSubnetFromPod(data *api.EtcdPodMetad
 				break
 			}
 		}
-		snet.ACTIVEIP -= 1
+		snet.ACTIVEIP--
 		deallocatedSubnet := snet.VSDID
 		if b, err := json.Marshal(snet); err != nil {
 			glog.Errorf("marshal struct %v to string failed: %v", snet, err)
 			return false, err
 		} else {
-			ops = append(ops, clientv3.OpPut(SUBNET_METADATA_TREE+ns+"/"+subnetStr, string(b)))
+			ops = append(ops, clientv3.OpPut(SubnetMetadataTree+ns+"/"+subnetStr, string(b)))
 		}
 		for _, kv := range subnetResp.Kvs {
 			if err := json.Unmarshal(kv.Value, snet); err != nil {
 				glog.Errorf("unmarshal kv pair(%s, %s) to struct failed: %v", kv.Key, kv.Value, err)
 			} else {
 				ACTIVEIPCount += snet.ACTIVEIP
-				noOfSubnets += 1
+				noOfSubnets++
 			}
 		}
-		if noOfSubnets != 1 && ACTIVEIPCount*100 < noOfSubnets*nuageetcd.maxIPCount*SCALE_DOWN_THRESHOLD {
+		if noOfSubnets != 1 && ACTIVEIPCount*100 < noOfSubnets*nuageetcd.maxIPCount*ScaleDownThreshold {
 			for _, kv := range subnetResp.Kvs {
 				if err := json.Unmarshal(kv.Value, snet); err != nil {
 					glog.Errorf("unmarshal kv pair(%s, %s) to struct failed: %v", kv.Key, kv.Value, err)
@@ -288,7 +291,7 @@ func (nuageetcd *NuageEtcdClient) DeAllocateSubnetFromPod(data *api.EtcdPodMetad
 				}
 			}
 		}
-		ops = append(ops, clientv3.OpDelete(POD_METADATA_TREE+ns+"/"+pod))
+		ops = append(ops, clientv3.OpDelete(PodMetadataTree+ns+"/"+pod))
 		for _, kv := range subnetResp.Kvs {
 			compares = append(compares, clientv3.Compare(clientv3.ModRevision(string(kv.Key)), "=", kv.ModRevision))
 		}
@@ -300,7 +303,7 @@ func (nuageetcd *NuageEtcdClient) DeAllocateSubnetFromPod(data *api.EtcdPodMetad
 				return err
 			})
 		if err != nil {
-			glog.Errorf("writing transaction to etcd failed:", err)
+			glog.Errorf("writing transaction to etcd failed: %s", err)
 			return false, err
 		}
 		return txnResp.Succeeded, nil
@@ -315,7 +318,7 @@ func (nuageetcd *NuageEtcdClient) CreateFirstSubnet(subnetInfo *api.EtcdSubnetMe
 	var txnResp *clientv3.TxnResponse
 	b := []byte{}
 	ns := subnetInfo.Namespace
-	key := SUBNET_METADATA_TREE + ns + "/" + subnetInfo.Name
+	key := SubnetMetadataTree + ns + "/" + subnetInfo.Name
 	s := &etcdSubnetValue{ACTIVEIP: 0, VSDID: subnetInfo.ID, CIDR: subnetInfo.CIDR}
 	b, err = json.Marshal(s)
 	if err != nil {
@@ -345,7 +348,7 @@ func (nuageetcd *NuageEtcdClient) CreateFirstSubnet(subnetInfo *api.EtcdSubnetMe
 func (nuageetcd *NuageEtcdClient) DeleteLastSubnet(subnetInfo *api.EtcdSubnetMetadata) (*api.EtcdSubnetMetadata, error) {
 	var err error
 	var delResp *clientv3.DeleteResponse
-	key := SUBNET_METADATA_TREE + subnetInfo.Namespace + "/" + subnetInfo.Name
+	key := SubnetMetadataTree + subnetInfo.Namespace + "/" + subnetInfo.Name
 	nuageEtcdRetry(
 		func() error {
 			delResp, err = nuageetcd.client.Delete(context.Background(), key, clientv3.WithPrefix(), clientv3.WithPrevKV())
@@ -367,12 +370,12 @@ func (nuageetcd *NuageEtcdClient) DeleteLastSubnet(subnetInfo *api.EtcdSubnetMet
 	return subnet, nil
 }
 
-//AllocateSubnet marks an entry if the subnet is not already used
+//AllocateSubnetCIDR marks an entry if the subnet is not already used
 func (nuageetcd *NuageEtcdClient) AllocateSubnetCIDR(subnet *api.EtcdSubnetMetadata) (string, error) {
 	var err error
 	var txnResp *clientv3.TxnResponse
 	networkCIDR := strings.Replace(subnet.CIDR, "/", "-", -1)
-	key := POOL_CIDR_TREE + networkCIDR
+	key := PoolCIDRTree + networkCIDR
 	nuageEtcdRetry(
 		func() error {
 			txnResp, err = nuageetcd.client.KV.Txn(context.Background()).If(
@@ -398,11 +401,11 @@ func (nuageetcd *NuageEtcdClient) AllocateSubnetCIDR(subnet *api.EtcdSubnetMetad
 	return "", err
 }
 
-//FreeSubnet delete the subnet entry
+//FreeSubnetCIDR delete the subnet entry
 func (nuageetcd *NuageEtcdClient) FreeSubnetCIDR(subnet *api.EtcdSubnetMetadata) error {
 	var err error
 	networkCIDR := strings.Replace(subnet.CIDR, "/", "-", -1)
-	key := POOL_CIDR_TREE + networkCIDR
+	key := PoolCIDRTree + networkCIDR
 	nuageEtcdRetry(
 		func() error {
 			_, err = nuageetcd.client.Delete(context.Background(), key)
@@ -418,10 +421,10 @@ func (nuageetcd *NuageEtcdClient) FreeSubnetCIDR(subnet *api.EtcdSubnetMetadata)
 	return nil
 }
 
-//UpdateSubnetIDKey create a new key that maps to vsd network id
+//UpdateSubnetInfo create a new key that maps to vsd network id
 func (nuageetcd *NuageEtcdClient) UpdateSubnetInfo(subnetInfo *api.EtcdSubnetMetadata) error {
 	nuageetcd.subnetIDCache[subnetInfo.Namespace+"/"+subnetInfo.Name] = subnetInfo.ID
-	key := SUBNET_METADATA_TREE + subnetInfo.Namespace + "/" + subnetInfo.Name
+	key := SubnetMetadataTree + subnetInfo.Namespace + "/" + subnetInfo.Name
 	s := etcdSubnetValue{ACTIVEIP: 0, VSDID: subnetInfo.ID, CIDR: subnetInfo.CIDR}
 	b, err := json.Marshal(s)
 	if err != nil {
@@ -447,7 +450,7 @@ func (nuageetcd *NuageEtcdClient) UpdateSubnetInfo(subnetInfo *api.EtcdSubnetMet
 func (nuageetcd *NuageEtcdClient) GetSubnetInfo(subnetInfo *api.EtcdSubnetMetadata) (*api.EtcdSubnetMetadata, error) {
 	var err error
 	var getResp *clientv3.GetResponse
-	key := SUBNET_METADATA_TREE + subnetInfo.Namespace + "/" + subnetInfo.Name
+	key := SubnetMetadataTree + subnetInfo.Namespace + "/" + subnetInfo.Name
 	nuageEtcdRetry(
 		func() error {
 			getResp, err = nuageetcd.client.Get(context.Background(), key)
@@ -480,7 +483,7 @@ func (nuageetcd *NuageEtcdClient) GetSubnetID(subnetInfo *api.EtcdSubnetMetadata
 	if subnetID, ok := nuageetcd.subnetIDCache[subnetInfo.Namespace+"/"+subnetInfo.Name]; ok {
 		return subnetID, nil
 	}
-	key := SUBNET_METADATA_TREE + subnetInfo.Namespace + "/" + subnetInfo.Name
+	key := SubnetMetadataTree + subnetInfo.Namespace + "/" + subnetInfo.Name
 	transform := func(b []byte) string {
 		subnet := &etcdSubnetValue{}
 		_ = json.Unmarshal(b, subnet)
@@ -499,7 +502,7 @@ func (nuageetcd *NuageEtcdClient) AddZone(zoneInfo *api.EtcdZoneMetadata) (strin
 	var id string
 	var err error
 	var txnResp *clientv3.TxnResponse
-	key := ZONE_METADATA_TREE + zoneInfo.Name
+	key := ZoneMetadataTree + zoneInfo.Name
 	nuageEtcdRetry(
 		func() error {
 			txnResp, err = nuageetcd.client.Txn(context.Background()).If(
@@ -530,7 +533,7 @@ func (nuageetcd *NuageEtcdClient) AddZone(zoneInfo *api.EtcdZoneMetadata) (strin
 
 func (nuageetcd *NuageEtcdClient) UpdateZone(zoneInfo *api.EtcdZoneMetadata) error {
 	var err error
-	key := ZONE_METADATA_TREE + zoneInfo.Name
+	key := ZoneMetadataTree + zoneInfo.Name
 	nuageEtcdRetry(
 		func() error {
 			_, err = nuageetcd.client.Put(context.Background(), key, zoneInfo.ID)
@@ -545,7 +548,7 @@ func (nuageetcd *NuageEtcdClient) UpdateZone(zoneInfo *api.EtcdZoneMetadata) err
 
 func (nuageetcd *NuageEtcdClient) DeleteZone(zoneInfo *api.EtcdZoneMetadata) error {
 	var err error
-	key := ZONE_METADATA_TREE + zoneInfo.Name
+	key := ZoneMetadataTree + zoneInfo.Name
 	nuageEtcdRetry(
 		func() error {
 			_, err = nuageetcd.client.Delete(context.Background(), key)
@@ -564,7 +567,7 @@ func (nuageetcd *NuageEtcdClient) GetZonesSubnets() (map[string]map[string]bool,
 	result := make(map[string]map[string]bool)
 	nuageEtcdRetry(
 		func() error {
-			getResp, err = nuageetcd.client.Get(context.Background(), SUBNET_METADATA_TREE,
+			getResp, err = nuageetcd.client.Get(context.Background(), SubnetMetadataTree,
 				clientv3.WithPrefix(), clientv3.WithKeysOnly())
 			return err
 		})
@@ -614,8 +617,8 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 		if len(getResp.Kvs) != 0 && transform(getResp.Kvs[0].Value) != "" {
 			return transform(getResp.Kvs[0].Value), nil
 		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		nuageEtcdRetry(
 			func() error {
 				watchChan = nuageetcd.client.Watch(ctx, key, clientv3.WithRev(getResp.Header.Revision+1))
@@ -623,7 +626,6 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 			})
 		select {
 		case watchResp := <-watchChan:
-			cancel()
 			if watchResp.Err() != nil {
 				glog.Errorf("watch received an error: %v", watchResp.Err())
 				return "", watchResp.Err()
@@ -641,7 +643,6 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 			break
 		}
 	}
-	return "", fmt.Errorf("invalid scenario")
 }
 
 //retry the same request in case of a timeout
@@ -664,10 +665,8 @@ func nuageEtcdRetry(f func() error) {
 //Run starts the nuage etcd client and listens for events
 func (nuageetcd *NuageEtcdClient) Run(etcdChannel chan *api.EtcdEvent) {
 	for {
-		select {
-		case etcdEvent := <-etcdChannel:
-			nuageetcd.HandleEtcdEvent(etcdEvent)
-		}
+		etcdEvent := <-etcdChannel
+		nuageetcd.HandleEtcdEvent(etcdEvent)
 	}
 }
 
@@ -722,18 +721,19 @@ func max(a, b int) int {
 	return b
 }
 
-func (nuageetcd *NuageEtcdClient) tls_setup() (*tls.Config, error) {
+// TLSSetup loads the certificates
+func (nuageetcd *NuageEtcdClient) TLSSetup() (*tls.Config, error) {
 	// Load client cert
 	cert, err := tls.LoadX509KeyPair(nuageetcd.clientCertificate, nuageetcd.clientKey)
 	if err != nil {
-		glog.Errorf("Error loading client cert file to communicate with Nuage K8S monitor: %v", err)
+		glog.Errorf("Error loading client cert file to communicate with etcd: %v", err)
 		return nil, err
 	}
 
 	// Load CA cert
 	caCert, err := ioutil.ReadFile(nuageetcd.serverCA)
 	if err != nil {
-		glog.Errorf("Error loading CA cert file to communicate with Nuage K8S monitor: %v", err)
+		glog.Errorf("Error loading CA cert file to communicate with etcd: %v", err)
 		return nil, err
 	}
 	caCertPool := x509.NewCertPool()

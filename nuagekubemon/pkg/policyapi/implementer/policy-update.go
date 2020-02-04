@@ -2,6 +2,7 @@ package implementer
 
 import (
 	"fmt"
+
 	"github.com/nuagenetworks/go-bambou/bambou"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/policies"
 	"github.com/nuagenetworks/vspk-go/vspk"

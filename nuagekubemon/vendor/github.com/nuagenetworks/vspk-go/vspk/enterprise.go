@@ -384,6 +384,20 @@ func (o *Enterprise) CreatePerformanceMonitor(child *PerformanceMonitor) *bambou
 	return bambou.CurrentSession().CreateChild(o, child)
 }
 
+// TestDefinitions retrieves the list of child TestDefinitions of the Enterprise
+func (o *Enterprise) TestDefinitions(info *bambou.FetchingInfo) (TestDefinitionsList, *bambou.Error) {
+
+	var list TestDefinitionsList
+	err := bambou.CurrentSession().FetchChildren(o, TestDefinitionIdentity, &list, info)
+	return list, err
+}
+
+// CreateTestDefinition creates a new child TestDefinition under the Enterprise
+func (o *Enterprise) CreateTestDefinition(child *TestDefinition) *bambou.Error {
+
+	return bambou.CurrentSession().CreateChild(o, child)
+}
+
 // TestSuites retrieves the list of child TestSuites of the Enterprise
 func (o *Enterprise) TestSuites(info *bambou.FetchingInfo) (TestSuitesList, *bambou.Error) {
 

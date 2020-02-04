@@ -59,12 +59,13 @@ type SysmonUplinkConnection struct {
 	ParentID         string `json:"parentID,omitempty"`
 	ParentType       string `json:"parentType,omitempty"`
 	Owner            string `json:"owner,omitempty"`
-	JSONState        string `json:"JSONState,omitempty"`
-	DTLSState        string `json:"DTLSState,omitempty"`
 	DatapathUplinkId string `json:"datapathUplinkId,omitempty"`
 	OpenflowState    string `json:"openflowState,omitempty"`
+	IpsecDtlsState   string `json:"ipsecDtlsState,omitempty"`
 	PrivateIP        string `json:"privateIP,omitempty"`
+	JsonState        string `json:"jsonState,omitempty"`
 	PublicIP         string `json:"publicIP,omitempty"`
+	VxlanDtlsState   string `json:"vxlanDtlsState,omitempty"`
 }
 
 // NewSysmonUplinkConnection returns a new *SysmonUplinkConnection

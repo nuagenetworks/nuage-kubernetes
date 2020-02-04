@@ -105,11 +105,11 @@ func NewUplinkConnection() *UplinkConnection {
 		Inherited:               false,
 		InstallerManaged:        false,
 		InterfaceConnectionType: "AUTOMATIC",
-		Mode:              "Dynamic",
-		Role:              "PRIMARY",
-		DownloadRateLimit: 8.0,
-		AuxMode:           "NONE",
-		AuxiliaryLink:     false,
+		Mode:                    "Dynamic",
+		Role:                    "PRIMARY",
+		DownloadRateLimit:       8.0,
+		AuxMode:                 "NONE",
+		AuxiliaryLink:           false,
 	}
 }
 
