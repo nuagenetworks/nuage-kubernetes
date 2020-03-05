@@ -1416,7 +1416,7 @@ func (nvsdc *NuageVsdClient) GetZonesSubnets() (map[string]map[string]bool, erro
 	objType := make([]interface{}, 0, 100)
 
 	zoneArr := make([]vspk.Zone, 0, 100)
-	for i, _ := range zoneArr {
+	for i := range zoneArr {
 		objType[i] = zoneArr[i]
 	}
 	zones, err := nvsdc.GetVsdObjects("domains/"+nvsdc.domainID+"/zones", 1)
@@ -1426,7 +1426,7 @@ func (nvsdc *NuageVsdClient) GetZonesSubnets() (map[string]map[string]bool, erro
 	}
 
 	subnetArr := make([]vspk.Subnet, 0, 100)
-	for i, _ := range subnetArr {
+	for i := range subnetArr {
 		objType[i] = subnetArr[i]
 	}
 	for _, zoneIntf := range *zones {
@@ -1732,7 +1732,7 @@ func (nvsdc *NuageVsdClient) audit() {
 				glog.Errorf("getching zone(%s) id failed: %v", etcdZone, err)
 				continue
 			}
-			for etcdSubnet, _ := range etcdSubnetList {
+			for etcdSubnet := range etcdSubnetList {
 				if _, ok := vsdSubnetList[etcdSubnet]; !ok {
 					namespace := &NamespaceData{Name: etcdZone, ZoneID: zoneID}
 					glog.Warningf("subnet(%s) missing from VSD, creating it now", etcdSubnet)
@@ -1758,7 +1758,7 @@ func (nvsdc *NuageVsdClient) audit() {
 				continue
 			}
 			//now create subnets if any are missing
-			for etcdSubnet, _ := range etcdSubnetList {
+			for etcdSubnet := range etcdSubnetList {
 				namespace := &NamespaceData{Name: etcdZone, ZoneID: zoneID}
 				glog.Warningf("subnet(%s) missing from VSD, creating it now", etcdSubnet)
 
