@@ -1,0 +1,151 @@
+# This ConfigMap is used to configure Nuage VSP configuration on master nodes
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nuage-master-config
+  namespace: kube-system
+data:
+  # This will generate the required Nuage monitor configuration
+  # on master nodes
+  monitor_yaml_config: |
+      kubeConfig: /usr/share/vsp-k8s/nuage.kubeconfig
+
+      masterConfig: /usr/share/nuagekubemon/net-config.yaml
+      # URL of the VSD Architect
+      vsdApiUrl: https://xmpp.example.com:7443
+      # API version to query against
+      vspVersion: v6
+      # Name of the enterprise in which pods will reside
+      enterpriseName: kubernetes
+      # Name of the domain in which pods will reside
+      domainName: kubernetes
+      # Enable/Disable encryption flags on VSD
+      encryptionEnabled: 0
+      # Enable Underlay Support for this domain on VSD. 1 => enabled, 0 => disabled(default)
+      underlaySupport: 0
+      # Enable Stats Logging for this domain on VSD. 1 => enabled, 0 => disabled(default)
+      statsLogging: 0
+      # VSD generated user certificate file location on master node
+      userCertificateFile: /etc/kubernetes/pki/k8s-admin.pem
+      # VSD generated user key file location on master node
+      userKeyFile: /etc/kubernetes/pki/k8s-admin-Key.pem
+      # Location where logs should be saved
+      log_dir: /var/log/nuagekubemon
+      # Monitor rest server paramters
+      # Logging level for the nuage monitor
+      # allowed options are: 0 => INFO, 1 => WARNING, 2 => ERROR, 3 => FATAL
+      logLevel: 0
+      # Parameters related to the nuage monitor REST server
+      nuageMonServer:
+          URL: 0.0.0.0:9443
+          certificateDirectory: /etc/kubernetes/pki
+          clientCA: /etc/kubernetes/pki/ca.crt
+          serverCertificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+          serverKey: /etc/kubernetes/pki/apiserver-kubelet-client.key
+      # etcd config required for HA
+      etcdClientConfig:
+          ca: /etc/kubernetes/pki/etcd/ca.crt
+          certFile: /etc/kubernetes/pki/etcd/peer.crt
+          keyFile: /etc/kubernetes/pki/etcd/peer.key
+          urls:
+             - https://127.0.0.1:2379
+      # auto scale subnets feature
+      # 0 => disabled(default)
+      # 1 => enabled
+      autoScaleSubnets: 0
+
+  # This will generate the required Nuage network configuration
+  # on master nodes
+  net_yaml_config: |
+      networkConfig:
+        clusterNetworks:
+          # hostSubnetLength is the size of the subnets
+          # created on VSD
+          - cidr: 70.70.0.0/16
+            hostSubnetLength: 8
+        serviceNetworkCIDR: 192.168.0.0/16
+
+---
+
+# This manifest installs Nuage master node configuration on
+# each Nuage master node in a cluster.
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: nuage-master-monitor-ds
+  namespace: kube-system
+  labels:
+    k8s-app: nuage-master-monitor-ds
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nuage-master-monitor-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: nuage-master-monitor-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+        install-monitor: "true"
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+          operator: Exists
+      hostNetwork: true
+      containers:
+        # This container configures Nuage Master node
+        - name: install-nuage-master-config
+          image: nuage/master:<nuage-release>
+          ports:
+            - containerPort: 9443
+              hostPort: 9443
+          command: ["/configure-master.sh"]
+          args: ["k8s"]
+          securityContext:
+            privileged: true
+          env:
+            # Set the hostname based on the k8s node name.
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # nuagekubemon.yaml config to install on each master node.
+            - name: NUAGE_MASTER_VSP_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-master-config
+                  key: monitor_yaml_config
+            # net-config.yaml config to install on each master node.
+            - name: NUAGE_MASTER_NETWORK_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-master-config
+                  key: net_yaml_config
+          volumeMounts:
+            - mountPath: /var/log
+              name: cni-log-dir
+            - mountPath: /usr/share
+              name: usr-share-dir
+            - mountPath: /etc/kubernetes/pki/
+              name: kubernetes-cert-dir
+      volumes:
+        - name: cni-log-dir
+          hostPath:
+            path: /var/log
+        - name: usr-share-dir
+          hostPath:
+            path: /usr/share
+        - name: kubernetes-cert-dir
+          hostPath:
+            path: /etc/kubernetes/pki/

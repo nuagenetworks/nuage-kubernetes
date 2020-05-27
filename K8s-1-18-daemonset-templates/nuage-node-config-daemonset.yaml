@@ -1,0 +1,237 @@
+# This ConfigMap is used to configure Nuage VSP configuration
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nuage-node-config
+  namespace: kube-system
+data:
+  # This will generate the required Nuage vsp-k8s.yaml
+  # config on each slave node
+  plugin_yaml_config: |
+      # Path to Nuage kubeconfig
+      kubeConfig: /usr/share/vsp-k8s/nuage.kubeconfig
+      # Name of the enterprise in which pods will reside
+      enterpriseName: kubernetes
+      # Name of the domain in which pods will reside
+      domainName: kubernetes
+      # Name of the VSD user in admin group
+      vsdUser: k8s-admin
+      # REST server URL
+      nuageMonRestServer: https://<nuageMonRestServer IP or hostname>:9443
+      # Bridge name for the docker bridge
+      dockerBridgeName: docker0
+      # Certificate for connecting to the kubemon REST API
+      nuageMonClientCert: /var/lib/kubelet/pki/kubelet-client-current.pem
+      # Key to the certificate in restClientCert
+      nuageMonClientKey: /var/lib/kubelet/pki/kubelet-client-current.pem
+      # CA certificate for verifying the master's rest server
+      nuageMonServerCA: /etc/kubernetes/pki/ca.crt
+      # Nuage vport mtu size
+      interfaceMTU: 1460
+      # Service CIDR
+      serviceCIDR: 192.168.0.0/16
+      # Logging level for the plugin
+      # allowed options are: "dbg", "info", "warn", "err", "emer", "off"
+      logLevel: dbg
+
+  # This will generate the required Nuage CNI yaml configuration
+  cni_yaml_config: |
+      vrsendpoint: "/var/run/openvswitch/db.sock"
+      vrsbridge: "alubr0"
+      monitorinterval: 60
+      cniversion: 0.2.0
+      loglevel: "info"
+      portresolvetimer: 60
+      logfilesize: 1
+      vrsconnectionchecktimer: 180
+      mtu: 1450
+      staleentrytimeout: 600
+      nuagesiteid: -1
+
+---
+
+# This manifest installs Nuage CNI plugins and network config on
+# each worker node in a Kubernetes cluster.
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: nuage-cni-ds
+  namespace: kube-system
+  labels:
+    k8s-app: nuage-cni-ds
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nuage-cni-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: nuage-cni-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      hostNetwork: true
+      containers:
+        # This container installs Nuage CNI binaries
+        # and CNI network config file on each node.
+        - name: install-nuage-cni
+          image: nuage/cni:<nuage-release>
+          command: ["/install-cni.sh"]
+          args: ["nuage-cni-k8s"]
+          securityContext:
+            privileged: true
+          env:
+            # Set the hostname based on the k8s node name.
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # Nuage vsp-k8s.yaml config to install on each slave node.
+            - name: NUAGE_VSP_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-node-config
+                  key: plugin_yaml_config
+            # Nuage nuage-cni.yaml config to install on each slave node.
+            - name: NUAGE_CNI_YAML_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: nuage-node-config
+                  key: cni_yaml_config
+            # Nuage cluster network CIDR for iptables configuration
+            - name: NUAGE_CLUSTER_NW_CIDR
+              value: "70.70.0.0/16"
+            # Kubernetes Master api-server URL
+            - name: MASTER_API_SERVER_URL
+              value: "https://<master-ip>:6443"
+            # nuage user service account token string
+            - name: NUAGE_TOKEN
+              value: "Add Kubernetes generated nuage service account token here"
+          volumeMounts:
+            - mountPath: /host/opt
+              name: cni-bin-dir
+            - mountPath: /host/etc
+              name: cni-yaml-dir
+            - mountPath: /var/run
+              name: var-run-dir
+            - mountPath: /var/log
+              name: cni-log-dir
+            - mountPath: /usr/share
+              name: usr-share-dir
+            - mountPath: /etc/kubernetes/pki/
+              name: kubernetes-ca-dir
+            - mountPath: /var/lib/kubelet/pki/
+              name: kubernetes-cert-dir
+      volumes:
+        - name: cni-bin-dir
+          hostPath:
+            path: /opt
+        - name: cni-yaml-dir
+          hostPath:
+            path: /etc
+        - name: var-run-dir
+          hostPath:
+            path: /var/run
+        - name: cni-log-dir
+          hostPath:
+            path: /var/log
+        - name: usr-share-dir
+          hostPath:
+            path: /usr/share
+        - name: kubernetes-ca-dir
+          hostPath:
+            path: /etc/kubernetes/pki/
+        - name: kubernetes-cert-dir
+          hostPath:
+            path: /var/lib/kubelet/pki/
+
+---
+
+# This manifest installs Nuage VRS on
+# each worker node in a Kubernetes cluster.
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: nuage-vrs-ds
+  namespace: kube-system
+  labels:
+    k8s-app: nuage-vrs-ds
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nuage-vrs-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: nuage-vrs-ds
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      hostNetwork: true
+      containers:
+        # This container installs Nuage VRS running as a
+        # container on each worker node
+        - name: install-nuage-vrs
+          image: nuage/vrs:<nuage-release>
+          securityContext:
+            privileged: true
+          env:
+            # Configure parameters for VRS openvswitch file
+            - name: NUAGE_ACTIVE_CONTROLLER
+              value: "10.10.10.10"
+            - name: NUAGE_STANDBY_CONTROLLER
+              value: "20.20.20.20"
+            - name: NUAGE_PLATFORM
+              value: '"kvm, k8s"'
+            - name: NUAGE_K8S_SERVICE_IPV4_SUBNET
+              value: '192.168.0.0\/16'
+            - name: NUAGE_K8S_POD_NETWORK_CIDR
+              value: '70.70.0.0\/16'
+            - name: NUAGE_NETWORK_UPLINK_INTF
+              value: "eth0"
+          volumeMounts:
+            - mountPath: /var/run
+              name: vrs-run-dir
+            - mountPath: /var/log
+              name: vrs-log-dir
+            - mountPath: /sys/module
+              name: sys-mod-dir
+              readOnly: true
+            - mountPath: /lib/modules
+              name: lib-mod-dir
+              readOnly: true
+      volumes:
+        - name: vrs-run-dir
+          hostPath:
+            path: /var/run
+        - name: vrs-log-dir
+          hostPath:
+            path: /var/log
+        - name: sys-mod-dir
+          hostPath:
+            path: /sys/module
+        - name: lib-mod-dir
+          hostPath:
+            path: /lib/modules

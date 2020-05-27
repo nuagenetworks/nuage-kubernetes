@@ -39,27 +39,27 @@ func TestSplitIPv4Subnet(t *testing.T) {
 	}
 	output := [][2]IPv4Subnet{
 		//{IPv4Address{0, 0, 0, 0}, 0},
-		[2]IPv4Subnet{
+		{
 			{IPv4Address{0, 0, 0, 0}, 1},
 			{IPv4Address{128, 0, 0, 0}, 1},
 		},
 		//{IPv4Address{192, 168, 1, 0}, 24},
-		[2]IPv4Subnet{
+		{
 			{IPv4Address{192, 168, 1, 0}, 25},
 			{IPv4Address{192, 168, 1, 128}, 25},
 		},
 		//{IPv4Address{192, 168, 1, 23}, 24},
-		[2]IPv4Subnet{
+		{
 			{IPv4Address{192, 168, 1, 0}, 25},
 			{IPv4Address{192, 168, 1, 128}, 25},
 		},
 		//{IPv4Address{192, 168, 2, 0}, 23},
-		[2]IPv4Subnet{
+		{
 			{IPv4Address{192, 168, 2, 0}, 24},
 			{IPv4Address{192, 168, 3, 0}, 24},
 		},
 		//{IPv4Address{192, 168, 3, 0}, 23},
-		[2]IPv4Subnet{
+		{
 			{IPv4Address{192, 168, 2, 0}, 24},
 			{IPv4Address{192, 168, 3, 0}, 24},
 		},
@@ -119,13 +119,13 @@ func TestIPv4SubnetFromString(t *testing.T) {
 	}
 	output := []IPv4Subnet{
 		//"0.0.0.0/0",
-		IPv4Subnet{IPv4Address{0, 0, 0, 0}, 0},
+		{IPv4Address{0, 0, 0, 0}, 0},
 		//"10.0.0.0/8",
-		IPv4Subnet{IPv4Address{10, 0, 0, 0}, 8},
+		{IPv4Address{10, 0, 0, 0}, 8},
 		//"192.168.122.0/24",
-		IPv4Subnet{IPv4Address{192, 168, 122, 0}, 24},
+		{IPv4Address{192, 168, 122, 0}, 24},
 		//"172.30.1.1/32",
-		IPv4Subnet{IPv4Address{172, 30, 1, 1}, 32},
+		{IPv4Address{172, 30, 1, 1}, 32},
 	}
 	for i, inString := range input {
 		outSubnet, err := IPv4SubnetFromString(inString)
