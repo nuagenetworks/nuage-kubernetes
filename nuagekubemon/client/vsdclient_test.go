@@ -84,7 +84,12 @@ func TestCreateDomain(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that the domain will be deleted even in error cases
-	defer vsdClient.DeleteDomain(domainID)
+	defer func() {
+		err := vsdClient.DeleteDomain(domainID)
+		if err != nil {
+			t.Logf("Domain ID deletion failed %v.", domainID)
+		}
+	}()
 	// Verify that it was instantiated
 	id, err := vsdClient.GetDomainID(enterpriseID, "test-domain")
 	if err != nil {
@@ -138,7 +143,12 @@ func TestDeleteDomain(t *testing.T) {
 	if id != domainID {
 		t.Fatal("Domain was not instantiated! Aborting test.")
 	}
-	vsdClient.DeleteDomain(domainID)
+	defer func() {
+		err := vsdClient.DeleteDomain(domainID)
+		if err != nil {
+			t.Logf("Domain ID deletion failed %v.", domainID)
+		}
+	}()
 	id, err = vsdClient.GetDomainID(enterpriseID, "test-domain")
 	if err == nil || err.Error() != "Domain not found" {
 		t.Fatal(err)
@@ -169,14 +179,24 @@ func TestCreateZone(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that it's deleted when we're done too
-	defer vsdClient.DeleteDomain(domainID)
+	defer func() {
+		err := vsdClient.DeleteDomain(domainID)
+		if err != nil {
+			t.Logf("Domain ID deletion failed %v.", domainID)
+		}
+	}()
 	// Create a zone inside the domain
 	zoneID, err := vsdClient.CreateZone(domainID, "test-zone")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Guarantee that the zone will be deleted even in error cases
-	defer vsdClient.DeleteZone(zoneID)
+	defer func() {
+		err := vsdClient.DeleteZone(zoneID)
+		if err != nil {
+			t.Logf("Zone ID deletion failed %v.", zoneID)
+		}
+	}()
 	// Verify that it was instantiated
 	id, err := vsdClient.GetZoneID(domainID, "test-zone")
 	if err != nil {
@@ -210,7 +230,12 @@ func TestDeleteZone(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that it's deleted when we're done too
-	defer vsdClient.DeleteDomain(domainID)
+	defer func() {
+		err := vsdClient.DeleteDomain(domainID)
+		if err != nil {
+			t.Logf("Domain ID deletion failed %v.", domainID)
+		}
+	}()
 	// Create a zone inside the domain
 	zoneID, err := vsdClient.CreateZone(domainID, "test-zone")
 	if err != nil {
@@ -224,7 +249,10 @@ func TestDeleteZone(t *testing.T) {
 	if id != zoneID {
 		t.Fatal("Zone was not instantiated! Aborting test.")
 	}
-	vsdClient.DeleteZone(zoneID)
+	err = vsdClient.DeleteZone(zoneID)
+	if err != nil {
+		t.Logf("Delete zone failed %v", zoneID)
+	}
 	id, err = vsdClient.GetZoneID(domainID, "test-zone")
 	if err == nil || err.Error() != "Zone not found" {
 		t.Fatal(err)
@@ -256,13 +284,23 @@ func TestCreateSubnet(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that it's deleted when we're done too
-	defer vsdClient.DeleteDomain(domainID)
+	defer func() {
+		err := vsdClient.DeleteDomain(domainID)
+		if err != nil {
+			t.Logf("Domain ID deletion failed %v.", domainID)
+		}
+	}()
 	// Get the ID of the zone that was instantiated with the domain
 	zoneID, err := vsdClient.CreateZone(domainID, "zone")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vsdClient.DeleteZone(zoneID)
+	defer func() {
+		err := vsdClient.DeleteZone(zoneID)
+		if err != nil {
+			t.Logf("Zone ID deletion failed %v.", zoneID)
+		}
+	}()
 	// Create a subnet with specific parameters in the zone
 	subnet, err := IPv4SubnetFromString("10.1.1.0/24")
 	if err != nil {
@@ -273,7 +311,12 @@ func TestCreateSubnet(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that the subnet gets deleted when we're done too
-	defer vsdClient.DeleteSubnet(subnetID)
+	defer func() {
+		err := vsdClient.DeleteSubnet(subnetID)
+		if err != nil {
+			t.Logf("subnetID ID deletion failed %v.", subnetID)
+		}
+	}()
 	// Verify that it was created as defined
 	id, err := vsdClient.GetSubnetID(zoneID, "test-subnet")
 	if err != nil {
@@ -321,13 +364,23 @@ func TestDeleteSubnet(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Guarantee that it's deleted when we're done too
-	defer vsdClient.DeleteDomain(domainID)
+	defer func() {
+		err := vsdClient.DeleteDomain(domainID)
+		if err != nil {
+			t.Logf("Domain ID deletion failed %v.", domainID)
+		}
+	}()
 	// Get the ID of the zone that was instantiated with the domain
 	zoneID, err := vsdClient.CreateZone(domainID, "zone")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer vsdClient.DeleteZone(zoneID)
+	defer func() {
+		err := vsdClient.DeleteZone(zoneID)
+		if err != nil {
+			t.Logf("Zone ID deletion failed %v.", zoneID)
+		}
+	}()
 	// Create a subnet with specific parameters in the zone
 	subnet, err := IPv4SubnetFromString("10.1.1.0/24")
 	if err != nil {

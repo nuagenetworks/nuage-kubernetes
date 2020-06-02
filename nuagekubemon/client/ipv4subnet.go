@@ -227,14 +227,18 @@ func (pool *IPv4SubnetPool) Alloc(size int) (*IPv4Subnet, error) {
 	}
 	loSubnet, hiSubnet, err := bigSubnet.Split()
 	if err != nil {
-		pool.Free(bigSubnet)
-		return nil, err
+		err := pool.Free(bigSubnet)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Of the two subnets from the split, only one is needed, so release the other.
 	err = pool.Free(hiSubnet)
 	if err != nil {
-		pool.Free(bigSubnet)
-		return nil, err
+		err := pool.Free(bigSubnet)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return loSubnet, nil
 }
@@ -298,23 +302,32 @@ func (pool *IPv4SubnetPool) AllocSpecific(subnet *IPv4Subnet) error {
 			if err != nil {
 				// If we hit an error, return the entire subnet to the pool,
 				// then abort
-				pool.Free(bigSubnet)
+				err := pool.Free(bigSubnet)
+				if err != nil {
+					return err
+				}
 				return errors.New("Subnet " + subnet.String() +
 					" not found in pool")
 			}
 			if loSubnet.Contains(subnet) {
 				bigSubnet = loSubnet
-				pool.Free(hiSubnet)
+				err := pool.Free(hiSubnet)
+				if err != nil {
+					return err
+				}
 			} else {
 				bigSubnet = hiSubnet
-				pool.Free(loSubnet)
+				err := pool.Free(loSubnet)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		if bigSubnet.Compare(subnet) == 0 {
 			return nil
 		}
 	}
-	return errors.New("Subnet " + subnet.String() + " not found in pool")
+	return fmt.Errorf("Subnet %s not found in pool", subnet.String())
 }
 
 /* When freeing a subnet, first the pool should be checked for another subnet
@@ -332,7 +345,7 @@ func (pool *IPv4SubnetPool) AllocSpecific(subnet *IPv4Subnet) error {
  */
 func (pool *IPv4SubnetPool) Free(subnet *IPv4Subnet) error {
 	if subnet.CIDRMask < 0 || subnet.CIDRMask > 32 {
-		return errors.New(fmt.Sprintf("Cannot free bad subnet %s", subnet))
+		return fmt.Errorf("Cannot free bad subnet %s", subnet)
 	}
 	var prev, curr *IPv4SubnetNode
 	curr = pool[subnet.CIDRMask]
@@ -347,7 +360,7 @@ func (pool *IPv4SubnetPool) Free(subnet *IPv4Subnet) error {
 	for curr != nil {
 		switch {
 		case subnet.Compare(curr.subnet) == 0:
-			return errors.New(fmt.Sprintf("Double free of %s", subnet))
+			return fmt.Errorf("Double free of %s", subnet)
 		case subnet.Compare(curr.subnet) < 0:
 			prev.next = &IPv4SubnetNode{subnet, curr}
 			return nil

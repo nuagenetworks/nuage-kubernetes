@@ -3,6 +3,8 @@ package implementer
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/golang/glog"
 )
 
 // DeletePolicy deletes a Nuage policy using the policy ID
@@ -29,6 +31,7 @@ func (implementer *PolicyImplementer) DeletePolicy(policyID string, enterpriseNa
 				deleteErr = true
 				if _, berr := deleteErrBuf.WriteString(fmt.Sprintf("Error deleting ingress template %s\n",
 					ingressACLTemplate.ID)); berr != nil {
+					glog.Errorf("Error writing string to buffer %s", err)
 				}
 			}
 		}
@@ -41,6 +44,7 @@ func (implementer *PolicyImplementer) DeletePolicy(policyID string, enterpriseNa
 				deleteErr = true
 				if _, berr := deleteErrBuf.WriteString(fmt.Sprintf("Error deleting egress template %s\n",
 					egressACLTemplate.ID)); berr != nil {
+					glog.Errorf("Error writing string to buffer %s", err)
 				}
 			}
 		}

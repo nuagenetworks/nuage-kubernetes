@@ -617,8 +617,8 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 		if len(getResp.Kvs) != 0 && transform(getResp.Kvs[0].Value) != "" {
 			return transform(getResp.Kvs[0].Value), nil
 		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		nuageEtcdRetry(
 			func() error {
 				watchChan = nuageetcd.client.Watch(ctx, key, clientv3.WithRev(getResp.Header.Revision+1))
@@ -626,7 +626,6 @@ func (nuageetcd *NuageEtcdClient) nuageWatch(key string, transform func([]byte) 
 			})
 		select {
 		case watchResp := <-watchChan:
-			cancel()
 			if watchResp.Err() != nil {
 				glog.Errorf("watch received an error: %v", watchResp.Err())
 				return "", watchResp.Err()
@@ -666,10 +665,8 @@ func nuageEtcdRetry(f func() error) {
 //Run starts the nuage etcd client and listens for events
 func (nuageetcd *NuageEtcdClient) Run(etcdChannel chan *api.EtcdEvent) {
 	for {
-		select {
-		case etcdEvent := <-etcdChannel:
-			nuageetcd.HandleEtcdEvent(etcdEvent)
-		}
+		etcdEvent := <-etcdChannel
+		nuageetcd.HandleEtcdEvent(etcdEvent)
 	}
 }
 

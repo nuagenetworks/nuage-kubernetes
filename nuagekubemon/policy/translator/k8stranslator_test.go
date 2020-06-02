@@ -86,9 +86,17 @@ G3PY7QEvUYkh3lD36FAQxssSDuZZb0kHmTGEeR/oAhXqrwOJmh1HWA==
 -----END PRIVATE KEY-----`
 
 	file, _ := appFs.OpenFile(UserCertFile, os.O_RDWR|os.O_CREATE, 0600)
-	file.WriteString(userCert)
+	_, err := file.WriteString(userCert)
+	if err != nil {
+		er := fmt.Errorf("Cannot write to file %s", err)
+		fmt.Println(er)
+	}
 	file2, _ := appFs.OpenFile(UserKeyFile, os.O_RDWR|os.O_CREATE, 0600)
-	file2.WriteString(userKey)
+	_, err = file2.WriteString(userKey)
+	if err != nil {
+		er := fmt.Errorf("Cannot write to file %s", err)
+		fmt.Println(er)
+	}
 	vsdCredentials.UserCertFile = UserCertFile
 	vsdCredentials.UserKeyFile = UserKeyFile
 	vsdCredentials.URL = VsdURL

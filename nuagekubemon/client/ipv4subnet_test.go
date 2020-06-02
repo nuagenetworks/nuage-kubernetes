@@ -133,7 +133,7 @@ func TestIPv4SubnetFromString(t *testing.T) {
 			t.Errorf("Unexpected error: %s", err)
 			t.FailNow()
 		}
-		if bytes.Compare(outSubnet.Address[:], output[i].Address[:]) != 0 {
+		if !bytes.Equal(outSubnet.Address[:], output[i].Address[:]) {
 			t.Errorf("Address mismatch! Expected %s, got %s",
 				output[i].Address, outSubnet.Address)
 			t.Fail()

@@ -19,10 +19,11 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
 	"os"
 	"path"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 type NuageKubeMonConfig struct {

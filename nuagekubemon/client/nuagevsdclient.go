@@ -75,7 +75,6 @@ type NamespaceData struct {
 	Subnets        *SubnetNode
 	NeedsNewSubnet bool
 	defaultPolicy  networkPolicyType
-	numSubnets     int //used for naming new subnets (nsname-0, nsname-1, etc.)
 }
 
 type ServiceData struct {
@@ -129,8 +128,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 		} else if result[0].Name == "" {
 			return "", errors.New("Enterprise not found")
 		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+			return "", fmt.Errorf("Found %q instead of %q", result[0].Name, name)
 		}
 	} else {
 		return "", VsdErrorResponse(resp, &e)
@@ -219,7 +217,10 @@ func (nvsdc *NuageVsdClient) Init(nkmConfig *config.NuageKubeMonConfig, clusterC
 	// A null IPv4SubnetPool acts like all addresses are allocated, so we can
 	// initialize it to have the available cluster address space by just
 	// Free()-ing it.
-	nvsdc.pool.Free(nvsdc.clusterNetwork)
+	err = nvsdc.pool.Free(nvsdc.clusterNetwork)
+	if err != nil {
+		glog.Errorf("Cannot free cluster network %s", nvsdc.clusterNetwork.String())
+	}
 	nvsdc.namespaces = make(map[string]NamespaceData)
 	nvsdc.services = make(map[string]ServiceData)
 	nvsdc.podChannel = make(chan *api.PodEvent)
@@ -341,10 +342,6 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 	if err != nil {
 		return err
 	}
-	/*clientCACert, err := x509.ParseCertificate(clientCAData)
-	if err != nil {
-		return err
-	}*/
 	CAPool.AppendCertsFromPEM(clientCAData)
 	// Create the rest API router, and add endpoints
 	nvsdc.restAPI = sleepy.NewAPI()
@@ -441,8 +438,7 @@ func (nvsdc *NuageVsdClient) GetDomainTemplateID(enterpriseID, name string) (str
 		} else if result[0].Name == "" {
 			return "", errors.New("Domain Template not found")
 		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+			return "", fmt.Errorf("Found %q instead of %q", result[0].Name, name)
 		}
 	} else {
 		return "", VsdErrorResponse(resp, &e)
@@ -474,8 +470,7 @@ func (nvsdc *NuageVsdClient) GetIngressAclTemplate(domainID, name string) (*api.
 		} else if result[0].Name == "" {
 			return nil, errors.New("Ingress ACL Template not found")
 		} else {
-			return nil, errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+			return nil, fmt.Errorf("Found %q instead of %q", result[0].Name, name)
 		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
@@ -535,8 +530,7 @@ func (nvsdc *NuageVsdClient) GetEgressAclTemplate(domainID, name string) (*api.V
 		} else if result[0].Name == "" {
 			return nil, errors.New("Egress ACL Template not found")
 		} else {
-			return nil, errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+			return nil, fmt.Errorf("Found %q instead of %q", result[0].Name, name)
 		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
@@ -696,7 +690,7 @@ func (nvsdc *NuageVsdClient) GetAclTemplateID(domainID, name string, ingress boo
 		// the filter didn't match anything (or there was nothing to
 		// return), the result object will just be empty.
 		for index := range result {
-			if result[index].Name == name && result[index].Priority == priority && result[index].Active == true {
+			if result[index].Name == name && result[index].Priority == priority && result[index].Active {
 				return result[index].ID, nil
 			}
 		}
@@ -813,8 +807,8 @@ func (nvsdc *NuageVsdClient) UpdateAclTemplate(aclTemplate *api.VsdAclTemplate, 
 	resp, err := nvsdc.session.Put(
 		url, aclTemplate, nil, &e)
 	if err != nil || resp.Status() != http.StatusNoContent {
-		VsdErrorResponse(resp, &e)
-		return err
+		glog.Errorf("Error from VSD  %v", err)
+		return VsdErrorResponse(resp, &e)
 	}
 	return nil
 }
@@ -851,8 +845,7 @@ func (nvsdc *NuageVsdClient) GetAclEntryByPriority(ingress bool, aclEntryPriorit
 		} else if result[0].Priority == 0 && result[0].ID == "" && result[0].Description == "" {
 			return nil, errors.New("ACL entry not found")
 		} else {
-			return nil, errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Priority, aclEntryPriority))
+			return nil, fmt.Errorf("Found %q instead of %q", result[0].Priority, aclEntryPriority)
 		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
@@ -892,10 +885,10 @@ func (nvsdc *NuageVsdClient) GetAclEntry(ingress bool, aclEntry *api.VsdAclEntry
 			return nil, errors.New("ACL entry not found")
 		} else {
 			glog.Error("Found an ACL entry that doesn't match the requested one")
-			return nil, errors.New(fmt.Sprintf("Found ACL entry %v instead of %v", &result[0], aclEntry))
+			return nil, fmt.Errorf("Found ACL entry %v instead of %v", &result[0], aclEntry)
 		}
 	} else if resp.Status() == http.StatusNotFound {
-		VsdErrorResponse(resp, &e)
+		glog.Errorf("VSD error response %s", VsdErrorResponse(resp, &e))
 		if ingress {
 			aclTemplate, err := nvsdc.GetIngressAclTemplate(nvsdc.domainID, api.IngressAclTemplateName)
 			if err != nil {
@@ -945,7 +938,7 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(ingress bool, aclEntry *api.VsdAclEn
 			glog.Infoln("Created ACL entry with priority: ", aclEntry.Priority)
 			return result[0].ID, nil
 		case http.StatusConflict:
-			VsdErrorResponse(resp, &e)
+			glog.Errorf("VSD error response %s", VsdErrorResponse(resp, &e))
 			acl, err := nvsdc.GetAclEntryByPriority(ingress, aclEntry.Priority)
 			if err != nil {
 				return "", err
@@ -958,7 +951,7 @@ func (nvsdc *NuageVsdClient) CreateAclEntry(ingress bool, aclEntry *api.VsdAclEn
 				return nvsdc.CreateAclEntry(ingress, aclEntry)
 			}
 		case http.StatusNotFound:
-			VsdErrorResponse(resp, &e)
+			glog.Errorf("Error on REST call to VSD: %s", VsdErrorResponse(resp, &e))
 			if ingress {
 				aclTemplate, err := nvsdc.GetIngressAclTemplate(nvsdc.domainID, api.IngressAclTemplateName)
 				if err != nil {
@@ -1030,8 +1023,7 @@ func (nvsdc *NuageVsdClient) GetZoneID(domainID, name string) (string, error) {
 		} else if result[0].Name == "" {
 			return "", errors.New("Zone not found")
 		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+			return "", fmt.Errorf("Found %q instead of %q", result[0].Name, name)
 		}
 	} else {
 		return "", VsdErrorResponse(resp, &e)
@@ -1270,8 +1262,7 @@ func (nvsdc *NuageVsdClient) GetDomainID(enterpriseID, name string) (string, err
 		} else if result[0].Name == "" {
 			return "", errors.New("Domain not found")
 		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, name))
+			return "", fmt.Errorf("Found %q instead of %q", result[0].Name, name)
 		}
 	} else {
 		return "", VsdErrorResponse(resp, &e)
@@ -1317,9 +1308,7 @@ func (nvsdc *NuageVsdClient) GetPodInterfaces(podName string) (*[]vspk.Container
 					glog.Errorf("Unable to get container interfaces for container %s", container.ID)
 					continue
 				} else {
-					for _, intf := range *interfaceList {
-						interfaces = append(interfaces, intf)
-					}
+					interfaces = append(interfaces, *interfaceList...)
 				}
 			}
 			// If there's less than 100 items in the page, we must've reached
@@ -1369,12 +1358,12 @@ func (nvsdc *NuageVsdClient) GetVsdObjects(objectUrl string, objType int) (*[]in
 		logGETRequest(reqUrl, params)
 		logGETResponse(resp, &e)
 		if err != nil {
-			glog.Errorf("Error when getting zones %v", err)
+			glog.Errorf("Error retreving zones %v", err)
 			return nil, err
 		}
 		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
 			if page == 0 {
-				glog.Errorf("Got an error when getting zones %v", err)
+				glog.Errorf("Error retreving zones %v", err)
 				return nil, VsdErrorResponse(resp, &e)
 			} else {
 				return &objs, nil
@@ -1471,21 +1460,19 @@ func (nvsdc *NuageVsdClient) GetInterfaces(containerId string) (*[]vspk.Containe
 		logGETRequest(reqUrl, params)
 		logGETResponse(resp, &e)
 		if err != nil {
-			glog.Errorf("Error when getting container interfaces matching %s: %s", containerId, err)
+			glog.Errorf("Error retreving container interfaces matching %s: %s", containerId, err)
 			return nil, err
 		}
 		if resp.Status() == http.StatusNoContent || resp.HttpResponse().Header.Get("x-nuage-count") == "0" {
 			if page == 0 {
-				glog.Errorf("Got an error when getting interfaces matching %s: %s", containerId, err)
+				glog.Errorf("Error retreving interfaces matching %s: %s", containerId, err)
 				return nil, VsdErrorResponse(resp, &e)
 			} else {
 				return &interfaces, nil
 			}
 		} else if resp.Status() == http.StatusOK {
 			// Add all the items on this page to the list
-			for _, intf := range result {
-				interfaces = append(interfaces, intf)
-			}
+			interfaces = append(interfaces, result...)
 			// If there's less than 100 items in the page, we must've reached
 			// the last page.  Break here instead of getting the next
 			// (guaranteed empty) page.
@@ -1699,11 +1686,20 @@ func (nvsdc *NuageVsdClient) Run(nsChannel chan *api.NamespaceEvent, serviceChan
 	for {
 		select {
 		case nsEvent := <-nsChannel:
-			nvsdc.HandleNsEvent(nsEvent)
+			err := nvsdc.HandleNsEvent(nsEvent)
+			if err != nil {
+				glog.Errorf("Error handling namespace event %s", err)
+			}
 		case serviceEvent := <-serviceChannel:
-			nvsdc.HandleServiceEvent(serviceEvent)
+			err := nvsdc.HandleServiceEvent(serviceEvent)
+			if err != nil {
+				glog.Errorf("Error handling service event %s", err)
+			}
 		case policyEvent := <-policyChannel:
-			nvsdc.HandleNetworkPolicyEvent(policyEvent)
+			err := nvsdc.HandleNetworkPolicyEvent(policyEvent)
+			if err != nil {
+				glog.Errorf("Error handling network policy event %s", err)
+			}
 		case podEvent := <-nvsdc.podChannel:
 			subnet, err := nvsdc.HandlePodEvent(podEvent)
 			podEvent.RespChan <- &api.PodEventResp{Data: subnet, Error: err}
@@ -1801,7 +1797,10 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, namespace
 		etcdSubnet := &api.EtcdSubnetMetadata{Name: subnetName, CIDR: subnet.String(), Namespace: namespace.Name}
 		resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAllocSubnetCIDR, etcdSubnet)
 		if resp.Error != nil {
-			nvsdc.pool.Free(subnet)
+			err := nvsdc.pool.Free(subnet)
+			if err != nil {
+				glog.Errorf("Freeing subnet pool failed: %s", err)
+			}
 			glog.Errorf("Allocating subnet in etcd failed: %v", resp.Error)
 			return resp.Error
 		}
@@ -1810,7 +1809,10 @@ func (nvsdc *NuageVsdClient) CreateAdditionalSubnet(subnetName string, namespace
 			if err != nil && err.Error() == "Overlapping Subnet" {
 				continue
 			} else if err != nil {
-				nvsdc.pool.Free(subnet)
+				er := nvsdc.pool.Free(subnet)
+				if er != nil {
+					glog.Errorf("Freeing subnet pool failed: %s", er)
+				}
 				return err
 			}
 			subnetMetadata := &api.EtcdSubnetMetadata{
@@ -1964,17 +1966,17 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 	case api.Added:
 		zone := serviceEvent.Namespace
 		nmgID := ""
-		err := errors.New("")
 		exists := false
 		userSpecifiedZone := false
 		if nmgID, exists = serviceEvent.NuageLabels[`network-macro-group.id`]; !exists {
 			if nmgName, exists := serviceEvent.NuageLabels[`network-macro-group.name`]; exists {
 				//use the label provided name to get network macro group ID and use that to create the network macro association
-				nmgID, err = nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, nmgName)
+				tmpID, err := nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, nmgName)
 				if err != nil {
 					glog.Error("Label provided for network macro group name, but no network macro group identified", serviceEvent)
 					return errors.New("Incorrect label information for creating service network macro")
 				}
+				nmgID = tmpID
 			}
 		}
 		if v, exists := serviceEvent.NuageLabels[`zone`]; exists {
@@ -1995,10 +1997,11 @@ func (nvsdc *NuageVsdClient) HandleServiceEvent(serviceEvent *api.ServiceEvent) 
 			nmgID = nvsdc.services[zone].NetworkMacroGroupID
 			//if we don't have a cached version, get the ID from the VSD
 			if nmgID == "" {
-				nmgID, err = nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, "Service Group For Zone - "+zone)
+				tmpID, err := nvsdc.GetNetworkMacroGroupID(nvsdc.enterpriseID, "Service Group For Zone - "+zone)
 				if err != nil {
 					glog.Error("Failed to get Network Macro Group ID: ", err)
 				}
+				nmgID = tmpID
 			}
 		}
 		networkMacro := &api.VsdNetworkMacro{
@@ -2090,8 +2093,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				etcdSubnet := &api.EtcdSubnetMetadata{CIDR: subnet.String(), Name: subnetName, Namespace: nsEvent.Name}
 				resp := api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdAllocSubnetCIDR, etcdSubnet)
 				if resp.Error != nil {
-					nvsdc.pool.Free(subnet)
+					err := nvsdc.pool.Free(subnet)
 					glog.Errorf("Allocating subnet in etcd failed: %v", resp.Error)
+					if err != nil {
+						glog.Errorf("Freeing subnet pool failed: %s", err)
+					}
 					return resp.Error
 				}
 
@@ -2100,7 +2106,10 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 					if err != nil && err.Error() == "Overlapping Subnet" {
 						continue
 					} else if err != nil {
-						nvsdc.pool.Free(subnet)
+						err := nvsdc.pool.Free(subnet)
+						if err != nil {
+							glog.Errorf("Freeing subnet pool failed: %s", err)
+						}
 						return err
 					}
 					etcdSubnet.ID = id
@@ -2118,18 +2127,22 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				err = nvsdc.CreatePrivilegedZoneAcls(nsEvent.Name,
 					zoneID, enableStatsLogging)
 				if err != nil {
-					glog.Error("Got an error when creating default zone's ACL entries")
+					glog.Error("Error creating default zone's ACL entries")
 					return err
 				}
 			} else {
 				err = nvsdc.CreateSpecificZoneAcls(nsEvent.Name, zoneID, enableStatsLogging)
 				if err != nil {
-					glog.Error("Got an error when creating zone specific ACLs: ", nsEvent.Name)
+					glog.Error("Error creating zone specific ACLs: ", nsEvent.Name)
 					return err
 				}
 			}
 
-			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			err = nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			if err != nil {
+				glog.Errorf("Error during handling namespace event: %s", err)
+				return err
+			}
 
 			zoneMetadata = &api.EtcdZoneMetadata{Name: nsEvent.Name, ID: zoneID}
 			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdUpdateZone, zoneMetadata)
@@ -2154,7 +2167,11 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 		}
 	case api.Modified:
 		if nsPolicyChanged {
-			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			err := nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			if err != nil {
+				glog.Errorf("Error during handling namespace event: %s", err)
+				return err
+			}
 		}
 
 	case api.Deleted:
@@ -2176,7 +2193,12 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				return nil
 			}
 			//handle annotations
-			nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			err := nvsdc.resourceManager.HandleNsEvent(nsEvent)
+			if err != nil {
+				glog.Errorf("Error during handling namespace event: %s", err)
+				return err
+			}
+
 			resp = api.EtcdChanRequest(nvsdc.etcdChannel, api.EtcdFreeSubnetCIDR, etcdSubnet)
 			if resp.Error != nil {
 				glog.Errorf("Creating subnet(%s) in etcd pool tree failed: %v", etcdSubnet.CIDR, resp.Error)
@@ -2202,16 +2224,16 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				err := nvsdc.DeletePrivilegedZoneAcls(nsEvent.Name, zone.ZoneID)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
-					glog.Error("Got an error when deleting default zone's ACL entries")
+					glog.Error("Error deleting default zone's ACL entries")
 				}
 			} else {
 				err := nvsdc.DeleteSpecificZoneAcls(nsEvent.Name)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
-					glog.Error("Got an error when deleting network macro group for zone: ", nsEvent.Name)
+					glog.Error("Error deleting network macro group for zone: ", nsEvent.Name)
 				}
 			}
-			err := nvsdc.DeleteSubnet(etcdSubnet.ID)
+			err = nvsdc.DeleteSubnet(etcdSubnet.ID)
 			if err != nil {
 				glog.Warningf("Failed to delete subnet %q in zone %q", etcdSubnet.ID, nsEvent.Name)
 			}
@@ -2232,13 +2254,13 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 				err = nvsdc.DeletePrivilegedZoneAcls(nsEvent.Name, id)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
-					glog.Error("Got an error when deleting default zone's ACL entries")
+					glog.Error("Error deleting default zone's ACL entries")
 				}
 			} else {
 				err = nvsdc.DeleteSpecificZoneAcls(nsEvent.Name)
 				if err != nil {
 					// Log the error, but continue to delete subnets/zone
-					glog.Error("Got an error when deleting network macro group for zone", nsEvent.Name)
+					glog.Error("Error deleting network macro group for zone", nsEvent.Name)
 				}
 			}
 			return nvsdc.DeleteZone(id)
@@ -2250,7 +2272,7 @@ func (nvsdc *NuageVsdClient) HandleNsEvent(nsEvent *api.NamespaceEvent) error {
 func (nvsdc *NuageVsdClient) CreatePrivilegedZoneAcls(zoneName, zoneID string, enableStatsLogging bool) error {
 	nmgid, err := nvsdc.CreateNetworkMacroGroup(nvsdc.enterpriseID, zoneName)
 	if err != nil {
-		glog.Error("Error when creating the network macro group for zone", zoneName)
+		glog.Error("Error creating the network macro group for zone", zoneName)
 		return err
 	} else {
 		if serviceData, exists := nvsdc.services[zoneName]; exists {
@@ -2454,8 +2476,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacroGroupID(enterpriseID, nmgName string
 		} else if result[0].Name == "" {
 			return "", errors.New("Network Macro Group not found")
 		} else {
-			return "", errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, nmgName))
+			return "", fmt.Errorf("Found %q instead of %q", result[0].Name, nmgName)
 		}
 	} else {
 		return "", VsdErrorResponse(resp, &e)
@@ -2618,8 +2639,7 @@ func (nvsdc *NuageVsdClient) GetNetworkMacro(enterpriseID string, networkMacroNa
 		} else if result[0].Name == "" {
 			return nil, errors.New("Network Macro not found")
 		} else {
-			return nil, errors.New(fmt.Sprintf(
-				"Found %q instead of %q", result[0].Name, networkMacroName))
+			return nil, fmt.Errorf("Found %q instead of %q", result[0].Name, networkMacroName)
 		}
 	} else {
 		return nil, VsdErrorResponse(resp, &e)
@@ -2642,7 +2662,7 @@ func (nvsdc *NuageVsdClient) UpdateNetworkMacro(networkMacro *api.VsdNetworkMacr
 	e := api.RESTError{}
 	resp, err := nvsdc.session.Put(url, networkMacro, nil, &e)
 	if err != nil || resp.Status() != http.StatusNoContent {
-		VsdErrorResponse(resp, &e)
+		glog.Errorf("Error response from VSD %s", VsdErrorResponse(resp, &e))
 		return err
 	}
 	return nil
@@ -2762,7 +2782,7 @@ func (nvsdc *NuageVsdClient) IsPolicyLabelsChanged(nsEvent *api.NamespaceEvent) 
 		return newPolicy, true
 	}
 
-	if nsData, _ := nvsdc.namespaces[nsEvent.Name]; nsData.defaultPolicy != newPolicy {
+	if nsData := nvsdc.namespaces[nsEvent.Name]; nsData.defaultPolicy != newPolicy {
 		nsData.defaultPolicy = newPolicy
 		nvsdc.namespaces[nsEvent.Name] = nsData
 		return noPolicy, true
@@ -2775,7 +2795,7 @@ func VsdErrorResponse(resp *napping.Response, e *api.RESTError) error {
 	glog.Errorln("Raw Text:\n ", resp.RawText())
 	glog.Errorln("Status: ", resp.Status())
 	glog.Errorln("VSD Error: ", e)
-	return errors.New("Unexpected error code: " + fmt.Sprintf("%v", resp.Status()))
+	return fmt.Errorf("Unexpected error code: %v", resp.Status())
 }
 
 func logGETRequest(reqUrl string, params *url.Values) {

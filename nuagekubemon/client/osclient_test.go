@@ -82,7 +82,13 @@ func TestAddDelProject(t *testing.T) {
 	osClient := NewNuageOsClient(kubemonConfig)
 	nsChannel := make(chan *api.NamespaceEvent)
 	stop := make(chan bool)
-	go osClient.WatchNamespaces(nsChannel, stop)
+	go func() {
+		err := osClient.WatchNamespaces(nsChannel, stop)
+		if err != nil {
+			t.Logf("Error: %v\n", err)
+		}
+	}()
+
 	projectName := "test-project"
 	// Create project
 	output, err := exec.Command("oc", "new-project", projectName).CombinedOutput()
@@ -150,7 +156,12 @@ func TestAddDelManyStatic(t *testing.T) {
 	osClient := NewNuageOsClient(kubemonConfig)
 	nsChannel := make(chan *api.NamespaceEvent, len(events))
 	stop := make(chan bool)
-	go osClient.WatchNamespaces(nsChannel, stop)
+	go func() {
+		err := osClient.WatchNamespaces(nsChannel, stop)
+		if err != nil {
+			t.Logf("Error: %v\n", err)
+		}
+	}()
 	for _, event := range events {
 		if event.add {
 			output, err := exec.Command("oc", "new-project", event.name).CombinedOutput()
@@ -213,7 +224,12 @@ func TestAddDelManyDynamic(t *testing.T) {
 	osClient := NewNuageOsClient(kubemonConfig)
 	nsChannel := make(chan *api.NamespaceEvent, len(events))
 	stop := make(chan bool)
-	go osClient.WatchNamespaces(nsChannel, stop)
+	go func() {
+		err := osClient.WatchNamespaces(nsChannel, stop)
+		if err != nil {
+			t.Logf("Error: %v\n", err)
+		}
+	}()
 	for _, event := range events {
 		if event.add {
 			output, err := exec.Command("oc", "new-project", event.name).CombinedOutput()

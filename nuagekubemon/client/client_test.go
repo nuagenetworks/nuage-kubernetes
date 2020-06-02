@@ -36,7 +36,11 @@ var isTargetSystem bool
 func TestMain(m *testing.M) {
 	kubemonConfig = &config.NuageKubeMonConfig{}
 	addArgs(kubemonConfig, flag.CommandLine)
-	flag.CommandLine.Parse(os.Args[1:])
+	err := flag.CommandLine.Parse(os.Args[1:])
+	if err != nil {
+		isTargetSystem = false
+	}
+
 	var appFs = afero.NewOsFs()
 
 	// this is a fake certificate generated.
@@ -89,9 +93,17 @@ qslkZ3GGpfUmuIzPM3tFJJi9lnGOqTGixoTkvsT7hY9QjwoMWeWMEJyM0pWvyYjH
 G3PY7QEvUYkh3lD36FAQxssSDuZZb0kHmTGEeR/oAhXqrwOJmh1HWA==
 -----END PRIVATE KEY-----`
 	file, _ := appFs.OpenFile("/tmp/usercert.pem", os.O_RDWR|os.O_CREATE, 0600)
-	file.WriteString(userCertFile)
+	_, err = file.WriteString(userCertFile)
+	if err != nil {
+		isTargetSystem = false
+	}
 	file2, _ := appFs.OpenFile("/tmp/userkey.pem", os.O_RDWR|os.O_CREATE, 0600)
-	file2.WriteString(userKeyFile)
+
+	_, err = file2.WriteString(userKeyFile)
+
+	if err != nil {
+		isTargetSystem = false
+	}
 
 	if testing.Short() {
 		isTargetSystem = false

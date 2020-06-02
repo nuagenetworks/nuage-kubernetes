@@ -115,19 +115,31 @@ func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceE
 }
 
 func (nosc *NuageClusterClient) RunPodWatcher(podChannel chan *api.PodEvent, stop chan bool) {
-	nosc.WatchPods(podChannel, stop)
+	err := nosc.WatchPods(podChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching pods %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) RunNetworkPolicyWatcher(policyChannel chan *api.NetworkPolicyEvent, stop chan bool) {
-	nosc.WatchNetworkPolicies(policyChannel, stop)
+	err := nosc.WatchNetworkPolicies(policyChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching NetworkPolicies %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) RunNamespaceWatcher(nsChannel chan *api.NamespaceEvent, stop chan bool) {
-	nosc.WatchNamespaces(nsChannel, stop)
+	err := nosc.WatchNamespaces(nsChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching Namespaces %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) RunServiceWatcher(serviceChannel chan *api.ServiceEvent, stop chan bool) {
-	nosc.WatchServices(serviceChannel, stop)
+	err := nosc.WatchServices(serviceChannel, stop)
+	if err != nil {
+		glog.Errorf("Error occured watching Services %s", err)
+	}
 }
 
 func (nosc *NuageClusterClient) GetNamespaces(listOpts *metav1.ListOptions) (*[]*api.NamespaceEvent, error) {
@@ -324,7 +336,7 @@ func DefaultClientTransport(rt http.RoundTripper) http.RoundTripper {
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	transport.Dial = dialer.Dial
+	transport.DialContext = dialer.DialContext
 	// Hold open more internal idle connections
 	// TODO: this should be configured by the caller, not in this method.
 	transport.MaxIdleConnsPerHost = 100

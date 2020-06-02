@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"net/url"
+
+	"github.com/golang/glog"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -174,7 +176,10 @@ func (api *API) requestHandler(resource interface{}) http.HandlerFunc {
 		}
 		rw.WriteHeader(code)
 		if data != nil {
-			rw.Write(content)
+			_, err := rw.Write(content)
+			if err != nil {
+				glog.Errorf("Error wrirting content to response writer %s", err)
+			}
 		}
 	}
 }
