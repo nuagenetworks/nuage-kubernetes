@@ -1,3 +1,25 @@
 - project:
     templates:
       - golang-jobs
+    check:
+      jobs:
+        - golang-lint:
+            voting: false
+        - kubemon-build-image
+    gate:
+      jobs:
+        - golang-lint:
+            voting: false
+        - kubemon-build-image
+- job:
+    name: kubemon-build-image
+    parent: nuage-build-docker-image
+    vars:
+      go_task: make
+      go_context: nuagekubemon
+      go_makefile: scripts/Makefile
+      zuul_work_dir: "{{ ansible_user_dir }}/src/github.com/{{ zuul.project.name }}"
+      docker_images:
+        - context: nuagekubemon
+          dockerfile: Dockerfile
+          repository: nuage/kubemon
