@@ -2,13 +2,11 @@ package translator
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/api"
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/pkg/policyapi/implementer"
 	gomega "github.com/onsi/gomega"
-	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
 	kapi "k8s.io/api/core/v1"
 	networkingV1 "k8s.io/api/networking/v1"
@@ -16,15 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var appFs = afero.NewOsFs()
-
 const (
-	VsdURL       = "https://10.4.1.2:7443"
-	UserCertFile = "/tmp/trans-usercert.pem"
-	UserKeyFile  = "/tmp/trans-userkey.pem"
-	ENTERPRISE   = "centos-operator"
-	DOMAIN       = "centos-operator-1-14"
-	PolicyName   = "nuagekubemon-test"
+	VsdURL     = "https://10.40.1.82:7443"
+	ENTERPRISE = "centos-operator"
+	DOMAIN     = "centos-operator-1-14"
+	PolicyName = "nuagekubemon-test"
 
 	PgServer1 = "ServerPG"
 	PgClient1 = "ClientPG1"
@@ -85,20 +79,8 @@ qslkZ3GGpfUmuIzPM3tFJJi9lnGOqTGixoTkvsT7hY9QjwoMWeWMEJyM0pWvyYjH
 G3PY7QEvUYkh3lD36FAQxssSDuZZb0kHmTGEeR/oAhXqrwOJmh1HWA==
 -----END PRIVATE KEY-----`
 
-	file, _ := appFs.OpenFile(UserCertFile, os.O_RDWR|os.O_CREATE, 0600)
-	_, err := file.WriteString(userCert)
-	if err != nil {
-		er := fmt.Errorf("Cannot write to file %s", err)
-		fmt.Println(er)
-	}
-	file2, _ := appFs.OpenFile(UserKeyFile, os.O_RDWR|os.O_CREATE, 0600)
-	_, err = file2.WriteString(userKey)
-	if err != nil {
-		er := fmt.Errorf("Cannot write to file %s", err)
-		fmt.Println(er)
-	}
-	vsdCredentials.UserCertFile = UserCertFile
-	vsdCredentials.UserKeyFile = UserKeyFile
+	vsdCredentials.UserCertFile = userCert
+	vsdCredentials.UserKeyFile = userKey
 	vsdCredentials.URL = VsdURL
 
 	if err := policyImplementer.Init(&vsdCredentials); err != nil {

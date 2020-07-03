@@ -36,7 +36,7 @@ func (implementer *PolicyImplementer) Init(vsdCredentials *VSDCredentials) error
 		implementer.vsdSession.Reset()
 	}
 
-	cert, err := tls.LoadX509KeyPair(vsdCredentials.UserCertFile, vsdCredentials.UserKeyFile)
+	cert, err := tls.X509KeyPair([]byte(vsdCredentials.UserCertFile), []byte(vsdCredentials.UserKeyFile))
 	if err != nil {
 		return fmt.Errorf("Loading TLS certificate and private key failed")
 	}

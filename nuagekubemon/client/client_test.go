@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/nuagenetworks/nuage-kubernetes/nuagekubemon/config"
-	"github.com/spf13/afero"
 )
 
 var kubemonConfig *config.NuageKubeMonConfig
@@ -40,8 +39,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		isTargetSystem = false
 	}
-
-	var appFs = afero.NewOsFs()
 
 	// this is a fake certificate generated.
 	userCertFile := `-----BEGIN CERTIFICATE-----
@@ -92,18 +89,6 @@ LDK7nYECgYBhfOmpSh8VSbQyNHGPSWUFPPQEvW+TX2NRV5iY718Xvg9g5ctKwNFB
 qslkZ3GGpfUmuIzPM3tFJJi9lnGOqTGixoTkvsT7hY9QjwoMWeWMEJyM0pWvyYjH
 G3PY7QEvUYkh3lD36FAQxssSDuZZb0kHmTGEeR/oAhXqrwOJmh1HWA==
 -----END PRIVATE KEY-----`
-	file, _ := appFs.OpenFile("/tmp/usercert.pem", os.O_RDWR|os.O_CREATE, 0600)
-	_, err = file.WriteString(userCertFile)
-	if err != nil {
-		isTargetSystem = false
-	}
-	file2, _ := appFs.OpenFile("/tmp/userkey.pem", os.O_RDWR|os.O_CREATE, 0600)
-
-	_, err = file2.WriteString(userKeyFile)
-
-	if err != nil {
-		isTargetSystem = false
-	}
 
 	if testing.Short() {
 		isTargetSystem = false
@@ -112,7 +97,7 @@ G3PY7QEvUYkh3lD36FAQxssSDuZZb0kHmTGEeR/oAhXqrwOJmh1HWA==
 		vsdClient.namespaces = make(map[string]NamespaceData)
 		vsdClient.version = kubemonConfig.NuageVspVersion
 		vsdClient.url = kubemonConfig.NuageVsdApiUrl + "/nuage/api/" + vsdClient.version + "/"
-		vsdClient.CreateSession("/tmp/usercert.pem", "/tmp/userkey.pem")
+		vsdClient.CreateSession(userCertFile, userKeyFile)
 		// Check if we have `oc`.  If it's not present, this isn't the
 		// target system for nuagekubemon, so some tests cannot be run.
 		_, err := exec.Command("oc", "whoami").CombinedOutput()

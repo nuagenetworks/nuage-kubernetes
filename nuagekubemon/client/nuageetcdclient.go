@@ -726,14 +726,14 @@ func (nuageetcd *NuageEtcdClient) TLSSetup() (*tls.Config, error) {
 	// Load client cert
 	cert, err := tls.LoadX509KeyPair(nuageetcd.clientCertificate, nuageetcd.clientKey)
 	if err != nil {
-		glog.Errorf("Error loading client cert file to communicate with Nuage K8S monitor: %v", err)
+		glog.Errorf("Error loading client cert file to communicate with etcd: %v", err)
 		return nil, err
 	}
 
 	// Load CA cert
 	caCert, err := ioutil.ReadFile(nuageetcd.serverCA)
 	if err != nil {
-		glog.Errorf("Error loading CA cert file to communicate with Nuage K8S monitor: %v", err)
+		glog.Errorf("Error loading CA cert file to communicate with etcd: %v", err)
 		return nil, err
 	}
 	caCertPool := x509.NewCertPool()

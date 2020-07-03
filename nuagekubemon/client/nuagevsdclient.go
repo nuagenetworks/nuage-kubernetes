@@ -137,7 +137,7 @@ func (nvsdc *NuageVsdClient) GetEnterpriseID(name string) (string, error) {
 
 func (nvsdc *NuageVsdClient) CreateSession(userCertFile string, userKeyFile string) {
 
-	cert, err := tls.LoadX509KeyPair(userCertFile, userKeyFile)
+	cert, err := tls.X509KeyPair([]byte(userCertFile), []byte(userKeyFile))
 	if err != nil {
 		glog.Errorf("Error loading VSD generated certificates to authenticate with VSD %s", err)
 	}
@@ -316,37 +316,42 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 	if url == "" {
 		url = "0.0.0.0:9443"
 	}
-	certDir := restServerCfg.CertificateDirectory
-	if certDir == "" {
-		certDir = "/usr/share/" + os.Args[0]
+
+	var err error
+	var cert tls.Certificate
+	if len(restServerCfg.ServerCertificate) != 0 && len(restServerCfg.ServerKey) != 0 {
+		cert, err = tls.LoadX509KeyPair(restServerCfg.ServerCertificate, restServerCfg.ServerKey)
+	} else if len(restServerCfg.ServerCertificateData) != 0 && len(restServerCfg.ServerKeyData) != 0 {
+		cert, err = tls.X509KeyPair([]byte(restServerCfg.ServerCertificateData), []byte(restServerCfg.ServerKeyData))
+	} else {
+		return fmt.Errorf("no valid certificate data provided")
+	}
+	if err != nil {
+		glog.Errorf("reading certificate data failed %v", err)
+		return err
 	}
 
-	clientCA := restServerCfg.ClientCA
-	if clientCA == "" {
-		clientCA = certDir + "/nuageMonCA.crt"
-	}
-	glog.Infof("Using %s as rest server CA", clientCA)
-	serverCert := restServerCfg.ServerCertificate
-	if serverCert == "" {
-		serverCert = certDir + "/nuageMonServer.crt"
-	}
-	glog.Infof("Using %s as rest server cert", serverCert)
-	serverKey := restServerCfg.ServerKey
-	if serverKey == "" {
-		serverKey = certDir + "/nuageMonServer.key"
-	}
-	glog.Infof("Using %s as rest server key", serverKey)
-	CAPool := x509.NewCertPool()
 	// Read in the CA certificate, and add it to the pool of valid CAs
-	clientCAData, err := ioutil.ReadFile(clientCA)
+	var clientCAData []byte
+	if len(restServerCfg.ClientCA) != 0 {
+		clientCAData, err = ioutil.ReadFile(restServerCfg.ClientCA)
+	} else if len(restServerCfg.ClientCAData) != 0 {
+		clientCAData = []byte(restServerCfg.ClientCAData)
+	} else {
+		return fmt.Errorf("no valid ca certificate data provided")
+	}
 	if err != nil {
 		return err
 	}
+
+	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(clientCAData)
+
 	// Create the rest API router, and add endpoints
 	nvsdc.restAPI = sleepy.NewAPI()
 	nvsdc.restAPI.AddResource(nvsdc.pods, "/namespaces/{namespace}/pods",
 		"/namespaces/{namespace}/pods/{podName}")
+
 	// Create the server config
 	nvsdc.restServer = &http.Server{
 		Addr:           url,
@@ -360,14 +365,12 @@ func (nvsdc *NuageVsdClient) StartRestServer(restServerCfg config.RestServerConf
 			MinVersion:   tls.VersionTLS10,
 		},
 	}
+
 	// Add the server certificate to the certificate chain
-	nvsdc.restServer.TLSConfig.Certificates[0], err = tls.LoadX509KeyPair(serverCert, serverKey)
-	if err != nil {
-		return err
-	}
+	nvsdc.restServer.TLSConfig.Certificates[0] = cert
 	// TODO: if TLS setup is unsucessful, serve over http instead
 	go func() {
-		if err := nvsdc.restServer.ListenAndServeTLS(serverCert, serverKey); err != nil {
+		if err := nvsdc.restServer.ListenAndServeTLS("", ""); err != nil {
 			glog.Errorf("Starting rest server failed with error: %v", err)
 		}
 	}()

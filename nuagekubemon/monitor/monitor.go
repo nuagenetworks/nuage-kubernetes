@@ -122,12 +122,6 @@ func (nkm *NuageKubeMonitor) Run() {
 		glog.Fatalf("Error reading config file %s! Error: %v\n",
 			nkm.mConfig.ConfigFile, err)
 	}
-	if nkm.mConfig.KubeConfigFile == "" {
-		glog.Error(fmt.Sprintf("No valid kubeconfig file specified...%s cannot continue.", programName))
-		glog.Error(fmt.Sprintf("Please restart %s after specifying a valid kubeconfig path either in the config file or as a command line parameter",
-			programName))
-		return
-	}
 
 	if len(nkm.mConfig.MasterConfig.NetworkConfig.ClusterNetworks) == 0 {
 		glog.Errorf("No valid cluster network configuration found")

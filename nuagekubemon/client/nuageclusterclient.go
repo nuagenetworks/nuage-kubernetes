@@ -58,13 +58,50 @@ func (nosc *NuageClusterClient) GetClusterClientCallBacks() *api.ClusterClientCa
 	}
 }
 
+// Init initializes the cluster client
 func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
+	if nkmConfig.KubeConfigFile == "" {
+		err := nosc.InitializeClientSetFromSA()
+		if err != nil {
+			glog.Errorf("cluster client init failed %v", err)
+			return
+		}
+	} else {
+		err := nosc.InitializeClientSetFromKubeConfig(nkmConfig)
+		if err != nil {
+			glog.Errorf("cluster client init failed %v", err)
+			return
+		}
+	}
+}
+
+//InitializeClientSetFromSA initailizes client set using service accounts(in cluster init)
+func (nosc *NuageClusterClient) InitializeClientSetFromSA() error {
+	// creates the in-cluster config
+	config, err := krestclient.InClusterConfig()
+	if err != nil {
+		glog.Errorf("Read in cluster config failed: %v", err)
+		return err
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		glog.Errorf("Creating clientset from SA failed %v", err)
+		return err
+	}
+	nosc.clientset = clientset
+	return nil
+}
+
+// InitializeClientSetFromKubeConfig initializes client set from kubeconfig(out of cluster initialization)
+func (nosc *NuageClusterClient) InitializeClientSetFromKubeConfig(nkmConfig *config.NuageKubeMonConfig) error {
 	loadingRules := &clientcmd.ClientConfigLoadingRules{}
 	loadingRules.ExplicitPath = nkmConfig.KubeConfigFile
 	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	kubeConfig, err := loader.ClientConfig()
 	if err != nil {
 		glog.Errorf("Got an error: %s while loading the kube config", err)
+		return err
 	}
 	// This is an internal client which is shared by most controllers, so boost default QPS
 	// TODO: this should be configured by the caller, not in this method.
@@ -78,10 +115,11 @@ func (nosc *NuageClusterClient) Init(nkmConfig *config.NuageKubeMonConfig) {
 	clientset, err := kubernetes.NewForConfig(nosc.kubeConfig)
 	if err != nil {
 		glog.Errorf("Creating new clientset from kubeconfig failed with error: %v", err)
-		return
+		return err
 	}
 
 	nosc.clientset = clientset
+	return nil
 }
 
 func (nosc *NuageClusterClient) GetExistingEvents(nsChannel chan *api.NamespaceEvent, serviceChannel chan *api.ServiceEvent, policyEventChannel chan *api.NetworkPolicyEvent) {

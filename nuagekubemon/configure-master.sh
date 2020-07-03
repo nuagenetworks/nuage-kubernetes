@@ -29,6 +29,7 @@ if [ "$1" = "ose" ]; then
     chmod 755 /var/log/nuage-openshift-monitor
     chmod 755 /usr/share/nuage-openshift-monitor
     MONITOR_CONF='/usr/share/nuage-openshift-monitor/nuage-openshift-monitor.yaml'
+    NET_CONF='/usr/share/nuage-openshift-monitor/net-config.yaml'
 fi
 
 if [ "$2" = "is_atomic" ]; then
