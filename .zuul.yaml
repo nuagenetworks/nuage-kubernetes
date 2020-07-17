@@ -18,7 +18,7 @@
       docker_images:
         - context: nuagekubemon
           dockerfile: Dockerfile
-          repository: nuage/kubemon
+          repository: nuage/monitor
           go_task: make
           go_context: nuagekubemon
           go_makefile: scripts/Makefile
